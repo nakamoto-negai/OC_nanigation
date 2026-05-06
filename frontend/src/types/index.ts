@@ -1,0 +1,48 @@
+export interface Node {
+  id: number;
+  name: string;
+  description: string;
+  x: number;
+  y: number;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Photo {
+  id: number;
+  link_id: number;
+  sort_order: number;
+  url: string;
+  caption: string;
+  created_at: string;
+}
+
+export interface Link {
+  id: number;
+  name: string;
+  description: string;
+  from_node_id: number;
+  to_node_id: number;
+  from_node?: Node;
+  to_node?: Node;
+  distance: number;
+  bidirectional: boolean;
+  photos: Photo[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RouteStepDetail {
+  step_number: number;
+  link: Link;
+  from_node: Node;
+  to_node: Node;
+}
+
+export interface RouteResponse {
+  node_path: Node[];
+  steps: RouteStepDetail[];
+  total_distance: number;
+}

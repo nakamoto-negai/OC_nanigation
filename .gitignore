@@ -1,0 +1,17 @@
+# Go
+backend/vendor/
+backend/*.exe
+
+# Node
+frontend/node_modules/
+frontend/build/
+
+# Uploads
+uploads/
+
+# Docker
+.env
+
+# OS
+.DS_Store
+Thumbs.db
