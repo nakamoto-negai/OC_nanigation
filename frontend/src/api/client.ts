@@ -1,4 +1,4 @@
-import { Link, Node, RouteResponse } from "../types";
+import { Link, Node, RouteResponse, Setting } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -50,5 +50,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ start_id, goal_id }),
       }),
+  },
+  settings: {
+    get: () => req<Setting>("/api/settings"),
+    update: (map_north_offset: number) =>
+      req<Setting>("/api/settings", { method: "PUT", body: JSON.stringify({ map_north_offset }) }),
   },
 };

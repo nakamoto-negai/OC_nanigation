@@ -49,6 +49,9 @@ func main() {
 		api.PUT("/photos/reorder", handlers.ReorderPhotos)
 
 		api.POST("/route", handlers.CalcRoute)
+
+		api.GET("/settings", handlers.GetSettings)
+		api.PUT("/settings", handlers.UpdateSettings)
 	}
 
 	r.GET("/health", func(c *gin.Context) {

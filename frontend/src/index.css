@@ -393,3 +393,49 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border-radius: 12px; margin-bottom: 8px;
 }
 .rg-goal-name { font-size: 18px; font-weight: 700; color: #166534; margin-bottom: 12px; }
+
+/* ── Compass Guide ── */
+.cg-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 12px 0;
+}
+.cg-compass {
+  position: relative; width: 160px; height: 160px;
+  border-radius: 50%; border: 2px solid #e2e8f0; background: #f8fafc;
+}
+.cg-wrap.cg-ok .cg-compass { border-color: #86efac; background: #f0fdf4; }
+.cg-wrap.cg-warn .cg-compass { border-color: #fde68a; background: #fffbeb; }
+.cg-wrap.cg-ng .cg-compass { border-color: #fca5a5; background: #fef2f2; }
+
+.cg-you-ptr {
+  position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 8px solid transparent; border-right: 8px solid transparent;
+  border-top: 14px solid #3b82f6;
+  z-index: 10;
+}
+.cg-rose {
+  position: absolute; inset: 0;
+  transition: transform 0.1s linear;
+}
+.cg-svg { width: 100%; height: 100%; }
+.cg-label {
+  position: absolute; font-size: 11px; font-weight: 700; line-height: 1;
+}
+.cg-n { top: 5px; left: 50%; transform: translateX(-50%); color: #dc2626; }
+.cg-s { bottom: 5px; left: 50%; transform: translateX(-50%); color: #64748b; }
+.cg-e { right: 5px; top: 50%; transform: translateY(-50%); color: #64748b; }
+.cg-w { left: 5px; top: 50%; transform: translateY(-50%); color: #64748b; }
+
+.cg-status-label { font-size: 14px; font-weight: 700; margin: 0; }
+.cg-status-ok { color: #16a34a; }
+.cg-status-warn { color: #d97706; }
+.cg-status-ng { color: #dc2626; }
+.cg-method-label { font-size: 11px; color: #94a3b8; margin: 0; }
+
+.cg-prompt { display: flex; justify-content: center; padding: 8px 0; }
+.cg-enable-btn {
+  padding: 8px 16px; background: #3b82f6; color: white;
+  border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.cg-msg { font-size: 12px; color: #94a3b8; text-align: center; padding: 8px 0; margin: 0; }

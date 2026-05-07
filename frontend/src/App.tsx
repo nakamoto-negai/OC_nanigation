@@ -3,7 +3,7 @@ import { api } from "./api/client";
 import { AdminPage } from "./components/AdminPage";
 import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
-import { Link, Node, Photo, RouteResponse } from "./types";
+import { Link, Node, Photo, RouteResponse, Setting } from "./types";
 import "./index.css";
 
 type Screen = "home" | "route" | "admin";
@@ -16,11 +16,16 @@ export default function App() {
   const [routeStart, setRouteStart] = useState<Node | null>(null);
   const [routeGoal, setRouteGoal] = useState<Node | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [settings, setSettings] = useState<Setting>({ id: 1, map_north_offset: 0 });
 
   useEffect(() => {
     Promise.all([api.nodes.list(), api.links.list()])
       .then(([n, l]) => { setNodes(n); setLinks(l); })
       .catch((e) => setLoadError(e.message));
+  }, []);
+
+  useEffect(() => {
+    api.settings.get().then(setSettings).catch(() => {});
   }, []);
 
   const handleRouteReady = (r: RouteResponse, start: Node, goal: Node) => {
@@ -92,6 +97,7 @@ export default function App() {
         <RouteGuide
           route={route}
           onClose={() => setScreen("home")}
+          mapNorthOffset={settings.map_north_offset}
         />
       )}
     </div>

@@ -46,3 +46,8 @@ export interface RouteResponse {
   steps: RouteStepDetail[];
   total_distance: number;
 }
+
+export interface Setting {
+  id: number;
+  map_north_offset: number;
+}

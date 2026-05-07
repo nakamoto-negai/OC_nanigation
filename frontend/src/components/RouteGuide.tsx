@@ -1,14 +1,32 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { RouteResponse, RouteStepDetail } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
+import { CompassGuide } from "./CompassGuide";
+import { useCompass } from "../hooks/useCompass";
 
 interface Props {
   route: RouteResponse;
   onClose: () => void;
+  mapNorthOffset: number;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, onClose }) => {
+export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) => {
   const last = route.node_path[route.node_path.length - 1];
+  const { heading, permission, requestPermission } = useCompass();
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserLat(pos.coords.latitude);
+        setUserLng(pos.coords.longitude);
+      },
+      () => {}
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
 
   return (
     <div className="route-guide fullscreen">
@@ -44,6 +62,15 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose }) => {
             {s.link.name && <p className="rg-link-name">{s.link.name}</p>}
             {s.link.description && <p className="rg-description">{s.link.description}</p>}
             <p className="rg-distance">距離: {s.link.distance.toFixed(1)}</p>
+            <CompassGuide
+              step={s}
+              heading={heading}
+              permission={permission}
+              onRequestPermission={requestPermission}
+              userLat={userLat}
+              userLng={userLng}
+              mapNorthOffset={mapNorthOffset}
+            />
             {s.link.photos && s.link.photos.length > 0 && (
               <div className="rg-photos">
                 <PhotoSlider photos={s.link.photos} />

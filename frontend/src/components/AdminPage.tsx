@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, Node, Photo } from "../types";
 import { api } from "../api/client";
 
@@ -16,7 +16,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "photo";
+type Tab = "node" | "link" | "photo" | "settings";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -589,6 +589,59 @@ function PhotoTab({
   );
 }
 
+// ── Settings Tab ─────────────────────────────────────────────────────────────
+
+function SettingsTab() {
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    api.settings.get()
+      .then((s) => { setOffset(s.map_north_offset); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const save = async () => {
+    try {
+      await api.settings.update(offset);
+      setMsg({ type: "ok", text: "保存しました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  if (loading) return <p className="adm-empty">読み込み中...</p>;
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>マップ設定</h3>
+        {msg && (
+          <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>
+            {msg.text} ✕
+          </div>
+        )}
+        <div className="adm-field">
+          <label>マップ北オフセット（度）</label>
+          <p className="hint">地図の「上」方向が向いている方位。北が上なら 0、東が上なら 90、南が上なら 180。</p>
+          <input
+            type="number"
+            value={offset}
+            onChange={(e) => setOffset(Number(e.target.value))}
+            min="-180"
+            max="360"
+            step="1"
+          />
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={save}>保存</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 
 export const AdminPage: React.FC<Props> = ({
@@ -612,6 +665,9 @@ export const AdminPage: React.FC<Props> = ({
           </button>
           <button className={tab === "photo" ? "active" : ""} onClick={() => setTab("photo")}>
             写真
+          </button>
+          <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
+            設定
           </button>
         </div>
       </div>
@@ -642,6 +698,7 @@ export const AdminPage: React.FC<Props> = ({
             onReordered={onPhotoReordered}
           />
         )}
+        {tab === "settings" && <SettingsTab />}
       </div>
     </div>
   );
