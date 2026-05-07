@@ -200,8 +200,15 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .photo-card img { width: 100%; height: 120px; object-fit: cover; }
 .photo-card-caption { font-size: 11px; color: #64748b; padding: 4px 8px; flex: 1; }
+.photo-card-actions { display: flex; gap: 4px; padding: 6px; }
+.photo-card-move {
+  flex: 1; padding: 3px; background: #f1f5f9; color: #475569;
+  border: 1px solid #cbd5e1; border-radius: 5px; cursor: pointer; font-size: 13px;
+}
+.photo-card-move:disabled { opacity: 0.3; cursor: default; }
+.photo-card-move:not(:disabled):hover { background: #e2e8f0; }
 .photo-card-del {
-  margin: 6px; padding: 4px; background: #fef2f2; color: #dc2626;
+  flex: 1; padding: 3px; background: #fef2f2; color: #dc2626;
   border: 1px solid #fca5a5; border-radius: 5px; cursor: pointer; font-size: 12px;
 }
 .hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
@@ -313,28 +320,15 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   padding: 8px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-bottom: 8px;
 }
 
-/* ── Photo Slider ── */
-.photo-slider { display: flex; flex-direction: column; align-items: center; }
-.photo-slider.empty { color: #94a3b8; padding: 40px 0; font-size: 14px; }
-.photo-wrapper { width: 100%; max-height: 400px; overflow: hidden; border-radius: 10px; position: relative; }
-.photo-wrapper img { width: 100%; height: 100%; object-fit: contain; max-height: 380px; background: #0f172a; }
-.photo-caption {
-  position: absolute; bottom: 0; left: 0; right: 0;
+/* ── Photo List (縦一列) ── */
+.photo-slider.empty { color: #94a3b8; padding: 40px 0; font-size: 14px; text-align: center; }
+.photo-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.photo-list-item { border-radius: 10px; overflow: hidden; background: #0f172a; }
+.photo-list-item img { width: 100%; display: block; object-fit: contain; max-height: 480px; }
+.photo-list-caption {
   background: rgba(0,0,0,0.55); color: white;
-  padding: 8px 12px; font-size: 13px; text-align: center;
+  padding: 8px 12px; font-size: 13px; text-align: center; margin: 0;
 }
-.photo-controls {
-  display: flex; align-items: center; gap: 16px;
-  margin-top: 10px; font-size: 14px; font-weight: 600;
-}
-.photo-controls button {
-  padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 6px;
-  background: white; cursor: pointer; font-size: 16px;
-}
-.photo-controls button:disabled { opacity: 0.3; cursor: not-allowed; }
-.photo-dots { display: flex; gap: 6px; margin-top: 8px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; cursor: pointer; }
-.dot.active { background: #3b82f6; }
 
 /* ── Route Guide ── */
 .route-guide {
@@ -343,7 +337,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .route-guide-header {
   display: flex; justify-content: space-between; align-items: flex-start;
-  padding: 14px 16px; background: #1e3a5f; color: white;
+  padding: 14px 16px; background: #1e3a5f; color: white; flex-shrink: 0;
 }
 .route-title { font-size: 1.1rem; font-weight: 700; }
 .route-distance { font-size: 12px; color: #93c5fd; margin-top: 2px; }
@@ -363,56 +357,39 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   white-space: nowrap; flex-shrink: 0;
 }
 
-.route-guide-body { display: flex; flex: 1; overflow: hidden; }
+.route-guide-scroll {
+  flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 0;
+}
 
-.step-list {
-  width: 160px; overflow-y: auto; background: #f8fafc;
-  border-right: 1px solid #e2e8f0;
+.rg-step {
+  padding: 16px 0;
+  border-bottom: 1px solid #e2e8f0;
 }
-.step-item {
-  padding: 10px 12px; border-bottom: 1px solid #e2e8f0; cursor: pointer;
-  display: flex; flex-direction: column; gap: 3px; position: relative;
-  transition: background 0.15s;
+.rg-step:last-of-type { border-bottom: none; }
+
+.rg-step-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
 }
-.step-item:hover { background: #eff6ff; }
-.step-item.active { background: #dbeafe; border-left: 3px solid #3b82f6; }
-.step-number {
-  width: 22px; height: 22px; border-radius: 50%; background: #3b82f6;
-  color: white; font-size: 11px; font-weight: 700;
+.rg-step-number {
+  width: 26px; height: 26px; border-radius: 50%; background: #3b82f6;
+  color: white; font-size: 12px; font-weight: 700; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.step-nodes { font-size: 11px; font-weight: 600; color: #1e293b; }
-.step-from, .step-to { display: inline-block; max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.step-arrow { color: #94a3b8; margin: 0 2px; }
-.step-link-name { font-size: 10px; color: #64748b; }
-.step-distance { font-size: 10px; color: #94a3b8; }
-.photo-badge {
-  position: absolute; top: 8px; right: 6px;
-  background: #f59e0b; color: white; font-size: 9px;
-  padding: 1px 5px; border-radius: 10px;
-}
+.rg-step-title { font-size: 15px; font-weight: 700; color: #1e293b; }
+.rg-from, .rg-to { }
+.rg-arrow { color: #94a3b8; margin: 0 4px; }
+.rg-link-name { font-size: 13px; color: #3b82f6; font-weight: 600; margin: 2px 0; }
+.rg-description { font-size: 13px; color: #475569; margin: 4px 0; }
+.rg-distance { font-size: 12px; color: #94a3b8; margin: 2px 0 10px; }
+.rg-photos { margin-top: 8px; }
 
-.step-detail {
-  flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+.rg-goal {
+  text-align: center; padding: 24px 16px; background: #f0fdf4;
+  border: 1px solid #bbf7d0; border-radius: 10px; margin-top: 16px;
 }
-.step-detail-header h2 { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
-.step-link-label { font-size: 13px; color: #3b82f6; font-weight: 600; }
-.step-description { font-size: 13px; color: #475569; }
-.step-dist-detail { font-size: 12px; color: #94a3b8; }
-
-.step-photos { flex: 1; }
-.step-nav-buttons {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0; border-top: 1px solid #e2e8f0;
+.rg-goal-icon {
+  display: inline-block; background: #166534; color: white;
+  font-size: 12px; font-weight: 700; padding: 3px 10px;
+  border-radius: 12px; margin-bottom: 8px;
 }
-.step-nav-buttons button {
-  padding: 8px 14px; background: #3b82f6; color: white;
-  border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
-}
-.step-nav-buttons button:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
-.step-counter { font-size: 13px; color: #64748b; }
-
-.goal-reached {
-  text-align: center; padding: 14px; background: #f0fdf4;
-  border: 1px solid #bbf7d0; border-radius: 8px; font-weight: 600; font-size: 15px; color: #166534;
-}
+.rg-goal-name { font-size: 18px; font-weight: 700; color: #166534; margin-bottom: 12px; }

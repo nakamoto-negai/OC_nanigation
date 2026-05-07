@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { RouteResponse, RouteStepDetail } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
 
@@ -8,13 +8,10 @@ interface Props {
 }
 
 export const RouteGuide: React.FC<Props> = ({ route, onClose }) => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const step: RouteStepDetail | undefined = route.steps[currentStep];
-  const isLast = currentStep === route.steps.length - 1;
+  const last = route.node_path[route.node_path.length - 1];
 
   return (
     <div className="route-guide fullscreen">
-      {/* ヘッダー */}
       <div className="route-guide-header">
         <div className="route-summary">
           <span className="route-title">道案内</span>
@@ -33,77 +30,33 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose }) => {
         <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
       </div>
 
-      {/* ボディ */}
-      <div className="route-guide-body">
-        {/* ステップリスト */}
-        <div className="step-list">
-          {route.steps.map((s, i) => (
-            <div
-              key={i}
-              className={`step-item ${i === currentStep ? "active" : ""}`}
-              onClick={() => setCurrentStep(i)}
-            >
-              <div className="step-number">{s.step_number}</div>
-              <div className="step-info">
-                <div className="step-nodes">
-                  <span className="step-from">{s.from_node.name}</span>
-                  <span className="step-arrow">→</span>
-                  <span className="step-to">{s.to_node.name}</span>
-                </div>
-                {s.link.name && <div className="step-link-name">{s.link.name}</div>}
-                <div className="step-distance">距離: {s.link.distance.toFixed(1)}</div>
+      <div className="route-guide-scroll">
+        {route.steps.map((s: RouteStepDetail, i) => (
+          <div key={i} className="rg-step">
+            <div className="rg-step-header">
+              <div className="rg-step-number">{s.step_number}</div>
+              <div className="rg-step-title">
+                <span className="rg-from">{s.from_node.name}</span>
+                <span className="rg-arrow">→</span>
+                <span className="rg-to">{s.to_node.name}</span>
               </div>
-              {s.link.photos && s.link.photos.length > 0 && (
-                <span className="photo-badge">{s.link.photos.length}枚</span>
-              )}
             </div>
-          ))}
-        </div>
-
-        {/* ステップ詳細 */}
-        {step && (
-          <div className="step-detail">
-            <div className="step-detail-header">
-              <h2>
-                ステップ {step.step_number}: {step.from_node.name} → {step.to_node.name}
-              </h2>
-              {step.link.name && <p className="step-link-label">{step.link.name}</p>}
-              {step.link.description && (
-                <p className="step-description">{step.link.description}</p>
-              )}
-              <p className="step-dist-detail">距離: {step.link.distance.toFixed(1)}</p>
-            </div>
-
-            <div className="step-photos">
-              <PhotoSlider photos={step.link.photos ?? []} />
-            </div>
-
-            <div className="step-nav-buttons">
-              <button
-                disabled={currentStep === 0}
-                onClick={() => setCurrentStep((s) => s - 1)}
-              >
-                ◀ 前のステップ
-              </button>
-              <span className="step-counter">
-                {currentStep + 1} / {route.steps.length}
-              </span>
-              <button
-                disabled={isLast}
-                onClick={() => setCurrentStep((s) => s + 1)}
-              >
-                次のステップ ▶
-              </button>
-            </div>
-
-            {isLast && (
-              <div className="goal-reached">
-                <span>ゴール到着: {route.node_path[route.node_path.length - 1].name}</span>
-                <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>
+            {s.link.name && <p className="rg-link-name">{s.link.name}</p>}
+            {s.link.description && <p className="rg-description">{s.link.description}</p>}
+            <p className="rg-distance">距離: {s.link.distance.toFixed(1)}</p>
+            {s.link.photos && s.link.photos.length > 0 && (
+              <div className="rg-photos">
+                <PhotoSlider photos={s.link.photos} />
               </div>
             )}
           </div>
-        )}
+        ))}
+
+        <div className="rg-goal">
+          <div className="rg-goal-icon">ゴール</div>
+          <div className="rg-goal-name">{last.name}</div>
+          <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>
+        </div>
       </div>
     </div>
   );

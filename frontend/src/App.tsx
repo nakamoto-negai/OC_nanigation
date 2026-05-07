@@ -40,6 +40,8 @@ export default function App() {
     setLinks((prev) => prev.map((l) => l.id === linkId ? { ...l, photos: [...(l.photos ?? []), photo] } : l));
   const handlePhotoDeleted = (linkId: number, photoId: number) =>
     setLinks((prev) => prev.map((l) => l.id === linkId ? { ...l, photos: (l.photos ?? []).filter((p) => p.id !== photoId) } : l));
+  const handlePhotoReordered = (linkId: number, photos: Photo[]) =>
+    setLinks((prev) => prev.map((l) => l.id === linkId ? { ...l, photos } : l));
 
   return (
     <div className="app">
@@ -78,6 +80,7 @@ export default function App() {
           onLinkDeleted={handleLinkDeleted}
           onPhotoUploaded={handlePhotoUploaded}
           onPhotoDeleted={handlePhotoDeleted}
+          onPhotoReordered={handlePhotoReordered}
         />
       )}
 

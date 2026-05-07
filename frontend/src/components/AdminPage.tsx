@@ -13,6 +13,7 @@ interface Props {
   onLinkDeleted: (id: number) => void;
   onPhotoUploaded: (linkId: number, photo: Photo) => void;
   onPhotoDeleted: (linkId: number, photoId: number) => void;
+  onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
 type Tab = "node" | "link" | "photo";
@@ -434,10 +435,12 @@ function PhotoTab({
   links,
   onUploaded,
   onDeleted,
+  onReordered,
 }: {
   links: Link[];
   onUploaded: (linkId: number, photo: Photo) => void;
   onDeleted: (linkId: number, photoId: number) => void;
+  onReordered: (linkId: number, photos: Photo[]) => void;
 }) {
   const [selectedLinkId, setSelectedLinkId] = useState<number | "">("");
   const [caption, setCaption] = useState("");
@@ -480,6 +483,21 @@ function PhotoTab({
     try {
       await api.photos.delete(photo.id);
       onDeleted(Number(selectedLinkId), photo.id);
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  const move = async (index: number, dir: -1 | 1) => {
+    if (!selectedLink) return;
+    const next = [...photos];
+    const swapIdx = index + dir;
+    if (swapIdx < 0 || swapIdx >= next.length) return;
+    [next[index], next[swapIdx]] = [next[swapIdx], next[index]];
+    const orders = next.map((p, i) => ({ id: p.id, order: i }));
+    try {
+      await api.photos.reorder(orders);
+      onReordered(selectedLink.id, next.map((p, i) => ({ ...p, sort_order: i })));
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
     }
@@ -557,7 +575,11 @@ function PhotoTab({
                 <div className="photo-card-order">{i + 1}</div>
                 <img src={`${BASE}${p.url}`} alt={p.caption} />
                 {p.caption && <p className="photo-card-caption">{p.caption}</p>}
-                <button className="photo-card-del" onClick={() => del(p)}>削除</button>
+                <div className="photo-card-actions">
+                  <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+                  <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
+                  <button className="photo-card-del" onClick={() => del(p)}>削除</button>
+                </div>
               </div>
             ))}
           </div>
@@ -573,7 +595,7 @@ export const AdminPage: React.FC<Props> = ({
   nodes, links,
   onNodeCreated, onNodeUpdated, onNodeDeleted,
   onLinkCreated, onLinkUpdated, onLinkDeleted,
-  onPhotoUploaded, onPhotoDeleted,
+  onPhotoUploaded, onPhotoDeleted, onPhotoReordered,
 }) => {
   const [tab, setTab] = useState<Tab>("node");
 
@@ -617,6 +639,7 @@ export const AdminPage: React.FC<Props> = ({
             links={links}
             onUploaded={onPhotoUploaded}
             onDeleted={onPhotoDeleted}
+            onReordered={onPhotoReordered}
           />
         )}
       </div>
