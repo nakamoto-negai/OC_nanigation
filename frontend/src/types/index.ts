@@ -51,3 +51,13 @@ export interface Setting {
   id: number;
   map_north_offset: number;
 }
+
+export interface MapImage {
+  id: number;
+  name: string;
+  url: string;
+  width: number;
+  height: number;
+  is_active: boolean;
+  created_at: string;
+}

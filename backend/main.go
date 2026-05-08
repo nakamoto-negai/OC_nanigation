@@ -52,6 +52,12 @@ func main() {
 
 		api.GET("/settings", handlers.GetSettings)
 		api.PUT("/settings", handlers.UpdateSettings)
+
+		api.GET("/map-images", handlers.ListMapImages)
+		api.GET("/map-images/active", handlers.GetActiveMapImage)
+		api.POST("/map-images", handlers.UploadMapImage)
+		api.PUT("/map-images/:id/activate", handlers.ActivateMapImage)
+		api.DELETE("/map-images/:id", handlers.DeleteMapImage)
 	}
 
 	r.GET("/health", func(c *gin.Context) {

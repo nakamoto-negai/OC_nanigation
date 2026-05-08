@@ -439,3 +439,40 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
 }
 .cg-msg { font-size: 12px; color: #94a3b8; text-align: center; padding: 8px 0; margin: 0; }
+
+/* ── Map Picker ── */
+.map-picker {
+  position: relative; border-radius: 8px; overflow: hidden;
+  cursor: crosshair; border: 2px solid #e2e8f0; margin-bottom: 16px;
+  user-select: none;
+}
+.map-picker img { width: 100%; display: block; }
+.map-node-dot {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  background: #3b82f6; border: 2px solid white;
+  transform: translate(-50%, -50%); pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.map-node-dot.editing { background: #f59e0b; width: 18px; height: 18px; border-color: #fff; }
+.map-pending-dot {
+  position: absolute; width: 18px; height: 18px; border-radius: 50%;
+  background: #ef4444; border: 2px solid white;
+  transform: translate(-50%, -50%); pointer-events: none;
+  animation: pulse 1s infinite;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* ── Map Image List (Settings) ── */
+.map-image-list { display: flex; flex-direction: column; gap: 10px; }
+.map-image-card {
+  display: flex; align-items: center; gap: 12px;
+  background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;
+}
+.map-image-card.active { border-color: #3b82f6; background: #eff6ff; }
+.map-image-thumb { width: 80px; height: 54px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.map-image-info { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.map-active-badge {
+  display: inline-block; font-size: 11px; background: #3b82f6; color: white;
+  padding: 1px 8px; border-radius: 10px; font-weight: 600;
+}
+.map-image-actions { display: flex; gap: 6px; }
