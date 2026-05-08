@@ -1,5 +1,5 @@
-import React, { useRef, useState } from "react";
-import { Link, Node, Photo } from "../types";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, MapImage, Node, Photo } from "../types";
 import { api } from "../api/client";
 
 interface Props {
@@ -13,11 +13,74 @@ interface Props {
   onLinkDeleted: (id: number) => void;
   onPhotoUploaded: (linkId: number, photo: Photo) => void;
   onPhotoDeleted: (linkId: number, photoId: number) => void;
+  onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "photo";
+type Tab = "node" | "link" | "photo" | "settings";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
+
+// ── Map Picker ───────────────────────────────────────────────────────────────
+
+function MapPicker({
+  nodes, editingNodeId, pendingX, pendingY, mapImage, onPick,
+}: {
+  nodes: Node[];
+  editingNodeId: number | null;
+  pendingX: number | null;
+  pendingY: number | null;
+  mapImage: MapImage;
+  onPick: (x: number, y: number) => void;
+}) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [naturalW, setNaturalW] = useState(mapImage.width || 0);
+  const [naturalH, setNaturalH] = useState(mapImage.height || 0);
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const img = imgRef.current;
+    if (!img || !naturalW || !naturalH) return;
+    const rect = img.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * naturalW);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * naturalH);
+    onPick(x, y);
+  };
+
+  const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+
+  return (
+    <div className="map-picker" onClick={handleClick}>
+      <img
+        ref={imgRef}
+        src={`${BASE}${mapImage.url}`}
+        alt={mapImage.name}
+        draggable={false}
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setNaturalW(img.naturalWidth);
+          setNaturalH(img.naturalHeight);
+        }}
+      />
+      {naturalW > 0 && naturalH > 0 && (
+        <>
+          {nodes.map((n) => (
+            <div
+              key={n.id}
+              className={`map-node-dot${n.id === editingNodeId ? " editing" : ""}`}
+              style={{ left: pct(n.x, naturalW), top: pct(n.y, naturalH) }}
+              title={n.name}
+            />
+          ))}
+          {pendingX != null && pendingY != null && (
+            <div
+              className="map-pending-dot"
+              style={{ left: pct(pendingX, naturalW), top: pct(pendingY, naturalH) }}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 // ── Node Form ────────────────────────────────────────────────────────────────
 
@@ -50,6 +113,11 @@ function NodeTab({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [fillGeo, setFillGeo] = useState(false);
+  const [mapImage, setMapImage] = useState<MapImage | null>(null);
+
+  useEffect(() => {
+    api.mapImages.getActive().then(setMapImage).catch(() => setMapImage(null));
+  }, []);
 
   const set = (k: keyof NodeFormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -153,7 +221,10 @@ function NodeTab({
           <textarea value={form.description} onChange={set("description")} placeholder="場所の説明など" rows={2} />
         </div>
 
-        <div className="adm-section-label">マップ表示座標</div>
+        <div className="adm-section-label">
+          マップ表示座標
+          {mapImage && <span className="adm-section-sub">右のマップをクリックして配置</span>}
+        </div>
         <div className="adm-field-row">
           <div className="adm-field">
             <label>X <span className="req">*</span></label>
@@ -196,6 +267,20 @@ function NodeTab({
       </div>
 
       <div className="adm-list-col">
+        {mapImage ? (
+          <MapPicker
+            nodes={nodes}
+            editingNodeId={form.id}
+            pendingX={form.x !== "" ? Number(form.x) : null}
+            pendingY={form.y !== "" ? Number(form.y) : null}
+            mapImage={mapImage}
+            onPick={(x, y) => setForm((f) => ({ ...f, x: String(x), y: String(y) }))}
+          />
+        ) : (
+          <p className="adm-empty" style={{ marginBottom: 12 }}>
+            「設定」タブからマップ画像をアップロードすると、クリックでノードを配置できます
+          </p>
+        )}
         <h3>ノード一覧 <span className="count-badge">{nodes.length}</span></h3>
         {nodes.length === 0 ? (
           <p className="adm-empty">ノードがまだありません</p>
@@ -434,10 +519,12 @@ function PhotoTab({
   links,
   onUploaded,
   onDeleted,
+  onReordered,
 }: {
   links: Link[];
   onUploaded: (linkId: number, photo: Photo) => void;
   onDeleted: (linkId: number, photoId: number) => void;
+  onReordered: (linkId: number, photos: Photo[]) => void;
 }) {
   const [selectedLinkId, setSelectedLinkId] = useState<number | "">("");
   const [caption, setCaption] = useState("");
@@ -480,6 +567,21 @@ function PhotoTab({
     try {
       await api.photos.delete(photo.id);
       onDeleted(Number(selectedLinkId), photo.id);
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  const move = async (index: number, dir: -1 | 1) => {
+    if (!selectedLink) return;
+    const next = [...photos];
+    const swapIdx = index + dir;
+    if (swapIdx < 0 || swapIdx >= next.length) return;
+    [next[index], next[swapIdx]] = [next[swapIdx], next[index]];
+    const orders = next.map((p, i) => ({ id: p.id, order: i }));
+    try {
+      await api.photos.reorder(orders);
+      onReordered(selectedLink.id, next.map((p, i) => ({ ...p, sort_order: i })));
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
     }
@@ -557,7 +659,156 @@ function PhotoTab({
                 <div className="photo-card-order">{i + 1}</div>
                 <img src={`${BASE}${p.url}`} alt={p.caption} />
                 {p.caption && <p className="photo-card-caption">{p.caption}</p>}
-                <button className="photo-card-del" onClick={() => del(p)}>削除</button>
+                <div className="photo-card-actions">
+                  <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+                  <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
+                  <button className="photo-card-del" onClick={() => del(p)}>削除</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Settings Tab ─────────────────────────────────────────────────────────────
+
+function SettingsTab() {
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [mapImages, setMapImages] = useState<MapImage[]>([]);
+  const [mapFile, setMapFile] = useState<File | null>(null);
+  const [mapName, setMapName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const mapFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    Promise.all([
+      api.settings.get(),
+      api.mapImages.list(),
+    ]).then(([s, imgs]) => {
+      setOffset(s.map_north_offset);
+      setMapImages(imgs);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const saveSettings = async () => {
+    try {
+      await api.settings.update(offset);
+      setMsg({ type: "ok", text: "設定を保存しました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  const uploadMap = async () => {
+    if (!mapFile) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("image", mapFile);
+      form.append("name", mapName || mapFile.name);
+      const img = await api.mapImages.upload(form);
+      setMapImages((prev) => [img, ...prev]);
+      setMapFile(null);
+      setMapName("");
+      if (mapFileRef.current) mapFileRef.current.value = "";
+      setMsg({ type: "ok", text: "マップ画像をアップロードしました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const activateMap = async (id: number) => {
+    try {
+      const updated = await api.mapImages.activate(id);
+      setMapImages((prev) => prev.map((img) => ({ ...img, is_active: img.id === id })));
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  const deleteMap = async (id: number) => {
+    if (!window.confirm("このマップ画像を削除しますか？")) return;
+    try {
+      await api.mapImages.delete(id);
+      setMapImages((prev) => prev.filter((img) => img.id !== id));
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  if (loading) return <p className="adm-empty">読み込み中...</p>;
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>マップ画像</h3>
+        {msg && (
+          <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>
+            {msg.text} ✕
+          </div>
+        )}
+        <div className="adm-field">
+          <label>画像ファイル <span className="req">*</span></label>
+          <input
+            ref={mapFileRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => setMapFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        <div className="adm-field">
+          <label>名前</label>
+          <input value={mapName} onChange={(e) => setMapName(e.target.value)} placeholder="例: 1Fフロアマップ" />
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={uploadMap} disabled={uploading || !mapFile}>
+            {uploading ? "アップロード中..." : "アップロード"}
+          </button>
+        </div>
+
+        <div className="adm-section-label" style={{ marginTop: 24 }}>コンパス設定</div>
+        <div className="adm-field">
+          <label>マップ北オフセット（度）</label>
+          <p className="hint">地図の「上」方向が向いている方位。北が上なら 0、東が上なら 90。</p>
+          <input
+            type="number"
+            value={offset}
+            onChange={(e) => setOffset(Number(e.target.value))}
+            min="-180" max="360" step="1"
+          />
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={saveSettings}>保存</button>
+        </div>
+      </div>
+
+      <div className="adm-list-col">
+        <h3>マップ画像一覧 <span className="count-badge">{mapImages.length}</span></h3>
+        {mapImages.length === 0 ? (
+          <p className="adm-empty">マップ画像がまだありません</p>
+        ) : (
+          <div className="map-image-list">
+            {mapImages.map((img) => (
+              <div key={img.id} className={`map-image-card${img.is_active ? " active" : ""}`}>
+                <img src={`${BASE}${img.url}`} alt={img.name} className="map-image-thumb" />
+                <div className="map-image-info">
+                  <strong>{img.name}</strong>
+                  {img.is_active && <span className="map-active-badge">使用中</span>}
+                </div>
+                <div className="map-image-actions">
+                  {!img.is_active && (
+                    <button className="btn-edit" onClick={() => activateMap(img.id)}>使用する</button>
+                  )}
+                  <button className="btn-del" onClick={() => deleteMap(img.id)}>削除</button>
+                </div>
               </div>
             ))}
           </div>
@@ -573,7 +824,7 @@ export const AdminPage: React.FC<Props> = ({
   nodes, links,
   onNodeCreated, onNodeUpdated, onNodeDeleted,
   onLinkCreated, onLinkUpdated, onLinkDeleted,
-  onPhotoUploaded, onPhotoDeleted,
+  onPhotoUploaded, onPhotoDeleted, onPhotoReordered,
 }) => {
   const [tab, setTab] = useState<Tab>("node");
 
@@ -590,6 +841,9 @@ export const AdminPage: React.FC<Props> = ({
           </button>
           <button className={tab === "photo" ? "active" : ""} onClick={() => setTab("photo")}>
             写真
+          </button>
+          <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
+            設定
           </button>
         </div>
       </div>
@@ -617,8 +871,10 @@ export const AdminPage: React.FC<Props> = ({
             links={links}
             onUploaded={onPhotoUploaded}
             onDeleted={onPhotoDeleted}
+            onReordered={onPhotoReordered}
           />
         )}
+        {tab === "settings" && <SettingsTab />}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Link, Node, RouteResponse } from "../types";
+import { Link, MapImage, Node, RouteResponse, Setting } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -50,5 +50,21 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ start_id, goal_id }),
       }),
+  },
+  settings: {
+    get: () => req<Setting>("/api/settings"),
+    update: (map_north_offset: number) =>
+      req<Setting>("/api/settings", { method: "PUT", body: JSON.stringify({ map_north_offset }) }),
+  },
+  mapImages: {
+    list: () => req<MapImage[]>("/api/map-images"),
+    getActive: () => req<MapImage>("/api/map-images/active"),
+    upload: (form: FormData) =>
+      fetch(`${BASE}/api/map-images`, { method: "POST", body: form }).then((r) => {
+        if (!r.ok) throw new Error("upload failed");
+        return r.json() as Promise<MapImage>;
+      }),
+    activate: (id: number) => req<MapImage>(`/api/map-images/${id}/activate`, { method: "PUT" }),
+    delete: (id: number) => req<void>(`/api/map-images/${id}`, { method: "DELETE" }),
   },
 };
