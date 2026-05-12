@@ -32,6 +32,8 @@ services:
       DB_NAME: ${DB_NAME}
       UPLOAD_DIR: /uploads
       GIN_MODE: release
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_SECRET: ${ADMIN_SECRET}
     volumes:
       - uploads:/uploads
     depends_on:

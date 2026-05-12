@@ -78,8 +78,23 @@ func (h *Hub) Run() {
 				}
 			}
 		case pos := <-h.positionUpdate:
+			prev := h.positions[pos.UserID]
 			h.positions[pos.UserID] = pos
 			h.broadcastPositions()
+
+			action := "step_change"
+			if prev == nil {
+				action = "nav_start"
+			}
+			go database.DB.Create(&models.UserLog{
+				DeviceID:   pos.UserID,
+				Action:     action,
+				FromNode:   pos.FromNode,
+				ToNode:     pos.ToNode,
+				Step:       pos.Step,
+				TotalSteps: pos.TotalSteps,
+				CreatedAt:  time.Now(),
+			})
 		}
 	}
 }
@@ -154,18 +169,23 @@ func (c *Client) ReadPump(hub *Hub) {
 				ToNodeID:   in.ToNodeID,
 				UpdatedAt:  time.Now(),
 			})
-			action := "step_change"
-			if in.Step == 1 {
-				action = "nav_start"
-			} else if in.TotalSteps > 0 && in.Step == in.TotalSteps {
-				action = "goal_reached"
-			}
+		} else if in.Type == "reroute" {
+			c.UserID = in.UserID
 			go database.DB.Create(&models.UserLog{
 				DeviceID:   in.UserID,
-				Action:     action,
+				Action:     "reroute",
 				FromNode:   in.FromNode,
 				ToNode:     in.ToNode,
 				Step:       in.Step,
+				TotalSteps: in.TotalSteps,
+				CreatedAt:  time.Now(),
+			})
+		} else if in.Type == "goal_reached" {
+			c.UserID = in.UserID
+			go database.DB.Create(&models.UserLog{
+				DeviceID:   in.UserID,
+				Action:     "goal_reached",
+				ToNode:     in.ToNode,
 				TotalSteps: in.TotalSteps,
 				CreatedAt:  time.Now(),
 			})

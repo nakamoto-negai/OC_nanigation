@@ -11,6 +11,7 @@ function getWsBase(): string {
 export function useRouteWS() {
   const wsRef = useRef<WebSocket | null>(null);
   const lastStepRef = useRef<number>(-1);
+  const goalSentRef = useRef(false);
   const userID = getDeviceId();
 
   useEffect(() => {
@@ -45,5 +46,43 @@ export function useRouteWS() {
     );
   };
 
-  return { sendPosition, userID };
+  const sendReroute = (
+    step: number,
+    totalSteps: number,
+    fromNode: string,
+    toNode: string,
+  ) => {
+    try {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: "reroute",
+          user_id: userID,
+          step,
+          total_steps: totalSteps,
+          from_node: fromNode,
+          to_node: toNode,
+        })
+      );
+    } catch {}
+  };
+
+  const sendGoalReached = (goalNodeName: string, goalNodeId: number, totalSteps: number) => {
+    if (goalSentRef.current) return;
+    goalSentRef.current = true;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: "goal_reached",
+        user_id: userID,
+        to_node: goalNodeName,
+        to_node_id: goalNodeId,
+        total_steps: totalSteps,
+      })
+    );
+  };
+
+  return { sendPosition, sendGoalReached, sendReroute, userID };
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/oc-navigation/backend/database"
 	"github.com/oc-navigation/backend/handlers"
+	"github.com/oc-navigation/backend/middleware"
 	"github.com/oc-navigation/backend/ws"
 )
 
@@ -34,37 +35,42 @@ func main() {
 	r.Static("/uploads", uploadDir)
 
 	api := r.Group("/api")
+
+	// 公開エンドポイント（ユーザーアプリ・認証）
+	api.POST("/admin/login", handlers.AdminLogin)
+	api.GET("/nodes", handlers.ListNodes)
+	api.GET("/nodes/:id", handlers.GetNode)
+	api.GET("/links", handlers.ListLinks)
+	api.GET("/links/:id", handlers.GetLink)
+	api.POST("/route", handlers.CalcRoute)
+	api.GET("/settings", handlers.GetSettings)
+	api.POST("/users/register", handlers.RegisterUser)
+	api.GET("/map-images/active", handlers.GetActiveMapImage)
+
+	// 管理者専用エンドポイント（トークン必須）
+	admin := api.Group("/").Use(middleware.AdminAuth())
 	{
-		api.GET("/nodes", handlers.ListNodes)
-		api.GET("/nodes/:id", handlers.GetNode)
-		api.POST("/nodes", handlers.CreateNode)
-		api.PUT("/nodes/:id", handlers.UpdateNode)
-		api.DELETE("/nodes/:id", handlers.DeleteNode)
+		admin.POST("/nodes", handlers.CreateNode)
+		admin.PUT("/nodes/:id", handlers.UpdateNode)
+		admin.DELETE("/nodes/:id", handlers.DeleteNode)
 
-		api.GET("/links", handlers.ListLinks)
-		api.GET("/links/:id", handlers.GetLink)
-		api.POST("/links", handlers.CreateLink)
-		api.PUT("/links/:id", handlers.UpdateLink)
-		api.DELETE("/links/:id", handlers.DeleteLink)
+		admin.POST("/links", handlers.CreateLink)
+		admin.PUT("/links/:id", handlers.UpdateLink)
+		admin.DELETE("/links/:id", handlers.DeleteLink)
 
-		api.POST("/photos", handlers.UploadPhoto)
-		api.DELETE("/photos/:id", handlers.DeletePhoto)
-		api.PUT("/photos/reorder", handlers.ReorderPhotos)
+		admin.POST("/photos", handlers.UploadPhoto)
+		admin.DELETE("/photos/:id", handlers.DeletePhoto)
+		admin.PUT("/photos/reorder", handlers.ReorderPhotos)
 
-		api.POST("/route", handlers.CalcRoute)
+		admin.PUT("/settings", handlers.UpdateSettings)
 
-		api.GET("/settings", handlers.GetSettings)
-		api.PUT("/settings", handlers.UpdateSettings)
+		admin.GET("/users", handlers.ListUsers)
+		admin.GET("/logs", handlers.ListLogs)
 
-		api.POST("/users/register", handlers.RegisterUser)
-		api.GET("/users", handlers.ListUsers)
-		api.GET("/logs", handlers.ListLogs)
-
-		api.GET("/map-images", handlers.ListMapImages)
-		api.GET("/map-images/active", handlers.GetActiveMapImage)
-		api.POST("/map-images", handlers.UploadMapImage)
-		api.PUT("/map-images/:id/activate", handlers.ActivateMapImage)
-		api.DELETE("/map-images/:id", handlers.DeleteMapImage)
+		admin.GET("/map-images", handlers.ListMapImages)
+		admin.POST("/map-images", handlers.UploadMapImage)
+		admin.PUT("/map-images/:id/activate", handlers.ActivateMapImage)
+		admin.DELETE("/map-images/:id", handlers.DeleteMapImage)
 	}
 
 	r.GET("/ws/user", handlers.UserWS)

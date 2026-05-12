@@ -11,8 +11,9 @@ import (
 )
 
 type RouteRequest struct {
-	StartID uint `json:"start_id" binding:"required"`
-	GoalID  uint `json:"goal_id" binding:"required"`
+	StartID        uint   `json:"start_id" binding:"required"`
+	GoalID         uint   `json:"goal_id" binding:"required"`
+	BlockedLinkIDs []uint `json:"blocked_link_ids"`
 }
 
 type RouteStepDetail struct {
@@ -38,9 +39,9 @@ func CalcRoute(c *gin.Context) {
 	var links []models.Link
 	database.DB.Find(&links)
 
-	result := algorithms.Dijkstra(links, req.StartID, req.GoalID)
+	result := algorithms.Dijkstra(links, req.StartID, req.GoalID, req.BlockedLinkIDs)
 	if result == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "route not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "迂回路が見つかりません"})
 		return
 	}
 

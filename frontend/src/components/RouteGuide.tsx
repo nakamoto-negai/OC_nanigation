@@ -4,20 +4,27 @@ import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { useCompass } from "../hooks/useCompass";
 import { useRouteWS } from "../hooks/useRouteWS";
+import { api } from "../api/client";
 
 interface Props {
   route: RouteResponse;
   onClose: () => void;
   mapNorthOffset: number;
+  onReroute: (newRoute: RouteResponse) => void;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) => {
+export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset, onReroute }) => {
   const last = route.node_path[route.node_path.length - 1];
   const { heading, permission, requestPermission } = useCompass();
-  const { sendPosition } = useRouteWS();
+  const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
+  const [blockedLinkIds, setBlockedLinkIds] = useState<number[]>([]);
+  const [isRerouting, setIsRerouting] = useState(false);
+  const [rerouteError, setRerouteError] = useState<string | null>(null);
+  const [visibleStepIndex, setVisibleStepIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -60,10 +67,45 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) 
     if (!el) return;
     const cardHeight = el.clientHeight - 44;
     if (cardHeight <= 0) return;
-    const index = Math.min(Math.round(el.scrollTop / cardHeight), route.steps.length - 1);
-    if (index >= 0 && index < route.steps.length) {
-      const s = route.steps[index];
+    const rawIndex = Math.round(el.scrollTop / cardHeight);
+    if (rawIndex >= route.steps.length) {
+      setVisibleStepIndex(route.steps.length);
+      const goal = route.node_path[route.node_path.length - 1];
+      sendGoalReached(goal.name, goal.id, route.steps.length);
+      return;
+    }
+    if (rawIndex >= 0) {
+      setVisibleStepIndex(rawIndex);
+      const s = route.steps[rawIndex];
       sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id);
+    }
+  };
+
+  const handleBlock = async (
+    linkId: number,
+    stepNumber: number,
+    fromNode: string,
+    toNode: string,
+  ) => {
+    if (isRerouting) return;
+    setIsRerouting(true);
+    setRerouteError(null);
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+
+    const newBlocked = [...blockedLinkIds, linkId];
+    const startId = route.node_path[0].id;
+    const goalId = route.node_path[route.node_path.length - 1].id;
+
+    try {
+      const newRoute = await api.route.calc(startId, goalId, newBlocked);
+      setBlockedLinkIds(newBlocked);
+      onReroute(newRoute);
+      sendReroute(stepNumber, route.steps.length, fromNode, toNode);
+    } catch {
+      setRerouteError("迂回路が見つかりませんでした");
+      errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
+    } finally {
+      setIsRerouting(false);
     }
   };
 
@@ -84,8 +126,32 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) 
             ))}
           </div>
         </div>
-        <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
+        <div className="route-header-right">
+          {isRerouting && <span className="rerouting-badge">迂回計算中…</span>}
+          <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
+        </div>
       </div>
+
+      {rerouteError && (
+        <div className="reroute-error" onClick={() => setRerouteError(null)}>
+          ⚠ {rerouteError}
+        </div>
+      )}
+
+      {visibleStepIndex < route.steps.length && (
+        <div className="blocked-btn-bar">
+          <button
+            className="btn-blocked"
+            onClick={() => {
+              const s = route.steps[visibleStepIndex];
+              handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name);
+            }}
+            disabled={isRerouting}
+          >
+            ⚠ このルートが通れない
+          </button>
+        </div>
+      )}
 
       <div className="route-guide-scroll" ref={scrollRef} onScroll={handleScroll}>
         {route.steps.map((s: RouteStepDetail, i) => (

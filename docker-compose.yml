@@ -28,6 +28,8 @@ services:
       DB_PASSWORD: nav_pass
       DB_NAME: navigation
       UPLOAD_DIR: /uploads
+      ADMIN_PASSWORD: admin
+      ADMIN_SECRET: dev-secret-change-in-production
     volumes:
       - uploads:/uploads
     depends_on:

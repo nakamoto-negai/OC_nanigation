@@ -39,9 +39,17 @@ type RouteResult struct {
 	Total    float64
 }
 
-func Dijkstra(links []models.Link, startID, goalID uint) *RouteResult {
+func Dijkstra(links []models.Link, startID, goalID uint, blockedLinkIDs []uint) *RouteResult {
+	blocked := make(map[uint]bool, len(blockedLinkIDs))
+	for _, id := range blockedLinkIDs {
+		blocked[id] = true
+	}
+
 	graph := make(map[uint][]Edge)
 	for _, l := range links {
+		if blocked[l.ID] {
+			continue
+		}
 		graph[l.FromNodeID] = append(graph[l.FromNodeID], Edge{To: l.ToNodeID, Weight: l.Distance, LinkID: l.ID})
 		if l.Bidirectional {
 			graph[l.ToNodeID] = append(graph[l.ToNodeID], Edge{To: l.FromNodeID, Weight: l.Distance, LinkID: l.ID})

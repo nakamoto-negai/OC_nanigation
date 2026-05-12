@@ -2,6 +2,10 @@ import { Link, MapImage, Node, RouteResponse, Setting, User, UserLog } from "../
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+function getAdminToken() {
+  return localStorage.getItem("admin_token") ?? "";
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...init?.headers },
@@ -11,69 +15,87 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+async function adminReq<T>(path: string, init?: RequestInit): Promise<T> {
+  return req<T>(path, {
+    ...init,
+    headers: { "X-Admin-Token": getAdminToken(), ...(init?.headers as Record<string, string>) },
+  });
+}
+
+function adminFetch(path: string, init: RequestInit): Promise<Response> {
+  return fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { "X-Admin-Token": getAdminToken(), ...(init.headers as Record<string, string>) },
+  });
+}
+
 export const api = {
   nodes: {
     list: () => req<Node[]>("/api/nodes"),
     create: (data: Partial<Node>) =>
-      req<Node>("/api/nodes", { method: "POST", body: JSON.stringify(data) }),
+      adminReq<Node>("/api/nodes", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<Node>) =>
-      req<Node>(`/api/nodes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      adminReq<Node>(`/api/nodes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
-      req<void>(`/api/nodes/${id}`, { method: "DELETE" }),
+      adminReq<void>(`/api/nodes/${id}`, { method: "DELETE" }),
   },
   links: {
     list: () => req<Link[]>("/api/links"),
     create: (data: Partial<Link>) =>
-      req<Link>("/api/links", { method: "POST", body: JSON.stringify(data) }),
+      adminReq<Link>("/api/links", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<Link>) =>
-      req<Link>(`/api/links/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      adminReq<Link>(`/api/links/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
-      req<void>(`/api/links/${id}`, { method: "DELETE" }),
+      adminReq<void>(`/api/links/${id}`, { method: "DELETE" }),
   },
   photos: {
     upload: (form: FormData) =>
-      fetch(`${BASE}/api/photos`, { method: "POST", body: form }).then((r) => {
+      adminFetch("/api/photos", { method: "POST", body: form }).then((r) => {
         if (!r.ok) throw new Error("upload failed");
         return r.json();
       }),
     delete: (id: number) =>
-      req<void>(`/api/photos/${id}`, { method: "DELETE" }),
+      adminReq<void>(`/api/photos/${id}`, { method: "DELETE" }),
     reorder: (orders: { id: number; order: number }[]) =>
-      req<void>("/api/photos/reorder", {
+      adminReq<void>("/api/photos/reorder", {
         method: "PUT",
         body: JSON.stringify({ orders }),
       }),
   },
   route: {
-    calc: (start_id: number, goal_id: number) =>
+    calc: (start_id: number, goal_id: number, blocked_link_ids: number[] = []) =>
       req<RouteResponse>("/api/route", {
         method: "POST",
-        body: JSON.stringify({ start_id, goal_id }),
+        body: JSON.stringify({ start_id, goal_id, blocked_link_ids }),
       }),
   },
   settings: {
     get: () => req<Setting>("/api/settings"),
     update: (map_north_offset: number) =>
-      req<Setting>("/api/settings", { method: "PUT", body: JSON.stringify({ map_north_offset }) }),
+      adminReq<Setting>("/api/settings", { method: "PUT", body: JSON.stringify({ map_north_offset }) }),
   },
   users: {
     register: (device_id: string) =>
       req<User>("/api/users/register", { method: "POST", body: JSON.stringify({ device_id }) }),
-    list: () => req<User[]>("/api/users"),
+    list: () => adminReq<User[]>("/api/users"),
   },
   logs: {
     list: (device_id?: string) =>
-      req<UserLog[]>(`/api/logs${device_id ? `?device_id=${encodeURIComponent(device_id)}` : ""}`),
+      adminReq<UserLog[]>(`/api/logs${device_id ? `?device_id=${encodeURIComponent(device_id)}` : ""}`),
   },
   mapImages: {
-    list: () => req<MapImage[]>("/api/map-images"),
+    list: () => adminReq<MapImage[]>("/api/map-images"),
     getActive: () => req<MapImage>("/api/map-images/active"),
     upload: (form: FormData) =>
-      fetch(`${BASE}/api/map-images`, { method: "POST", body: form }).then((r) => {
+      adminFetch("/api/map-images", { method: "POST", body: form }).then((r) => {
         if (!r.ok) throw new Error("upload failed");
         return r.json() as Promise<MapImage>;
       }),
-    activate: (id: number) => req<MapImage>(`/api/map-images/${id}/activate`, { method: "PUT" }),
-    delete: (id: number) => req<void>(`/api/map-images/${id}`, { method: "DELETE" }),
+    activate: (id: number) => adminReq<MapImage>(`/api/map-images/${id}/activate`, { method: "PUT" }),
+    delete: (id: number) => adminReq<void>(`/api/map-images/${id}`, { method: "DELETE" }),
+  },
+  admin: {
+    login: (password: string) =>
+      req<{ token: string }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) }),
   },
 };
