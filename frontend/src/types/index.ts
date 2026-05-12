@@ -52,6 +52,12 @@ export interface Setting {
   map_north_offset: number;
 }
 
+export interface User {
+  id: number;
+  device_id: string;
+  created_at: string;
+}
+
 export interface MapImage {
   id: number;
   name: string;

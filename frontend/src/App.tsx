@@ -3,12 +3,14 @@ import { api } from "./api/client";
 import { AdminPage } from "./components/AdminPage";
 import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
+import { useUser } from "./hooks/useUser";
 import { Link, Node, Photo, RouteResponse, Setting } from "./types";
 import "./index.css";
 
 type Screen = "home" | "route" | "admin";
 
 export default function App() {
+  useUser();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
   const [screen, setScreen] = useState<Screen>("home");

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, MapImage, Node, Photo } from "../types";
 import { api } from "../api/client";
+import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
+import { getDeviceId } from "../hooks/useUser";
 
 interface Props {
   nodes: Node[];
@@ -16,7 +18,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "photo" | "settings";
+type Tab = "node" | "link" | "photo" | "settings" | "users";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -818,6 +820,169 @@ function SettingsTab() {
   );
 }
 
+// ── Users Tab ─────────────────────────────────────────────────────────────────
+
+function getWsBase(): string {
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  if (apiUrl) return apiUrl.replace(/^https/, "wss").replace(/^http/, "ws");
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}`;
+}
+
+const TEST_STEPS = [
+  { step: 1, total: 3, from: "エントランス", to: "A棟廊下" },
+  { step: 2, total: 3, from: "A棟廊下",    to: "エレベーター前" },
+  { step: 3, total: 3, from: "エレベーター前", to: "目的地" },
+];
+
+const USER_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#a855f7","#ec4899"];
+
+function UserMapView({ positions, nodes }: { positions: ReturnType<typeof useAdminWS>["positions"]; nodes: Node[] }) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [mapImage, setMapImage] = useState<MapImage | null>(null);
+  const [naturalW, setNaturalW] = useState(0);
+  const [naturalH, setNaturalH] = useState(0);
+
+  useEffect(() => {
+    api.mapImages.getActive().then(setMapImage).catch(() => {});
+  }, []);
+
+  if (!mapImage) return <p className="users-empty">マップ画像が設定されていません</p>;
+
+  const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+
+  return (
+    <div className="user-map-view">
+      <div className="map-picker" style={{ cursor: "default" }}>
+        <img
+          ref={imgRef}
+          src={`${BASE}${mapImage.url}`}
+          alt={mapImage.name}
+          draggable={false}
+          onLoad={(e) => {
+            setNaturalW(e.currentTarget.naturalWidth);
+            setNaturalH(e.currentTarget.naturalHeight);
+          }}
+        />
+        {naturalW > 0 && naturalH > 0 && positions.map((p, i) => {
+          const node = nodes.find((n) => n.id === p.from_node_id);
+          if (!node) return null;
+          const color = USER_COLORS[i % USER_COLORS.length];
+          return (
+            <div
+              key={p.user_id}
+              className="user-map-dot"
+              style={{ left: pct(node.x, naturalW), top: pct(node.y, naturalH), background: color }}
+              title={`${p.user_id.slice(0, 8)}: ${p.from_node} → ${p.to_node}`}
+            >
+              <span className="user-map-dot-label">{i + 1}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function UsersTab({ nodes }: { nodes: Node[] }) {
+  const { positions, connected } = useAdminWS();
+  const [testStep, setTestStep] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const testWsRef = React.useRef<WebSocket | null>(null);
+  const myId = getDeviceId();
+
+  const copyId = () => {
+    navigator.clipboard.writeText(myId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
+  };
+
+  const sendTestPosition = () => {
+    const s = TEST_STEPS[testStep % TEST_STEPS.length];
+    const send = (ws: WebSocket) => {
+      ws.send(JSON.stringify({
+        type: "position",
+        user_id: "test-user",
+        step: s.step,
+        total_steps: s.total,
+        from_node: s.from,
+        to_node: s.to,
+      }));
+      setTestStep((n) => n + 1);
+    };
+
+    const ws = testWsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      send(ws);
+    } else {
+      const newWs = new WebSocket(`${getWsBase()}/ws/user`);
+      testWsRef.current = newWs;
+      newWs.onopen = () => send(newWs);
+    }
+  };
+
+  const clearTest = () => {
+    testWsRef.current?.close();
+    testWsRef.current = null;
+    setTestStep(0);
+  };
+
+  return (
+    <div className="users-tab">
+      <div className="my-device-id">
+        <span className="my-device-id-label">自分のID</span>
+        <span className="my-device-id-value">{myId}</span>
+        <button className="btn-copy-id" onClick={copyId}>
+          {copied ? "コピー済 ✓" : "コピー"}
+        </button>
+      </div>
+      <div className="users-tab-status">
+        <span className={`ws-dot ${connected ? "connected" : "disconnected"}`} />
+        {connected ? "リアルタイム接続中" : "接続待機中..."}
+        <span className="users-count">{positions.length} 人</span>
+      </div>
+      <div className="users-test-bar">
+        <button className="btn-test-send" onClick={sendTestPosition}>
+          テスト送信 ({TEST_STEPS[testStep % TEST_STEPS.length].step}/{TEST_STEPS[0].total})
+        </button>
+        <button className="btn-test-clear" onClick={clearTest}>クリア</button>
+        <span className="test-hint">ボタンを押すたびにステップが進みます</span>
+      </div>
+      <UserMapView positions={positions} nodes={nodes} />
+      {positions.length === 0 ? (
+        <p className="users-empty">現在案内中のユーザーはいません</p>
+      ) : (
+        <div className="users-list">
+          {positions.map((p: UserPosition) => (
+            <div key={p.user_id} className="user-card">
+              <div className="user-card-header">
+                <span className="user-id">ID: {p.user_id}</span>
+                <span className="user-updated">{fmt(p.updated_at)}</span>
+              </div>
+              <div className="user-step-info">
+                <span className="user-step-badge">{p.step} / {p.total_steps}</span>
+                <span className="user-route">{p.from_node} → {p.to_node}</span>
+              </div>
+              <div className="user-progress-bar">
+                <div
+                  className="user-progress-fill"
+                  style={{ width: `${(p.step / p.total_steps) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 
 export const AdminPage: React.FC<Props> = ({
@@ -844,6 +1009,9 @@ export const AdminPage: React.FC<Props> = ({
           </button>
           <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
             設定
+          </button>
+          <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
+            利用者
           </button>
         </div>
       </div>
@@ -875,6 +1043,7 @@ export const AdminPage: React.FC<Props> = ({
           />
         )}
         {tab === "settings" && <SettingsTab />}
+        {tab === "users" && <UsersTab nodes={nodes} />}
       </div>
     </div>
   );

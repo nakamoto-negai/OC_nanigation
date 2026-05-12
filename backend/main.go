@@ -9,12 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/oc-navigation/backend/database"
 	"github.com/oc-navigation/backend/handlers"
+	"github.com/oc-navigation/backend/ws"
 )
 
 func main() {
 	if err := database.Connect(); err != nil {
 		log.Fatal(err)
 	}
+
+	go ws.GlobalHub.Run()
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
@@ -53,12 +56,18 @@ func main() {
 		api.GET("/settings", handlers.GetSettings)
 		api.PUT("/settings", handlers.UpdateSettings)
 
+		api.POST("/users/register", handlers.RegisterUser)
+		api.GET("/users", handlers.ListUsers)
+
 		api.GET("/map-images", handlers.ListMapImages)
 		api.GET("/map-images/active", handlers.GetActiveMapImage)
 		api.POST("/map-images", handlers.UploadMapImage)
 		api.PUT("/map-images/:id/activate", handlers.ActivateMapImage)
 		api.DELETE("/map-images/:id", handlers.DeleteMapImage)
 	}
+
+	r.GET("/ws/user", handlers.UserWS)
+	r.GET("/ws/admin", handlers.AdminWS)
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

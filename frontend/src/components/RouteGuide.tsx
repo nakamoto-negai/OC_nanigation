@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { RouteResponse, RouteStepDetail } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { useCompass } from "../hooks/useCompass";
+import { useRouteWS } from "../hooks/useRouteWS";
 
 interface Props {
   route: RouteResponse;
@@ -13,20 +14,58 @@ interface Props {
 export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) => {
   const last = route.node_path[route.node_path.length - 1];
   const { heading, permission, requestPermission } = useCompass();
+  const { sendPosition } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      el.style.setProperty("--card-h", `${el.clientHeight}px`);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        setUserLat(pos.coords.latitude);
-        setUserLng(pos.coords.longitude);
-      },
-      () => {}
-    );
-    return () => navigator.geolocation.clearWatch(id);
+    let watchId: number | null = null;
+    const start = () => {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLat(pos.coords.latitude);
+          setUserLng(pos.coords.longitude);
+        },
+        () => {
+          if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        }
+      );
+    };
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then((result) => {
+        if (result.state !== "denied") start();
+      });
+    } else {
+      start();
+    }
+    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
   }, []);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const cardHeight = el.clientHeight - 44;
+    if (cardHeight <= 0) return;
+    const index = Math.min(Math.round(el.scrollTop / cardHeight), route.steps.length - 1);
+    if (index >= 0 && index < route.steps.length) {
+      const s = route.steps[index];
+      sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id);
+    }
+  };
 
   return (
     <div className="route-guide fullscreen">
@@ -48,7 +87,7 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) 
         <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
       </div>
 
-      <div className="route-guide-scroll">
+      <div className="route-guide-scroll" ref={scrollRef} onScroll={handleScroll}>
         {route.steps.map((s: RouteStepDetail, i) => (
           <div key={i} className="rg-step">
             <div className="rg-step-header">
@@ -58,6 +97,9 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset }) 
                 <span className="rg-arrow">→</span>
                 <span className="rg-to">{s.to_node.name}</span>
               </div>
+              {s.link.photos && s.link.photos.length > 0 && (
+                <span className="rg-photo-badge">📷 {s.link.photos.length}</span>
+              )}
             </div>
             {s.link.name && <p className="rg-link-name">{s.link.name}</p>}
             {s.link.description && <p className="rg-description">{s.link.description}</p>}

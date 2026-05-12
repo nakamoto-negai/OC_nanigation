@@ -16,7 +16,7 @@ export const PhotoSlider: React.FC<Props> = ({ photos }) => {
 
   return (
     <div className="photo-list">
-      {sorted.map((p, i) => (
+      {sorted.map((p) => (
         <div key={p.id} className="photo-list-item">
           <img src={`${BASE}${p.url}`} alt={p.caption || ""} />
           {p.caption && <p className="photo-list-caption">{p.caption}</p>}
