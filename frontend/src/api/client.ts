@@ -1,4 +1,4 @@
-import { Link, MapImage, Node, RouteResponse, Setting, User } from "../types";
+import { Link, MapImage, Node, RouteResponse, Setting, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -60,6 +60,10 @@ export const api = {
     register: (device_id: string) =>
       req<User>("/api/users/register", { method: "POST", body: JSON.stringify({ device_id }) }),
     list: () => req<User[]>("/api/users"),
+  },
+  logs: {
+    list: (device_id?: string) =>
+      req<UserLog[]>(`/api/logs${device_id ? `?device_id=${encodeURIComponent(device_id)}` : ""}`),
   },
   mapImages: {
     list: () => req<MapImage[]>("/api/map-images"),

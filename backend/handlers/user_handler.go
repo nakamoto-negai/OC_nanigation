@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oc-navigation/backend/database"
@@ -23,6 +24,12 @@ func RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return
 	}
+
+	go database.DB.Create(&models.UserLog{
+		DeviceID:  body.DeviceID,
+		Action:    "app_open",
+		CreatedAt: time.Now(),
+	})
 
 	c.JSON(http.StatusOK, user)
 }

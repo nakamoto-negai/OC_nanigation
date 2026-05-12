@@ -10,6 +10,7 @@ function getWsBase(): string {
 
 export function useRouteWS() {
   const wsRef = useRef<WebSocket | null>(null);
+  const lastStepRef = useRef<number>(-1);
   const userID = getDeviceId();
 
   useEffect(() => {
@@ -26,6 +27,8 @@ export function useRouteWS() {
     fromNodeId: number,
     toNodeId: number,
   ) => {
+    if (step === lastStepRef.current) return;
+    lastStepRef.current = step;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(

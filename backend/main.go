@@ -58,6 +58,7 @@ func main() {
 
 		api.POST("/users/register", handlers.RegisterUser)
 		api.GET("/users", handlers.ListUsers)
+		api.GET("/logs", handlers.ListLogs)
 
 		api.GET("/map-images", handlers.ListMapImages)
 		api.GET("/map-images/active", handlers.GetActiveMapImage)

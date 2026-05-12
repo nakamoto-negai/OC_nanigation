@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, MapImage, Node, Photo } from "../types";
+import { Link, MapImage, Node, Photo, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -18,7 +18,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "photo" | "settings" | "users";
+type Tab = "node" | "link" | "photo" | "settings" | "users" | "logs";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -983,6 +983,85 @@ function UsersTab({ nodes }: { nodes: Node[] }) {
   );
 }
 
+// ── Logs Tab ──────────────────────────────────────────────────────────────────
+
+const ACTION_LABEL: Record<string, string> = {
+  app_open:     "起動",
+  nav_start:    "ナビ開始",
+  step_change:  "移動",
+  goal_reached: "到達",
+};
+const ACTION_COLOR: Record<string, string> = {
+  app_open:     "#3b82f6",
+  nav_start:    "#22c55e",
+  step_change:  "#6b7280",
+  goal_reached: "#f59e0b",
+};
+
+function LogsTab() {
+  const [logs, setLogs] = useState<UserLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("");
+
+  const load = async (deviceId?: string) => {
+    setLoading(true);
+    try {
+      setLogs(await api.logs.list(deviceId || undefined));
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
+  };
+
+  const filtered = filter ? logs.filter((l) => l.device_id.includes(filter)) : logs;
+
+  return (
+    <div className="logs-tab">
+      <div className="logs-toolbar">
+        <input
+          className="logs-filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="デバイスIDで絞り込み"
+        />
+        <button className="btn-refresh" onClick={() => load(filter || undefined)}>更新</button>
+        <span className="logs-count">{filtered.length}件</span>
+      </div>
+      {loading ? (
+        <p className="adm-empty">読み込み中...</p>
+      ) : filtered.length === 0 ? (
+        <p className="adm-empty">ログがありません</p>
+      ) : (
+        <div className="logs-list">
+          {filtered.map((log) => (
+            <div key={log.id} className="log-entry">
+              <span
+                className="log-action-badge"
+                style={{ background: ACTION_COLOR[log.action] ?? "#6b7280" }}
+              >
+                {ACTION_LABEL[log.action] ?? log.action}
+              </span>
+              <span className="log-time">{fmt(log.created_at)}</span>
+              <span className="log-device" title={log.device_id}>{log.device_id.slice(0, 8)}…</span>
+              {log.from_node && (
+                <span className="log-route">{log.from_node} → {log.to_node}</span>
+              )}
+              {log.step > 0 && (
+                <span className="log-step">{log.step}/{log.total_steps}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 
 export const AdminPage: React.FC<Props> = ({
@@ -1012,6 +1091,9 @@ export const AdminPage: React.FC<Props> = ({
           </button>
           <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
             利用者
+          </button>
+          <button className={tab === "logs" ? "active" : ""} onClick={() => setTab("logs")}>
+            ログ
           </button>
         </div>
       </div>
@@ -1044,6 +1126,7 @@ export const AdminPage: React.FC<Props> = ({
         )}
         {tab === "settings" && <SettingsTab />}
         {tab === "users" && <UsersTab nodes={nodes} />}
+        {tab === "logs" && <LogsTab />}
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/oc-navigation/backend/database"
+	"github.com/oc-navigation/backend/models"
 )
 
 type UserPosition struct {
@@ -151,6 +153,21 @@ func (c *Client) ReadPump(hub *Hub) {
 				FromNodeID: in.FromNodeID,
 				ToNodeID:   in.ToNodeID,
 				UpdatedAt:  time.Now(),
+			})
+			action := "step_change"
+			if in.Step == 1 {
+				action = "nav_start"
+			} else if in.TotalSteps > 0 && in.Step == in.TotalSteps {
+				action = "goal_reached"
+			}
+			go database.DB.Create(&models.UserLog{
+				DeviceID:   in.UserID,
+				Action:     action,
+				FromNode:   in.FromNode,
+				ToNode:     in.ToNode,
+				Step:       in.Step,
+				TotalSteps: in.TotalSteps,
+				CreatedAt:  time.Now(),
 			})
 		}
 	}

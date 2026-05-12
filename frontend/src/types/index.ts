@@ -58,6 +58,17 @@ export interface User {
   created_at: string;
 }
 
+export interface UserLog {
+  id: number;
+  device_id: string;
+  action: string;
+  from_node: string;
+  to_node: string;
+  step: number;
+  total_steps: number;
+  created_at: string;
+}
+
 export interface MapImage {
   id: number;
   name: string;
