@@ -61,7 +61,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
     onRouteReady(result, startNode!, goal);
   };
 
-  const destinations = nodes.filter((n) => n.id !== startId);
+  const destinations = nodes.filter((n) => n.id !== startId && n.is_selectable);
 
   return (
     <div className="home-page">

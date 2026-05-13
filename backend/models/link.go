@@ -11,7 +11,6 @@ type Link struct {
 	FromNode      *Node     `json:"from_node,omitempty" gorm:"foreignKey:FromNodeID"`
 	ToNode        *Node     `json:"to_node,omitempty" gorm:"foreignKey:ToNodeID"`
 	Distance      float64   `json:"distance" gorm:"not null;default:1"`
-	Bidirectional bool      `json:"bidirectional" gorm:"default:true"`
 	Photos        []Photo   `json:"photos" gorm:"foreignKey:LinkID;constraint:OnDelete:CASCADE"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`

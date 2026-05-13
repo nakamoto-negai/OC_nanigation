@@ -6,6 +6,7 @@ export interface Node {
   y: number;
   lat: number | null;
   lng: number | null;
+  is_selectable: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -28,7 +29,6 @@ export interface Link {
   from_node?: Node;
   to_node?: Node;
   distance: number;
-  bidirectional: boolean;
   photos: Photo[];
   created_at: string;
   updated_at: string;

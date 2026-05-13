@@ -157,6 +157,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .adm-field textarea { resize: vertical; }
 .adm-field input[type="file"] { padding: 6px; background: white; }
+.adm-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1e293b; cursor: pointer; }
+.adm-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
 .req { color: #ef4444; }
 .adm-field-row { display: flex; gap: 10px; align-items: flex-end; }
 .adm-field-row .adm-field { flex: 1; margin-bottom: 0; }
@@ -360,7 +362,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 
 /* ── Route Guide ── */
 .route-guide {
-  width: 460px; background: white; border-left: 1px solid #e2e8f0;
+  width: 100%; background: white;
   display: flex; flex-direction: column; overflow: hidden;
 }
 .route-guide-header {
@@ -450,7 +452,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 5px;
 }
 
@@ -465,6 +467,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   font-weight: 600;
   text-align: center;
   line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 .btn-blocked:hover:not(:disabled) { background: #ffedd5; border-color: #fb923c; }
 .btn-blocked:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -594,50 +599,20 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .log-step { font-size: 12px; color: #94a3b8; white-space: nowrap; }
 
 /* ── Compass Guide ── */
-.cg-wrap {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 12px 0;
+.cg-text {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 0;
 }
-.cg-compass {
-  position: relative; width: 160px; height: 160px;
-  border-radius: 50%; border: 2px solid #e2e8f0; background: #f8fafc;
+.cg-dir-label {
+  font-size: 16px; font-weight: 700;
 }
-.cg-wrap.cg-ok .cg-compass { border-color: #86efac; background: #f0fdf4; }
-.cg-wrap.cg-warn .cg-compass { border-color: #fde68a; background: #fffbeb; }
-.cg-wrap.cg-ng .cg-compass { border-color: #fca5a5; background: #fef2f2; }
-
-.cg-you-ptr {
-  position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 8px solid transparent; border-right: 8px solid transparent;
-  border-top: 14px solid #3b82f6;
-  z-index: 10;
-}
-.cg-rose {
-  position: absolute; inset: 0;
-  transition: transform 0.1s linear;
-}
-.cg-svg { width: 100%; height: 100%; }
-.cg-label {
-  position: absolute; font-size: 11px; font-weight: 700; line-height: 1;
-}
-.cg-n { top: 5px; left: 50%; transform: translateX(-50%); color: #dc2626; }
-.cg-s { bottom: 5px; left: 50%; transform: translateX(-50%); color: #64748b; }
-.cg-e { right: 5px; top: 50%; transform: translateY(-50%); color: #64748b; }
-.cg-w { left: 5px; top: 50%; transform: translateY(-50%); color: #64748b; }
-
-.cg-status-label { font-size: 14px; font-weight: 700; margin: 0; }
-.cg-status-ok { color: #16a34a; }
-.cg-status-warn { color: #d97706; }
-.cg-status-ng { color: #dc2626; }
-.cg-method-label { font-size: 11px; color: #94a3b8; margin: 0; }
-
-.cg-prompt { display: flex; justify-content: center; padding: 8px 0; }
+.cg-dir-ok   { color: #16a34a; }
+.cg-dir-warn { color: #d97706; }
+.cg-dir-ng   { color: #dc2626; }
+.cg-dir-sub  { font-size: 12px; color: #94a3b8; }
 .cg-enable-btn {
-  padding: 8px 16px; background: #3b82f6; color: white;
-  border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+  margin-top: 4px; padding: 6px 14px; background: #3b82f6; color: white;
+  border: none; border-radius: 8px; cursor: pointer; font-size: 13px; width: fit-content;
 }
-.cg-msg { font-size: 12px; color: #94a3b8; text-align: center; padding: 8px 0; margin: 0; }
 
 /* ── Map Picker ── */
 .map-picker {

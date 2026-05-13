@@ -17,9 +17,6 @@ export function calcRoute(
     if (!graph.has(link.from_node_id)) graph.set(link.from_node_id, []);
     if (!graph.has(link.to_node_id)) graph.set(link.to_node_id, []);
     graph.get(link.from_node_id)!.push({ to: link.to_node_id, weight: link.distance, linkId: link.id });
-    if (link.bidirectional) {
-      graph.get(link.to_node_id)!.push({ to: link.from_node_id, weight: link.distance, linkId: link.id });
-    }
   }
 
   const dist = new Map<number, number>();

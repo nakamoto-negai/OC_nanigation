@@ -62,10 +62,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, onClose, mapN
   };
 
   const REROUTE_REASONS = [
-    { label: "写真の視認性が悪くて迂回する！", reason: "visibility" },
-    { label: "事件・事故・工事があり迂回する！", reason: "incident" },
+    { label: "写真識別不可で迂回する！", reason: "visibility" },
+    { label: "事故・工事で迂回する！", reason: "incident" },
     { label: "混雑過多で迂回する！", reason: "congestion" },
-    { label: "その他の理由で迂回する！", reason: "other" },
+    { label: "その他で迂回する！", reason: "other" },
   ];
 
   const handleBlock = (
@@ -98,16 +98,6 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, onClose, mapN
         <div className="route-summary">
           <span className="route-title">道案内</span>
           <span className="route-distance">総距離: {route.total_distance.toFixed(1)}</span>
-          <div className="route-path">
-            {route.node_path.map((n, i) => (
-              <React.Fragment key={n.id}>
-                <span className={`path-node ${i === 0 ? "start" : i === route.node_path.length - 1 ? "goal" : ""}`}>
-                  {n.name}
-                </span>
-                {i < route.node_path.length - 1 && <span className="path-arrow">→</span>}
-              </React.Fragment>
-            ))}
-          </div>
         </div>
         <div className="route-header-right">
           <button className="close-btn" onClick={onClose}>✕ 閉じる</button>

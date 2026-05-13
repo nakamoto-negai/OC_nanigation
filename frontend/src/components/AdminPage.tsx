@@ -94,10 +94,11 @@ interface NodeFormState {
   y: string;
   lat: string;
   lng: string;
+  isSelectable: boolean;
 }
 
 const emptyNode = (): NodeFormState => ({
-  id: null, name: "", description: "", x: "", y: "", lat: "", lng: "",
+  id: null, name: "", description: "", x: "", y: "", lat: "", lng: "", isSelectable: true,
 });
 
 function NodeTab({
@@ -165,6 +166,7 @@ function NodeTab({
         y: Number(form.y),
         lat: form.lat !== "" ? Number(form.lat) : null,
         lng: form.lng !== "" ? Number(form.lng) : null,
+        is_selectable: form.isSelectable,
       };
       if (form.id) {
         const updated = await api.nodes.update(form.id, data);
@@ -189,6 +191,7 @@ function NodeTab({
       x: String(n.x), y: String(n.y),
       lat: n.lat != null ? String(n.lat) : "",
       lng: n.lng != null ? String(n.lng) : "",
+      isSelectable: n.is_selectable,
     });
     setMsg(null);
   };
@@ -256,6 +259,18 @@ function NodeTab({
           {fillGeo ? "取得中..." : "現在地の座標を入力"}
         </button>
 
+        <div className="adm-field" style={{ marginTop: 12 }}>
+          <label className="adm-checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.isSelectable}
+              onChange={(e) => setForm((f) => ({ ...f, isSelectable: e.target.checked }))}
+            />
+            目的地として表示する
+          </label>
+          <p className="hint">オフにすると目的地選択リストに表示されません（中継地点などに使用）</p>
+        </div>
+
         <div className="adm-actions" style={{ marginTop: 16 }}>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "保存中..." : form.id ? "更新" : "追加"}
@@ -293,6 +308,7 @@ function NodeTab({
                 <th>名前</th><th>説明</th>
                 <th>X</th><th>Y</th>
                 <th>緯度</th><th>経度</th>
+                <th>目的地</th>
                 <th></th>
               </tr>
             </thead>
@@ -305,6 +321,7 @@ function NodeTab({
                   <td className="num">{Math.round(n.y)}</td>
                   <td className="num">{n.lat != null ? n.lat.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="num">{n.lng != null ? n.lng.toFixed(5) : <span className="text-muted">—</span>}</td>
+                  <td className="center">{n.is_selectable ? "✓" : <span className="text-muted">—</span>}</td>
                   <td className="adm-row-actions">
                     <button className="btn-edit" onClick={() => startEdit(n)}>編集</button>
                     <button className="btn-del" onClick={() => del(n.id, n.name)}>削除</button>
@@ -328,11 +345,10 @@ interface LinkFormState {
   name: string;
   description: string;
   distance: string;
-  bidirectional: boolean;
 }
 
 const emptyLink = (): LinkFormState => ({
-  id: null, fromNodeId: "", toNodeId: "", name: "", description: "", distance: "1", bidirectional: true,
+  id: null, fromNodeId: "", toNodeId: "", name: "", description: "", distance: "1",
 });
 
 function LinkTab({
@@ -374,7 +390,6 @@ function LinkTab({
         name: form.name.trim(),
         description: form.description.trim(),
         distance: parseFloat(form.distance),
-        bidirectional: form.bidirectional,
       };
       if (form.id) {
         const updated = await api.links.update(form.id, data);
@@ -401,7 +416,6 @@ function LinkTab({
       name: l.name,
       description: l.description,
       distance: String(l.distance),
-      bidirectional: l.bidirectional,
     });
     setMsg(null);
   };
@@ -459,16 +473,6 @@ function LinkTab({
             <label>距離 <span className="req">*</span></label>
             <input type="number" value={form.distance} onChange={set("distance")} min="0.1" step="0.1" />
           </div>
-          <div className="adm-field checkbox-field">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.bidirectional}
-                onChange={(e) => setForm((f) => ({ ...f, bidirectional: e.target.checked }))}
-              />
-              双方向
-            </label>
-          </div>
         </div>
         <div className="adm-actions">
           <button className="btn-primary" onClick={save} disabled={saving}>
@@ -489,7 +493,7 @@ function LinkTab({
         ) : (
           <table className="adm-table">
             <thead>
-              <tr><th>From</th><th></th><th>To</th><th>名前</th><th>距離</th><th>双方向</th><th>写真</th><th></th></tr>
+              <tr><th>From</th><th></th><th>To</th><th>名前</th><th>距離</th><th>写真</th><th></th></tr>
             </thead>
             <tbody>
               {links.map((l) => (
@@ -499,7 +503,6 @@ function LinkTab({
                   <td><strong>{nodeName(l.to_node_id)}</strong></td>
                   <td>{l.name || "—"}</td>
                   <td className="num">{l.distance}</td>
-                  <td className="center">{l.bidirectional ? "✓" : ""}</td>
                   <td className="center">{l.photos?.length ?? 0}枚</td>
                   <td className="adm-row-actions">
                     <button className="btn-edit" onClick={() => startEdit(l)}>編集</button>

@@ -111,7 +111,7 @@ export const MapCanvas: React.FC<Props> = ({
               y2={y2}
               stroke={getLinkColor(link)}
               strokeWidth={getLinkWidth(link)}
-              markerEnd={link.bidirectional ? undefined : isRoute ? "url(#arrow-route)" : "url(#arrow)"}
+              markerEnd={isRoute ? "url(#arrow-route)" : "url(#arrow)"}
               strokeDasharray={isRoute ? "none" : "none"}
             />
             {link.name && (

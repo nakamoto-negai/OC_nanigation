@@ -34,7 +34,6 @@ export const AdminPanel: React.FC<Props> = ({
   const [linkName, setLinkName] = useState("");
   const [linkDesc, setLinkDesc] = useState("");
   const [linkDist, setLinkDist] = useState("1");
-  const [linkBidi, setLinkBidi] = useState(true);
   const [photoLinkId, setPhotoLinkId] = useState<number | "">("");
   const [photoCaption, setPhotoCaption] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -65,7 +64,6 @@ export const AdminPanel: React.FC<Props> = ({
         name: linkName,
         description: linkDesc,
         distance: parseFloat(linkDist) || 1,
-        bidirectional: linkBidi,
       });
       onLinkCreated(link);
       setLinkFrom(""); setLinkTo(""); setLinkName(""); setLinkDesc(""); setLinkDist("1");
@@ -147,10 +145,6 @@ export const AdminPanel: React.FC<Props> = ({
           <input placeholder="リンク名" value={linkName} onChange={(e) => setLinkName(e.target.value)} />
           <input placeholder="説明" value={linkDesc} onChange={(e) => setLinkDesc(e.target.value)} />
           <input type="number" placeholder="距離" value={linkDist} onChange={(e) => setLinkDist(e.target.value)} min="0.1" step="0.1" />
-          <label className="checkbox-label">
-            <input type="checkbox" checked={linkBidi} onChange={(e) => setLinkBidi(e.target.checked)} />
-            双方向
-          </label>
           <button onClick={createLink}>追加</button>
 
           <h3>リンク一覧</h3>
