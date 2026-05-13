@@ -51,6 +51,7 @@ export function useRouteWS() {
     totalSteps: number,
     fromNode: string,
     toNode: string,
+    reason: string,
   ) => {
     try {
       const ws = wsRef.current;
@@ -63,6 +64,7 @@ export function useRouteWS() {
           total_steps: totalSteps,
           from_node: fromNode,
           to_node: toNode,
+          reason,
         })
       );
     } catch {}

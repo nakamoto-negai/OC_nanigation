@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Node, RouteResponse } from "../types";
-import { api } from "../api/client";
+import React, { useState } from "react";
+import { Link, Node, RouteResponse } from "../types";
+import { calcRoute } from "../utils/dijkstra";
 
 interface Props {
   nodes: Node[];
+  links: Link[];
   onRouteReady: (route: RouteResponse, startNode: Node, goalNode: Node) => void;
 }
 
@@ -30,38 +31,19 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, onRouteReady }) => {
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>("pending");
+export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [startId, setStartId] = useState<number | null>(null);
-  const [calculating, setCalculating] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setGeoStatus("unavailable");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setUserLat(latitude);
-        setUserLng(longitude);
-        setGeoStatus("found");
-        const nearest = nearestNode(nodes, latitude, longitude);
-        if (nearest) setStartId(nearest.id);
-      },
-      () => {
-        setGeoStatus("denied");
-      },
-      { timeout: 10000, maximumAge: 30000 }
-    );
-  }, [nodes]);
+  // geolocation disabled
+  void geoStatus; void setGeoStatus; void userLat; void setUserLat; void userLng; void setUserLng; void nearestNode;
 
   const startNode = nodes.find((n) => n.id === startId) ?? null;
 
-  const goTo = async (goal: Node) => {
+  const goTo = (goal: Node) => {
     if (!startId) {
       setError("現在地が特定できません。現在地を手動で選択してください。");
       return;
@@ -70,16 +52,13 @@ export const HomePage: React.FC<Props> = ({ nodes, onRouteReady }) => {
       setError("現在地と目的地が同じです。");
       return;
     }
-    setCalculating(goal.id);
     setError("");
-    try {
-      const route = await api.route.calc(startId, goal.id);
-      onRouteReady(route, startNode!, goal);
-    } catch (e: any) {
+    const result = calcRoute(nodes, links, startId, goal.id);
+    if (!result) {
       setError("ルートが見つかりませんでした。");
-    } finally {
-      setCalculating(null);
+      return;
     }
+    onRouteReady(result, startNode!, goal);
   };
 
   const destinations = nodes.filter((n) => n.id !== startId);
@@ -87,56 +66,21 @@ export const HomePage: React.FC<Props> = ({ nodes, onRouteReady }) => {
   return (
     <div className="home-page">
       {/* 現在地バナー */}
-      <div className={`location-banner ${geoStatus}`}>
-        {geoStatus === "pending" && (
-          <>
-            <span className="loc-icon spin">◎</span>
-            <span>位置情報を取得中...</span>
-          </>
-        )}
-        {geoStatus === "found" && (
-          <>
-            <span className="loc-icon">◉</span>
-            <div className="loc-text">
-              <span className="loc-label">現在地</span>
-              <span className="loc-name">{startNode?.name ?? "最寄り地点を特定中..."}</span>
-              {userLat != null && (
-                <span className="loc-coords">{userLat.toFixed(5)}, {userLng!.toFixed(5)}</span>
-              )}
-            </div>
-          </>
-        )}
-        {geoStatus === "denied" && (
-          <>
-            <span className="loc-icon">⚠</span>
-            <div className="loc-text">
-              <span className="loc-label">位置情報が使えません</span>
-              <span className="loc-name">下から現在地を手動選択してください</span>
-            </div>
-          </>
-        )}
-        {geoStatus === "unavailable" && (
-          <>
-            <span className="loc-icon">⚠</span>
-            <div className="loc-text">
-              <span className="loc-label">このブラウザは位置情報に対応していません</span>
-            </div>
-          </>
-        )}
-
-        {/* 現在地の手動選択 */}
-        {(geoStatus === "denied" || geoStatus === "unavailable" || geoStatus === "found") && (
-          <select
-            className="loc-manual-select"
-            value={startId ?? ""}
-            onChange={(e) => setStartId(Number(e.target.value) || null)}
-          >
-            <option value="">現在地を選択...</option>
-            {nodes.map((n) => (
-              <option key={n.id} value={n.id}>{n.name}</option>
-            ))}
-          </select>
-        )}
+      <div className="location-banner unavailable">
+        <span className="loc-icon">⚠</span>
+        <div className="loc-text">
+          <span className="loc-label">現在地を選択してください</span>
+        </div>
+        <select
+          className="loc-manual-select"
+          value={startId ?? ""}
+          onChange={(e) => setStartId(Number(e.target.value) || null)}
+        >
+          <option value="">現在地を選択...</option>
+          {nodes.map((n) => (
+            <option key={n.id} value={n.id}>{n.name}</option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -157,7 +101,6 @@ export const HomePage: React.FC<Props> = ({ nodes, onRouteReady }) => {
                 key={n.id}
                 className="dest-card"
                 onClick={() => goTo(n)}
-                disabled={calculating !== null}
               >
                 <div className="dest-card-inner">
                   <div className="dest-card-icon">▶</div>
@@ -167,11 +110,7 @@ export const HomePage: React.FC<Props> = ({ nodes, onRouteReady }) => {
                       <span className="dest-card-desc">{n.description}</span>
                     )}
                   </div>
-                  {calculating === n.id ? (
-                    <span className="dest-card-loading">計算中...</span>
-                  ) : (
-                    <span className="dest-card-arrow">→</span>
-                  )}
+                  <span className="dest-card-arrow">→</span>
                 </div>
               </button>
             ))}

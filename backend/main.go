@@ -42,8 +42,7 @@ func main() {
 	api.GET("/nodes/:id", handlers.GetNode)
 	api.GET("/links", handlers.ListLinks)
 	api.GET("/links/:id", handlers.GetLink)
-	api.POST("/route", handlers.CalcRoute)
-	api.GET("/settings", handlers.GetSettings)
+api.GET("/settings", handlers.GetSettings)
 	api.POST("/users/register", handlers.RegisterUser)
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 

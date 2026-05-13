@@ -986,16 +986,24 @@ function UsersTab({ nodes }: { nodes: Node[] }) {
 // ── Logs Tab ──────────────────────────────────────────────────────────────────
 
 const ACTION_LABEL: Record<string, string> = {
-  app_open:     "起動",
-  nav_start:    "ナビ開始",
-  step_change:  "移動",
-  goal_reached: "到達",
+  app_open:           "起動",
+  nav_start:          "ナビ開始",
+  step_change:        "移動",
+  goal_reached:       "到達",
+  reroute_visibility: "迂回:視認性",
+  reroute_incident:   "迂回:事件等",
+  reroute_congestion: "迂回:混雑",
+  reroute_other:      "迂回:その他",
 };
 const ACTION_COLOR: Record<string, string> = {
-  app_open:     "#3b82f6",
-  nav_start:    "#22c55e",
-  step_change:  "#6b7280",
-  goal_reached: "#f59e0b",
+  app_open:           "#3b82f6",
+  nav_start:          "#22c55e",
+  step_change:        "#6b7280",
+  goal_reached:       "#f59e0b",
+  reroute_visibility: "#f97316",
+  reroute_incident:   "#ef4444",
+  reroute_congestion: "#a855f7",
+  reroute_other:      "#94a3b8",
 };
 
 function LogsTab() {

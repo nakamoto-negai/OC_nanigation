@@ -1,4 +1,4 @@
-import { Link, MapImage, Node, RouteResponse, Setting, User, UserLog } from "../types";
+import { Link, MapImage, Node, Setting, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -62,14 +62,7 @@ export const api = {
         body: JSON.stringify({ orders }),
       }),
   },
-  route: {
-    calc: (start_id: number, goal_id: number, blocked_link_ids: number[] = []) =>
-      req<RouteResponse>("/api/route", {
-        method: "POST",
-        body: JSON.stringify({ start_id, goal_id, blocked_link_ids }),
-      }),
-  },
-  settings: {
+settings: {
     get: () => req<Setting>("/api/settings"),
     update: (map_north_offset: number) =>
       adminReq<Setting>("/api/settings", { method: "PUT", body: JSON.stringify({ map_north_offset }) }),

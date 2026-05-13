@@ -30,6 +30,7 @@ type IncomingMsg struct {
 	ToNode     string `json:"to_node"`
 	FromNodeID int    `json:"from_node_id"`
 	ToNodeID   int    `json:"to_node_id"`
+	Reason     string `json:"reason"`
 }
 
 type Client struct {
@@ -171,9 +172,13 @@ func (c *Client) ReadPump(hub *Hub) {
 			})
 		} else if in.Type == "reroute" {
 			c.UserID = in.UserID
+			action := "reroute"
+			if in.Reason != "" {
+				action = "reroute_" + in.Reason
+			}
 			go database.DB.Create(&models.UserLog{
 				DeviceID:   in.UserID,
-				Action:     "reroute",
+				Action:     action,
 				FromNode:   in.FromNode,
 				ToNode:     in.ToNode,
 				Step:       in.Step,

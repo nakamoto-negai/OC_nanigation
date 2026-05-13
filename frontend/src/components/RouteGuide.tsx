@@ -1,26 +1,27 @@
 import React, { useEffect, useRef, useState } from "react";
-import { RouteResponse, RouteStepDetail } from "../types";
+import { Link, Node, RouteResponse, RouteStepDetail } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { useCompass } from "../hooks/useCompass";
 import { useRouteWS } from "../hooks/useRouteWS";
-import { api } from "../api/client";
+import { calcRoute } from "../utils/dijkstra";
 
 interface Props {
   route: RouteResponse;
+  nodes: Node[];
+  links: Link[];
   onClose: () => void;
   mapNorthOffset: number;
   onReroute: (newRoute: RouteResponse) => void;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset, onReroute }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, onClose, mapNorthOffset, onReroute }) => {
   const last = route.node_path[route.node_path.length - 1];
   const { heading, permission, requestPermission } = useCompass();
   const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [blockedLinkIds, setBlockedLinkIds] = useState<number[]>([]);
-  const [isRerouting, setIsRerouting] = useState(false);
   const [rerouteError, setRerouteError] = useState<string | null>(null);
   const [visibleStepIndex, setVisibleStepIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -38,29 +39,8 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset, on
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    let watchId: number | null = null;
-    const start = () => {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setUserLat(pos.coords.latitude);
-          setUserLng(pos.coords.longitude);
-        },
-        () => {
-          if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        }
-      );
-    };
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: "geolocation" }).then((result) => {
-        if (result.state !== "denied") start();
-      });
-    } else {
-      start();
-    }
-    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
-  }, []);
+  // geolocation disabled
+  void setUserLat; void setUserLng;
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -81,32 +61,35 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset, on
     }
   };
 
-  const handleBlock = async (
+  const REROUTE_REASONS = [
+    { label: "写真の視認性が悪くて迂回する！", reason: "visibility" },
+    { label: "事件・事故・工事があり迂回する！", reason: "incident" },
+    { label: "混雑過多で迂回する！", reason: "congestion" },
+    { label: "その他の理由で迂回する！", reason: "other" },
+  ];
+
+  const handleBlock = (
     linkId: number,
     stepNumber: number,
     fromNode: string,
     toNode: string,
+    reason: string,
   ) => {
-    if (isRerouting) return;
-    setIsRerouting(true);
-    setRerouteError(null);
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
 
     const newBlocked = [...blockedLinkIds, linkId];
     const startId = route.node_path[0].id;
     const goalId = route.node_path[route.node_path.length - 1].id;
+    const newRoute = calcRoute(nodes, links, startId, goalId, newBlocked);
 
-    try {
-      const newRoute = await api.route.calc(startId, goalId, newBlocked);
-      setBlockedLinkIds(newBlocked);
-      onReroute(newRoute);
-      sendReroute(stepNumber, route.steps.length, fromNode, toNode);
-    } catch {
+    if (!newRoute) {
       setRerouteError("迂回路が見つかりませんでした");
       errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
-    } finally {
-      setIsRerouting(false);
+      return;
     }
+    setBlockedLinkIds(newBlocked);
+    onReroute(newRoute);
+    sendReroute(stepNumber, route.steps.length, fromNode, toNode, reason);
   };
 
   return (
@@ -127,7 +110,6 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset, on
           </div>
         </div>
         <div className="route-header-right">
-          {isRerouting && <span className="rerouting-badge">迂回計算中…</span>}
           <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
         </div>
       </div>
@@ -140,16 +122,18 @@ export const RouteGuide: React.FC<Props> = ({ route, onClose, mapNorthOffset, on
 
       {visibleStepIndex < route.steps.length && (
         <div className="blocked-btn-bar">
-          <button
-            className="btn-blocked"
-            onClick={() => {
-              const s = route.steps[visibleStepIndex];
-              handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name);
-            }}
-            disabled={isRerouting}
-          >
-            ⚠ このルートが通れない
-          </button>
+          {REROUTE_REASONS.map(({ label, reason }) => (
+            <button
+              key={reason}
+              className="btn-blocked"
+              onClick={() => {
+                const s = route.steps[visibleStepIndex];
+                handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name, reason);
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 

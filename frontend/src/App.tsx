@@ -108,12 +108,14 @@ function UserApp() {
       )}
 
       {screen === "home" && (
-        <HomePage nodes={nodes} onRouteReady={handleRouteReady} />
+        <HomePage nodes={nodes} links={links} onRouteReady={handleRouteReady} />
       )}
 
       {screen === "route" && route && (
         <RouteGuide
           route={route}
+          nodes={nodes}
+          links={links}
           onClose={() => setScreen("home")}
           mapNorthOffset={settings.map_north_offset}
           onReroute={(newRoute) => setRoute(newRoute)}

@@ -445,25 +445,26 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-goal-name { font-size: 18px; font-weight: 700; color: #166534; margin-bottom: 12px; }
 
 .blocked-btn-bar {
-  padding: 6px 12px;
+  padding: 6px 10px;
   background: #fff;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
 }
 
 .btn-blocked {
-  padding: 6px 12px;
+  padding: 6px 8px;
   background: #fff7ed;
   color: #c2410c;
   border: 1px solid #fed7aa;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: fit-content;
+  text-align: center;
+  line-height: 1.3;
 }
 .btn-blocked:hover:not(:disabled) { background: #ffedd5; border-color: #fb923c; }
 .btn-blocked:disabled { opacity: 0.4; cursor: not-allowed; }
