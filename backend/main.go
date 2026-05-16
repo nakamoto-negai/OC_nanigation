@@ -42,9 +42,10 @@ func main() {
 	api.GET("/nodes/:id", handlers.GetNode)
 	api.GET("/links", handlers.ListLinks)
 	api.GET("/links/:id", handlers.GetLink)
-api.GET("/settings", handlers.GetSettings)
+	api.GET("/settings", handlers.GetSettings)
 	api.POST("/users/register", handlers.RegisterUser)
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
+	api.GET("/node-detours", handlers.ListNodeDetours)
 
 	// 管理者専用エンドポイント（トークン必須）
 	admin := api.Group("/").Use(middleware.AdminAuth())
@@ -70,6 +71,9 @@ api.GET("/settings", handlers.GetSettings)
 		admin.POST("/map-images", handlers.UploadMapImage)
 		admin.PUT("/map-images/:id/activate", handlers.ActivateMapImage)
 		admin.DELETE("/map-images/:id", handlers.DeleteMapImage)
+
+		admin.POST("/node-detours", handlers.CreateNodeDetour)
+		admin.DELETE("/node-detours/:id", handlers.DeleteNodeDetour)
 	}
 
 	r.GET("/ws/user", handlers.UserWS)

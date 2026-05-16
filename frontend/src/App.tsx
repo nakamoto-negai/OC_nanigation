@@ -5,7 +5,7 @@ import { AdminPage } from "./components/AdminPage";
 import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { useUser } from "./hooks/useUser";
-import { Link, Node, Photo, RouteResponse, Setting } from "./types";
+import { Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import "./index.css";
 
 // /admin パスかどうかで表示を切り替える
@@ -68,14 +68,15 @@ function UserApp() {
   useUser();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
+  const [nodeDetours, setNodeDetours] = useState<NodeDetour[]>([]);
   const [screen, setScreen] = useState<Screen>("home");
   const [route, setRoute] = useState<RouteResponse | null>(null);
   const [loadError, setLoadError] = useState("");
   const [settings, setSettings] = useState<Setting>({ id: 1, map_north_offset: 0 });
 
   useEffect(() => {
-    Promise.all([api.nodes.list(), api.links.list()])
-      .then(([n, l]) => { setNodes(n); setLinks(l); })
+    Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list()])
+      .then(([n, l, d]) => { setNodes(n); setLinks(l); setNodeDetours(d); })
       .catch((e) => setLoadError(e.message));
   }, []);
 
@@ -116,6 +117,7 @@ function UserApp() {
           route={route}
           nodes={nodes}
           links={links}
+          nodeDetours={nodeDetours}
           onClose={() => setScreen("home")}
           mapNorthOffset={settings.map_north_offset}
           onReroute={(newRoute) => setRoute(newRoute)}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, MapImage, Node, Photo, UserLog } from "../types";
+import { Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -18,7 +18,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "photo" | "settings" | "users" | "logs";
+type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -986,6 +986,140 @@ function UsersTab({ nodes }: { nodes: Node[] }) {
   );
 }
 
+// ── Detour Tab ────────────────────────────────────────────────────────────────
+
+function DetourTab({ nodes }: { nodes: Node[] }) {
+  const [detours, setDetours] = useState<NodeDetour[]>([]);
+  const [nodeId, setNodeId] = useState<number | "">("");
+  const [detourNodeId, setDetourNodeId] = useState<number | "">("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    api.nodeDetours.list().then(setDetours).catch(() => {});
+  }, []);
+
+  const pairedNodeIds = new Set(detours.map((d) => d.node_id));
+  const pairedDetourIds = new Set(detours.map((d) => d.detour_node_id));
+
+  const save = async () => {
+    if (nodeId === "" || detourNodeId === "") {
+      setMsg({ type: "err", text: "両方のノードを選択してください" });
+      return;
+    }
+    if (nodeId === detourNodeId) {
+      setMsg({ type: "err", text: "同じノードはペアにできません" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await api.nodeDetours.create({
+        node_id: Number(nodeId),
+        detour_node_id: Number(detourNodeId),
+      });
+      setDetours((prev) => [...prev, created]);
+      setNodeId("");
+      setDetourNodeId("");
+      setMsg({ type: "ok", text: "寄り道ペアを追加しました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("このペアを削除しますか？")) return;
+    try {
+      await api.nodeDetours.delete(id);
+      setDetours((prev) => prev.filter((d) => d.id !== id));
+      setMsg({ type: "ok", text: "削除しました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  const nodeName = (id: number) => nodes.find((n) => n.id === id)?.name ?? `#${id}`;
+
+  const availableNodes = nodes.filter((n) => !pairedNodeIds.has(n.id));
+  const availableDetours = nodes.filter((n) => !pairedDetourIds.has(n.id));
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>寄り道ペアを追加</h3>
+        {msg && (
+          <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>
+            {msg.text} ✕
+          </div>
+        )}
+        <div className="adm-field-row">
+          <div className="adm-field">
+            <label>元ノード <span className="req">*</span></label>
+            <select value={nodeId} onChange={(e) => setNodeId(Number(e.target.value) || "")}>
+              <option value="">選択してください</option>
+              {availableNodes.map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
+            <p className="hint">すでにペアが設定済みのノードは非表示</p>
+          </div>
+          <div className="adm-field arrow-field">⇄</div>
+          <div className="adm-field">
+            <label>寄り道先ノード <span className="req">*</span></label>
+            <select value={detourNodeId} onChange={(e) => setDetourNodeId(Number(e.target.value) || "")}>
+              <option value="">選択してください</option>
+              {availableDetours.map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
+            <p className="hint">すでに寄り道先として使用中のノードは非表示</p>
+          </div>
+        </div>
+        <div className="adm-actions">
+          <button
+            className="btn-primary"
+            onClick={save}
+            disabled={saving || nodeId === "" || detourNodeId === ""}
+          >
+            {saving ? "保存中..." : "追加"}
+          </button>
+        </div>
+      </div>
+
+      <div className="adm-list-col">
+        <h3>寄り道ペア一覧 <span className="count-badge">{detours.length}</span></h3>
+        {detours.length === 0 ? (
+          <p className="adm-empty">寄り道ペアがまだありません</p>
+        ) : (
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>元ノード</th>
+                <th></th>
+                <th>寄り道先ノード</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {detours.map((d) => (
+                <tr key={d.id}>
+                  <td><strong>{d.node?.name ?? nodeName(d.node_id)}</strong></td>
+                  <td className="text-muted">⇄</td>
+                  <td><strong>{d.detour_node?.name ?? nodeName(d.detour_node_id)}</strong></td>
+                  <td className="adm-row-actions">
+                    <button className="btn-del" onClick={() => del(d.id)}>削除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Logs Tab ──────────────────────────────────────────────────────────────────
 
 const ACTION_LABEL: Record<string, string> = {
@@ -1094,6 +1228,9 @@ export const AdminPage: React.FC<Props> = ({
           <button className={tab === "link" ? "active" : ""} onClick={() => setTab("link")}>
             リンク <span className="count-badge">{links.length}</span>
           </button>
+          <button className={tab === "detour" ? "active" : ""} onClick={() => setTab("detour")}>
+            寄り道
+          </button>
           <button className={tab === "photo" ? "active" : ""} onClick={() => setTab("photo")}>
             写真
           </button>
@@ -1127,6 +1264,7 @@ export const AdminPage: React.FC<Props> = ({
             onDeleted={onLinkDeleted}
           />
         )}
+        {tab === "detour" && <DetourTab nodes={nodes} />}
         {tab === "photo" && (
           <PhotoTab
             links={links}

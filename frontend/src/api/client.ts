@@ -1,4 +1,4 @@
-import { Link, MapImage, Node, Setting, User, UserLog } from "../types";
+import { Link, MapImage, Node, NodeDetour, Setting, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -86,6 +86,13 @@ settings: {
       }),
     activate: (id: number) => adminReq<MapImage>(`/api/map-images/${id}/activate`, { method: "PUT" }),
     delete: (id: number) => adminReq<void>(`/api/map-images/${id}`, { method: "DELETE" }),
+  },
+  nodeDetours: {
+    list: () => req<NodeDetour[]>("/api/node-detours"),
+    create: (data: { node_id: number; detour_node_id: number }) =>
+      adminReq<NodeDetour>("/api/node-detours", { method: "POST", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      adminReq<void>(`/api/node-detours/${id}`, { method: "DELETE" }),
   },
   admin: {
     login: (password: string) =>

@@ -78,3 +78,13 @@ export interface MapImage {
   is_active: boolean;
   created_at: string;
 }
+
+export interface NodeDetour {
+  id: number;
+  node_id: number;
+  detour_node_id: number;
+  node?: Node;
+  detour_node?: Node;
+  created_at: string;
+  updated_at: string;
+}

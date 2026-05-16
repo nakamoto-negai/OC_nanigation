@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Link, Node, RouteResponse, RouteStepDetail } from "../types";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { useCompass } from "../hooks/useCompass";
@@ -10,13 +10,23 @@ interface Props {
   route: RouteResponse;
   nodes: Node[];
   links: Link[];
+  nodeDetours: NodeDetour[];
   onClose: () => void;
   mapNorthOffset: number;
   onReroute: (newRoute: RouteResponse) => void;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, onClose, mapNorthOffset, onReroute }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, mapNorthOffset, onReroute }) => {
   const last = route.node_path[route.node_path.length - 1];
+
+  // node_id → detour_node のルックアップマップ
+  const detourMap = useMemo(() => {
+    const map = new Map<number, Node>();
+    for (const d of nodeDetours) {
+      if (d.detour_node) map.set(d.node_id, d.detour_node);
+    }
+    return map;
+  }, [nodeDetours]);
   const { heading, permission, requestPermission } = useCompass();
   const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -38,6 +48,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, onClose, mapN
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  useEffect(() => {
+    setVisibleStepIndex(0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [route]);
 
   // geolocation disabled
   void setUserLat; void setUserLng;
@@ -128,38 +143,65 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, onClose, mapN
       )}
 
       <div className="route-guide-scroll" ref={scrollRef} onScroll={handleScroll}>
-        {route.steps.map((s: RouteStepDetail, i) => (
-          <div key={i} className="rg-step">
-            <div className="rg-step-header">
-              <div className="rg-step-number">{s.step_number}</div>
-              <div className="rg-step-title">
-                <span className="rg-from">{s.from_node.name}</span>
-                <span className="rg-arrow">→</span>
-                <span className="rg-to">{s.to_node.name}</span>
+        {route.steps.map((s: RouteStepDetail, i) => {
+          const detourNode = detourMap.get(s.to_node.id);
+          return (
+            <div key={i} className="rg-step">
+              <div className="rg-step-header">
+                <div className="rg-step-number">{s.step_number}</div>
+                <div className="rg-step-title">
+                  <span className="rg-from">{s.from_node.name}</span>
+                  <span className="rg-arrow">→</span>
+                  <span className="rg-to">{s.to_node.name}</span>
+                </div>
+                {s.link.photos && s.link.photos.length > 0 && (
+                  <span className="rg-photo-badge">📷 {s.link.photos.length}</span>
+                )}
               </div>
+              {s.link.name && <p className="rg-link-name">{s.link.name}</p>}
+              {s.link.description && <p className="rg-description">{s.link.description}</p>}
+              <p className="rg-distance">距離: {s.link.distance.toFixed(1)}</p>
+              <CompassGuide
+                step={s}
+                heading={heading}
+                permission={permission}
+                onRequestPermission={requestPermission}
+                userLat={userLat}
+                userLng={userLng}
+                mapNorthOffset={mapNorthOffset}
+              />
               {s.link.photos && s.link.photos.length > 0 && (
-                <span className="rg-photo-badge">📷 {s.link.photos.length}</span>
+                <div className="rg-photos">
+                  <PhotoSlider photos={s.link.photos} />
+                </div>
+              )}
+              {detourNode && (
+                <div className="rg-detour-suggestion">
+                  <span className="rg-detour-badge">寄り道提案</span>
+                  <span className="rg-detour-name">{detourNode.name}</span>
+                  {detourNode.description && (
+                    <span className="rg-detour-desc">{detourNode.description}</span>
+                  )}
+                  <button
+                    className="btn-detour-start"
+                    onClick={() => {
+                      const newRoute = calcRoute(nodes, links, s.to_node.id, detourNode.id, blockedLinkIds);
+                      if (!newRoute) {
+                        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+                        setRerouteError("寄り道先への経路が見つかりませんでした");
+                        errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
+                        return;
+                      }
+                      onReroute(newRoute);
+                    }}
+                  >
+                    ここから案内する
+                  </button>
+                </div>
               )}
             </div>
-            {s.link.name && <p className="rg-link-name">{s.link.name}</p>}
-            {s.link.description && <p className="rg-description">{s.link.description}</p>}
-            <p className="rg-distance">距離: {s.link.distance.toFixed(1)}</p>
-            <CompassGuide
-              step={s}
-              heading={heading}
-              permission={permission}
-              onRequestPermission={requestPermission}
-              userLat={userLat}
-              userLng={userLng}
-              mapNorthOffset={mapNorthOffset}
-            />
-            {s.link.photos && s.link.photos.length > 0 && (
-              <div className="rg-photos">
-                <PhotoSlider photos={s.link.photos} />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         <div className="rg-goal">
           <div className="rg-goal-icon">ゴール</div>
