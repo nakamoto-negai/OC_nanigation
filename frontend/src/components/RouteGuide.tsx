@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail } from "../types";
+
+const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
+const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
+
+function CongestionBadge({ level, alwaysShow }: { level: number; alwaysShow?: boolean }) {
+  if (level === 0 && !alwaysShow) return null;
+  return (
+    <span className="rg-congestion-badge" style={{ background: CONGESTION_COLORS[level] ?? CONGESTION_COLORS[0] }}>
+      {CONGESTION_LABELS[level] ?? "不明"}
+    </span>
+  );
+}
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { useCompass } from "../hooks/useCompass";
@@ -27,6 +39,20 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     }
     return map;
   }, [nodeDetours]);
+
+  // ルート上の各ステップに紐づく寄り道先ノード（重複除去）
+  const routeDetourNodes = useMemo(() => {
+    const seen = new Set<number>();
+    const result: Node[] = [];
+    for (const s of route.steps) {
+      const dn = detourMap.get(s.to_node.id);
+      if (dn && !seen.has(dn.id)) {
+        seen.add(dn.id);
+        result.push(dn);
+      }
+    }
+    return result;
+  }, [route.steps, detourMap]);
   const { heading, permission, requestPermission } = useCompass();
   const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -117,6 +143,23 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
         <div className="route-header-right">
           <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
         </div>
+        <div className="route-congestion-row">
+          <div className="rcc-dest">
+            <span className="rcc-label">目的地</span>
+            <span className="rcc-name">{last.name}</span>
+            <CongestionBadge level={last.congestion_level} alwaysShow />
+          </div>
+          {routeDetourNodes.map((dn) => (
+            <React.Fragment key={dn.id}>
+              <span className="rcc-sep">›</span>
+              <div className="rcc-detour">
+                <span className="rcc-label">寄り道</span>
+                <span className="rcc-name">{dn.name}</span>
+                <CongestionBadge level={dn.congestion_level} alwaysShow />
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
 
       {rerouteError && (
@@ -177,8 +220,16 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
               )}
               {detourNode && (
                 <div className="rg-detour-suggestion">
-                  <span className="rg-detour-badge">寄り道提案</span>
-                  <span className="rg-detour-name">{detourNode.name}</span>
+                  <div className="rg-detour-header">
+                    <span className="rg-detour-badge">寄り道提案</span>
+                    <span className="rg-detour-name">{detourNode.name}</span>
+                  </div>
+                  <div className="rg-detour-status">
+                    <CongestionBadge level={detourNode.congestion_level} />
+                    {detourNode.wait_time > 0 && (
+                      <span className="rg-detour-wait">待ち約{detourNode.wait_time}分</span>
+                    )}
+                  </div>
                   {detourNode.description && (
                     <span className="rg-detour-desc">{detourNode.description}</span>
                   )}

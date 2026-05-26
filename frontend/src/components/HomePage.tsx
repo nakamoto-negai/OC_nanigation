@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { Link, Node, RouteResponse } from "../types";
 import { calcRoute } from "../utils/dijkstra";
 
+const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
+const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
+
 interface Props {
   nodes: Node[];
   links: Link[];
@@ -105,7 +108,14 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
                 <div className="dest-card-inner">
                   <div className="dest-card-icon">▶</div>
                   <div className="dest-card-info">
-                    <span className="dest-card-name">{n.name}</span>
+                    <div className="dest-card-name-row">
+                      <span className="dest-card-name">{n.name}</span>
+                      {n.congestion_level > 0 && (
+                        <span className="dest-congestion-badge" style={{ background: CONGESTION_COLORS[n.congestion_level] }}>
+                          {CONGESTION_LABELS[n.congestion_level]}
+                        </span>
+                      )}
+                    </div>
                     {n.description && (
                       <span className="dest-card-desc">{n.description}</span>
                     )}

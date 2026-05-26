@@ -7,6 +7,8 @@ export interface Node {
   lat: number | null;
   lng: number | null;
   is_selectable: boolean;
+  congestion_level: number;
+  wait_time: number;
   created_at: string;
   updated_at: string;
 }

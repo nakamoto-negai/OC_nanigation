@@ -2,17 +2,21 @@ package models
 
 import "time"
 
+// CongestionLevel: 0=不明, 1=空き, 2=普通, 3=混雑
+// WaitTime: 推定待ち時間（分）。0=なし/不明
 type Node struct {
-	ID           uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	Name         string    `json:"name" gorm:"not null"`
-	Description  string    `json:"description"`
-	X            float64   `json:"x" gorm:"not null"`
-	Y            float64   `json:"y" gorm:"not null"`
-	Lat          *float64  `json:"lat"`
-	Lng          *float64  `json:"lng"`
-	IsSelectable bool      `json:"is_selectable" gorm:"not null;default:true"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID               uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	Name             string    `json:"name" gorm:"not null"`
+	Description      string    `json:"description"`
+	X                float64   `json:"x" gorm:"not null"`
+	Y                float64   `json:"y" gorm:"not null"`
+	Lat              *float64  `json:"lat"`
+	Lng              *float64  `json:"lng"`
+	IsSelectable     bool      `json:"is_selectable" gorm:"not null;default:true"`
+	CongestionLevel  int       `json:"congestion_level" gorm:"not null;default:0"`
+	WaitTime         int       `json:"wait_time" gorm:"not null;default:0"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // NodeDetour はノード同士の寄り道提案ペアリングを管理する中間テーブル。

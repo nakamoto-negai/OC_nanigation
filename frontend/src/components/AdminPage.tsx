@@ -84,6 +84,22 @@ function MapPicker({
   );
 }
 
+// ── Congestion ───────────────────────────────────────────────────────────────
+
+const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
+const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
+
+function CongestionBadge({ level }: { level: number }) {
+  const label = CONGESTION_LABELS[level] ?? "不明";
+  const color = CONGESTION_COLORS[level] ?? CONGESTION_COLORS[0];
+  return (
+    <span style={{
+      display: "inline-block", padding: "2px 8px", borderRadius: 12,
+      background: color, color: "white", fontSize: 11, fontWeight: 700,
+    }}>{label}</span>
+  );
+}
+
 // ── Node Form ────────────────────────────────────────────────────────────────
 
 interface NodeFormState {
@@ -95,10 +111,12 @@ interface NodeFormState {
   lat: string;
   lng: string;
   isSelectable: boolean;
+  congestionLevel: number;
+  waitTime: string;
 }
 
 const emptyNode = (): NodeFormState => ({
-  id: null, name: "", description: "", x: "", y: "", lat: "", lng: "", isSelectable: true,
+  id: null, name: "", description: "", x: "", y: "", lat: "", lng: "", isSelectable: true, congestionLevel: 0, waitTime: "0",
 });
 
 function NodeTab({
@@ -167,6 +185,8 @@ function NodeTab({
         lat: form.lat !== "" ? Number(form.lat) : null,
         lng: form.lng !== "" ? Number(form.lng) : null,
         is_selectable: form.isSelectable,
+        congestion_level: form.congestionLevel,
+        wait_time: Number(form.waitTime) || 0,
       };
       if (form.id) {
         const updated = await api.nodes.update(form.id, data);
@@ -192,6 +212,8 @@ function NodeTab({
       lat: n.lat != null ? String(n.lat) : "",
       lng: n.lng != null ? String(n.lng) : "",
       isSelectable: n.is_selectable,
+      congestionLevel: n.congestion_level,
+      waitTime: String(n.wait_time),
     });
     setMsg(null);
   };
@@ -271,6 +293,32 @@ function NodeTab({
           <p className="hint">オフにすると目的地選択リストに表示されません（中継地点などに使用）</p>
         </div>
 
+        <div className="adm-field-row">
+          <div className="adm-field">
+            <label>混雑度</label>
+            <select
+              value={form.congestionLevel}
+              onChange={(e) => setForm((f) => ({ ...f, congestionLevel: Number(e.target.value) }))}
+            >
+              <option value={0}>不明</option>
+              <option value={1}>空き</option>
+              <option value={2}>普通</option>
+              <option value={3}>混雑</option>
+            </select>
+          </div>
+          <div className="adm-field">
+            <label>待ち時間（分）</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.waitTime}
+              onChange={(e) => setForm((f) => ({ ...f, waitTime: e.target.value }))}
+              placeholder="0"
+            />
+          </div>
+        </div>
+
         <div className="adm-actions" style={{ marginTop: 16 }}>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "保存中..." : form.id ? "更新" : "追加"}
@@ -309,6 +357,8 @@ function NodeTab({
                 <th>X</th><th>Y</th>
                 <th>緯度</th><th>経度</th>
                 <th>目的地</th>
+                <th>混雑度</th>
+                <th>待ち時間</th>
                 <th></th>
               </tr>
             </thead>
@@ -322,6 +372,8 @@ function NodeTab({
                   <td className="num">{n.lat != null ? n.lat.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="num">{n.lng != null ? n.lng.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="center">{n.is_selectable ? "✓" : <span className="text-muted">—</span>}</td>
+                  <td className="center"><CongestionBadge level={n.congestion_level} /></td>
+                  <td className="num">{n.wait_time > 0 ? `${n.wait_time}分` : <span className="text-muted">—</span>}</td>
                   <td className="adm-row-actions">
                     <button className="btn-edit" onClick={() => startEdit(n)}>編集</button>
                     <button className="btn-del" onClick={() => del(n.id, n.name)}>削除</button>
