@@ -16,7 +16,11 @@ func GetSettings(c *gin.Context) {
 
 func UpdateSettings(c *gin.Context) {
 	var body struct {
-		MapNorthOffset float64 `json:"map_north_offset"`
+		MapNorthOffset    float64 `json:"map_north_offset"`
+		RerouteVisibility bool    `json:"reroute_visibility"`
+		RerouteIncident   bool    `json:"reroute_incident"`
+		ReroteCongestion  bool    `json:"reroute_congestion"`
+		RerouteOther      bool    `json:"reroute_other"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -25,6 +29,10 @@ func UpdateSettings(c *gin.Context) {
 	var s models.Setting
 	database.DB.FirstOrCreate(&s, models.Setting{ID: 1})
 	s.MapNorthOffset = body.MapNorthOffset
+	s.RerouteVisibility = body.RerouteVisibility
+	s.RerouteIncident = body.RerouteIncident
+	s.ReroteCongestion = body.ReroteCongestion
+	s.RerouteOther = body.RerouteOther
 	database.DB.Save(&s)
 	c.JSON(http.StatusOK, s)
 }

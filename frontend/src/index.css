@@ -459,28 +459,28 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-detour-suggestion {
   display: flex; flex-direction: column; gap: 6px;
   margin-top: 10px; padding: 8px 10px;
-  background: #0e7490; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+  background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
 }
 .rg-detour-header { display: flex; align-items: center; gap: 8px; }
 .rg-detour-badge {
-  font-size: 10px; font-weight: 700; color: #93c5fd;
-  background: rgba(255,255,255,0.15); border-radius: 10px; padding: 2px 8px;
+  font-size: 10px; font-weight: 700; color: #c2410c;
+  background: #fed7aa; border-radius: 10px; padding: 2px 8px;
   white-space: nowrap; flex-shrink: 0;
 }
-.rg-detour-name { font-size: 14px; font-weight: 700; color: white; }
+.rg-detour-name { font-size: 14px; font-weight: 700; color: #c2410c; }
 .rg-detour-status { display: flex; align-items: center; gap: 8px; }
 .rg-detour-wait {
-  font-size: 12px; font-weight: 700; color: #93c5fd;
-  background: rgba(255,255,255,0.12); border-radius: 8px; padding: 2px 8px;
+  font-size: 12px; font-weight: 700; color: #c2410c;
+  background: #ffedd5; border-radius: 8px; padding: 2px 8px;
 }
-.rg-detour-desc { font-size: 12px; color: #93c5fd; }
+.rg-detour-desc { font-size: 12px; color: #c2410c; }
 .btn-detour-start {
   width: 100%; margin-top: 6px; padding: 8px 0;
-  background: white; color: #0e7490; font-size: 13px; font-weight: 700;
+  background: #f97316; color: white; font-size: 13px; font-weight: 700;
   border: none; border-radius: 6px; cursor: pointer;
   transition: background 0.15s;
 }
-.btn-detour-start:active { background: #e0f2fe; }
+.btn-detour-start:active { background: #ea580c; }
 
 .rg-goal {
   flex: none;
@@ -525,6 +525,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .btn-blocked:hover:not(:disabled) { background: #ffedd5; border-color: #fb923c; }
 .btn-blocked:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-blocked-single { grid-column: 1 / -1; font-size: 14px; padding: 10px 8px; }
 
 .route-header-right {
   display: flex; align-items: center; gap: 8px; flex-shrink: 0;

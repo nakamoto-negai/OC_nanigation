@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail } from "../types";
+import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail, Setting } from "../types";
 
 const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -24,11 +24,12 @@ interface Props {
   links: Link[];
   nodeDetours: NodeDetour[];
   onClose: () => void;
-  mapNorthOffset: number;
+  settings: Setting;
   onReroute: (newRoute: RouteResponse) => void;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, mapNorthOffset, onReroute }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute }) => {
+  const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
 
   // node_id → detour_node のルックアップマップ
@@ -103,11 +104,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   };
 
   const REROUTE_REASONS = [
-    { label: "写真識別不可で迂回する！", reason: "visibility" },
-    { label: "事故・工事で迂回する！", reason: "incident" },
-    { label: "混雑過多で迂回する！", reason: "congestion" },
-    { label: "その他で迂回する！", reason: "other" },
-  ];
+    { label: "写真識別不可で迂回する！", reason: "visibility", enabled: settings.reroute_visibility },
+    { label: "事故・工事で迂回する！",   reason: "incident",   enabled: settings.reroute_incident },
+    { label: "混雑過多で迂回する！",     reason: "congestion", enabled: settings.reroute_congestion },
+    { label: "その他で迂回する！",       reason: "other",      enabled: settings.reroute_other },
+  ].filter((r) => r.enabled);
 
   const handleBlock = (
     linkId: number,
@@ -170,18 +171,30 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
 
       {visibleStepIndex < route.steps.length && (
         <div className="blocked-btn-bar">
-          {REROUTE_REASONS.map(({ label, reason }) => (
+          {REROUTE_REASONS.length === 0 ? (
             <button
-              key={reason}
-              className="btn-blocked"
+              className="btn-blocked btn-blocked-single"
               onClick={() => {
                 const s = route.steps[visibleStepIndex];
-                handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name, reason);
+                handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name, "other");
               }}
             >
-              {label}
+              迂回する
             </button>
-          ))}
+          ) : (
+            REROUTE_REASONS.map(({ label, reason }) => (
+              <button
+                key={reason}
+                className="btn-blocked"
+                onClick={() => {
+                  const s = route.steps[visibleStepIndex];
+                  handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name, reason);
+                }}
+              >
+                {label}
+              </button>
+            ))
+          )}
         </div>
       )}
 
@@ -224,12 +237,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                     <span className="rg-detour-badge">寄り道提案</span>
                     <span className="rg-detour-name">{detourNode.name}</span>
                   </div>
-                  <div className="rg-detour-status">
-                    <CongestionBadge level={detourNode.congestion_level} />
-                    {detourNode.wait_time > 0 && (
+                  {detourNode.wait_time > 0 && (
+                    <div className="rg-detour-status">
                       <span className="rg-detour-wait">待ち約{detourNode.wait_time}分</span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   {detourNode.description && (
                     <span className="rg-detour-desc">{detourNode.description}</span>
                   )}
@@ -246,7 +258,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       onReroute(newRoute);
                     }}
                   >
-                    ここから案内する
+                    ここに進む
                   </button>
                 </div>
               )}

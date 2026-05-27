@@ -64,8 +64,8 @@ export const api = {
   },
 settings: {
     get: () => req<Setting>("/api/settings"),
-    update: (map_north_offset: number) =>
-      adminReq<Setting>("/api/settings", { method: "PUT", body: JSON.stringify({ map_north_offset }) }),
+    update: (data: Partial<Setting>) =>
+      adminReq<Setting>("/api/settings", { method: "PUT", body: JSON.stringify(data) }),
   },
   users: {
     register: (device_id: string) =>

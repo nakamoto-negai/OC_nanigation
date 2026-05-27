@@ -52,6 +52,10 @@ export interface RouteResponse {
 export interface Setting {
   id: number;
   map_north_offset: number;
+  reroute_visibility: boolean;
+  reroute_incident: boolean;
+  reroute_congestion: boolean;
+  reroute_other: boolean;
 }
 
 export interface User {

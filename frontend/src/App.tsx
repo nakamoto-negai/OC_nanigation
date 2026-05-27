@@ -72,7 +72,11 @@ function UserApp() {
   const [screen, setScreen] = useState<Screen>("home");
   const [route, setRoute] = useState<RouteResponse | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [settings, setSettings] = useState<Setting>({ id: 1, map_north_offset: 0 });
+  const [settings, setSettings] = useState<Setting>({
+    id: 1, map_north_offset: 0,
+    reroute_visibility: true, reroute_incident: true,
+    reroute_congestion: true, reroute_other: true,
+  });
 
   useEffect(() => {
     Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list()])
@@ -119,7 +123,7 @@ function UserApp() {
           links={links}
           nodeDetours={nodeDetours}
           onClose={() => setScreen("home")}
-          mapNorthOffset={settings.map_north_offset}
+          settings={settings}
           onReroute={(newRoute) => setRoute(newRoute)}
         />
       )}

@@ -734,6 +734,10 @@ function PhotoTab({
 
 function SettingsTab() {
   const [offset, setOffset] = useState(0);
+  const [rerouteVisibility, setRerouteVisibility] = useState(true);
+  const [rerouteIncident, setRerouteIncident] = useState(true);
+  const [reroteCongestion, setReroteCongestion] = useState(true);
+  const [rerouteOther, setRerouteOther] = useState(true);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [mapImages, setMapImages] = useState<MapImage[]>([]);
@@ -748,6 +752,10 @@ function SettingsTab() {
       api.mapImages.list(),
     ]).then(([s, imgs]) => {
       setOffset(s.map_north_offset);
+      setRerouteVisibility(s.reroute_visibility);
+      setRerouteIncident(s.reroute_incident);
+      setReroteCongestion(s.reroute_congestion);
+      setRerouteOther(s.reroute_other);
       setMapImages(imgs);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -755,7 +763,13 @@ function SettingsTab() {
 
   const saveSettings = async () => {
     try {
-      await api.settings.update(offset);
+      await api.settings.update({
+        map_north_offset: offset,
+        reroute_visibility: rerouteVisibility,
+        reroute_incident: rerouteIncident,
+        reroute_congestion: reroteCongestion,
+        reroute_other: rerouteOther,
+      });
       setMsg({ type: "ok", text: "設定を保存しました" });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
@@ -842,6 +856,22 @@ function SettingsTab() {
             min="-180" max="360" step="1"
           />
         </div>
+        <div className="adm-section-label" style={{ marginTop: 24 }}>迂回ボタン表示設定</div>
+        <p className="hint" style={{ marginBottom: 8 }}>オフにしたボタンはユーザーの道案内画面に表示されません。</p>
+        {[
+          { label: "写真識別不可で迂回する！", value: rerouteVisibility, set: setRerouteVisibility },
+          { label: "事故・工事で迂回する！",   value: rerouteIncident,   set: setRerouteIncident },
+          { label: "混雑過多で迂回する！",     value: reroteCongestion,  set: setReroteCongestion },
+          { label: "その他で迂回する！",       value: rerouteOther,      set: setRerouteOther },
+        ].map(({ label, value, set }) => (
+          <div key={label} className="adm-field">
+            <label className="adm-checkbox-label">
+              <input type="checkbox" checked={value} onChange={(e) => set(e.target.checked)} />
+              {label}
+            </label>
+          </div>
+        ))}
+
         <div className="adm-actions">
           <button className="btn-primary" onClick={saveSettings}>保存</button>
         </div>
