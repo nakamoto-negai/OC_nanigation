@@ -11,14 +11,14 @@ import (
 
 func ListNodes(c *gin.Context) {
 	var nodes []models.Node
-	database.DB.Find(&nodes)
+	database.DB.Preload("Category").Find(&nodes)
 	c.JSON(http.StatusOK, nodes)
 }
 
 func GetNode(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var node models.Node
-	if err := database.DB.First(&node, id).Error; err != nil {
+	if err := database.DB.Preload("Category").First(&node, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
 		return
 	}
@@ -50,6 +50,7 @@ func UpdateNode(c *gin.Context) {
 		return
 	}
 	database.DB.Save(&node)
+	database.DB.Preload("Category").First(&node, node.ID)
 	c.JSON(http.StatusOK, node)
 }
 

@@ -57,6 +57,11 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px;
   background: white; font-size: 13px; min-width: 180px;
 }
+.loc-auto-btn {
+  font-size: 11px; color: #3b82f6; background: none; border: none;
+  cursor: pointer; text-decoration: underline; padding: 0;
+}
+.loc-auto-btn:hover { color: #1d4ed8; }
 
 .home-error {
   background: #fef2f2; border-bottom: 2px solid #fca5a5;
@@ -68,6 +73,20 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .dest-empty { color: #94a3b8; font-size: 14px; padding: 40px 0; text-align: center; }
 
 .dest-list { display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
+.dest-groups { display: flex; flex-direction: column; gap: 12px; }
+.dest-group { display: flex; flex-direction: column; gap: 0; }
+.dest-group-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 640px;
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #3b82f6;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 6px 4px; border-bottom: 2px solid #e2e8f0;
+  text-align: left;
+}
+.dest-group-heading:hover { color: #2563eb; }
+.dest-group-arrow { font-size: 10px; color: #94a3b8; }
+.dest-group .dest-list { padding-top: 8px; }
 
 .dest-card {
   width: 100%; background: white; border: 1px solid #e2e8f0;
@@ -162,6 +181,26 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .adm-field textarea { resize: vertical; }
 .adm-field input[type="file"] { padding: 6px; background: white; }
+.adm-cat-row { display: flex; gap: 6px; align-items: stretch; }
+.adm-cat-row select { flex: 1; }
+.btn-add-cat {
+  padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 7px;
+  background: #f8fafc; color: #3b82f6; font-size: 16px; cursor: pointer; line-height: 1;
+}
+.btn-add-cat:hover { background: #eff6ff; border-color: #3b82f6; }
+.adm-inline-cat-form {
+  display: flex; gap: 6px; align-items: center; margin-top: 6px;
+  padding: 8px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 7px;
+}
+.adm-inline-cat-form input {
+  flex: 1; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 13px;
+}
+.adm-inline-cat-form button {
+  padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;
+  border: 1px solid #e2e8f0; background: white;
+}
+.adm-inline-cat-form button:first-of-type { background: #3b82f6; color: white; border-color: #3b82f6; }
+.adm-inline-cat-form button:first-of-type:disabled { opacity: 0.6; cursor: default; }
 .adm-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1e293b; cursor: pointer; }
 .adm-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
 .req { color: #ef4444; }

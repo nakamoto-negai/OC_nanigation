@@ -1,3 +1,12 @@
+export interface Category {
+  id: number;
+  name: string;
+  sort_order: number;
+  is_open_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Node {
   id: number;
   name: string;
@@ -6,6 +15,8 @@ export interface Node {
   y: number;
   lat: number | null;
   lng: number | null;
+  category_id: number | null;
+  category?: Category;
   is_selectable: boolean;
   congestion_level: number;
   wait_time: number;

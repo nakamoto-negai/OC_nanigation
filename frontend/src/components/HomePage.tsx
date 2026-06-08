@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, Node, RouteResponse } from "../types";
+import React, { useEffect, useState } from "react";
+import { Category, Link, Node, RouteResponse } from "../types";
 import { calcRoute } from "../utils/dijkstra";
 
 const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
@@ -39,10 +39,49 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [startId, setStartId] = useState<number | null>(null);
+  const [manualStart, setManualStart] = useState(false);
   const [error, setError] = useState("");
 
-  // geolocation disabled
-  void geoStatus; void setGeoStatus; void userLat; void setUserLat; void userLng; void setUserLng; void nearestNode;
+  // 位置情報の取得・監視
+  useEffect(() => {
+    if (!navigator.geolocation) { setGeoStatus("unavailable"); return; }
+
+    let watchId: number | null = null;
+
+    const startWatching = () => {
+      setGeoStatus("pending");
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLat(pos.coords.latitude);
+          setUserLng(pos.coords.longitude);
+          setGeoStatus("found");
+        },
+        (err) => {
+          setGeoStatus(err.code === err.PERMISSION_DENIED ? "denied" : "unavailable");
+        },
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+      );
+    };
+
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" as PermissionName }).then((result) => {
+        if (result.state === "denied") { setGeoStatus("denied"); return; }
+        startWatching();
+        result.onchange = () => { if (result.state === "denied") setGeoStatus("denied"); };
+      });
+    } else {
+      startWatching();
+    }
+
+    return () => { if (watchId != null) navigator.geolocation.clearWatch(watchId); };
+  }, []);
+
+  // GPS 更新時に最近傍ノードを自動設定（手動変更していない場合）
+  useEffect(() => {
+    if (manualStart || userLat == null || userLng == null) return;
+    const nearest = nearestNode(nodes, userLat, userLng);
+    if (nearest) setStartId(nearest.id);
+  }, [userLat, userLng, nodes, manualStart]);
 
   const startNode = nodes.find((n) => n.id === startId) ?? null;
 
@@ -66,24 +105,125 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
 
   const destinations = nodes.filter((n) => n.id !== startId && n.is_selectable);
 
+  // カテゴリ別グループ（Category オブジェクト使用、sort_order 昇順、未設定は末尾）
+  type Group = { key: string; label: string; cat: Category | null; items: Node[] };
+  const grouped: Group[] = [];
+  const seenIds = new Set<number>();
+  const sorted = [...destinations].sort((a, b) => {
+    const ao = a.category?.sort_order ?? Infinity;
+    const bo = b.category?.sort_order ?? Infinity;
+    if (ao !== bo) return ao - bo;
+    return (a.category?.id ?? Infinity) - (b.category?.id ?? Infinity);
+  });
+  for (const n of sorted) {
+    const cat = n.category ?? null;
+    const key = cat ? String(cat.id) : "__none__";
+    if (!grouped.find((g) => g.key === key)) {
+      if (cat && seenIds.has(cat.id)) continue;
+      if (cat) seenIds.add(cat.id);
+      grouped.push({ key, label: cat?.name ?? "その他", cat, items: [] });
+    }
+    grouped.find((g) => g.key === key)!.items.push(n);
+  }
+
+  // アコーディオン開閉状態（初期値は is_open_default、未設定グループは open）
+  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setOpenKeys((prev) => {
+      const next = { ...prev };
+      for (const g of grouped) {
+        if (!(g.key in next)) {
+          next[g.key] = g.cat?.is_open_default ?? true;
+        }
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destinations.length]);
+
+  const toggleGroup = (key: string) =>
+    setOpenKeys((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const isOpen = (key: string) => openKeys[key] ?? true;
+
+  const useAccordion = grouped.length > 1 || (grouped.length === 1 && grouped[0].key !== "__none__");
+
+  const DestCard = ({ n }: { n: (typeof destinations)[0] }) => (
+    <button className="dest-card" onClick={() => goTo(n)}>
+      <div className="dest-card-inner">
+        <div className="dest-card-icon">▶</div>
+        <div className="dest-card-info">
+          <div className="dest-card-name-row">
+            <span className="dest-card-name">{n.name}</span>
+            {n.congestion_level > 0 && (
+              <span className="dest-congestion-badge" style={{ background: CONGESTION_COLORS[n.congestion_level] }}>
+                {CONGESTION_LABELS[n.congestion_level]}
+              </span>
+            )}
+          </div>
+          {n.description && <span className="dest-card-desc">{n.description}</span>}
+        </div>
+        <span className="dest-card-arrow">→</span>
+      </div>
+    </button>
+  );
+
   return (
     <div className="home-page">
       {/* 現在地バナー */}
-      <div className="location-banner unavailable">
-        <span className="loc-icon">⚠</span>
+      <div className={`location-banner ${geoStatus}`}>
+        <span className={`loc-icon${geoStatus === "pending" ? " spin" : ""}`}>
+          {geoStatus === "pending" ? "⌛" : geoStatus === "found" ? "📍" : "⚠"}
+        </span>
         <div className="loc-text">
-          <span className="loc-label">現在地を選択してください</span>
+          {geoStatus === "pending" && (
+            <span className="loc-label">現在地を特定しています...</span>
+          )}
+          {geoStatus === "found" && startNode && (
+            <>
+              <span className="loc-label">現在地（自動検出）</span>
+              <span className="loc-name">{startNode.name}</span>
+            </>
+          )}
+          {geoStatus === "found" && !startNode && (
+            <span className="loc-label">近くに登録地点がありません</span>
+          )}
+          {geoStatus === "denied" && (
+            <span className="loc-label">位置情報の使用が許可されていません</span>
+          )}
+          {geoStatus === "unavailable" && (
+            <span className="loc-label">現在地を選択してください</span>
+          )}
         </div>
-        <select
-          className="loc-manual-select"
-          value={startId ?? ""}
-          onChange={(e) => setStartId(Number(e.target.value) || null)}
-        >
-          <option value="">現在地を選択...</option>
-          {nodes.map((n) => (
-            <option key={n.id} value={n.id}>{n.name}</option>
-          ))}
-        </select>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+          <select
+            className="loc-manual-select"
+            value={startId ?? ""}
+            onChange={(e) => {
+              setStartId(Number(e.target.value) || null);
+              setManualStart(true);
+            }}
+          >
+            <option value="">現在地を選択...</option>
+            {nodes.map((n) => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+          {manualStart && geoStatus === "found" && (
+            <button
+              className="loc-auto-btn"
+              onClick={() => {
+                setManualStart(false);
+                if (userLat != null && userLng != null) {
+                  const nearest = nearestNode(nodes, userLat, userLng);
+                  if (nearest) setStartId(nearest.id);
+                }
+              }}
+            >
+              自動検出に戻す
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -97,32 +237,24 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
           <p className="dest-empty">管理画面でノードを登録してください</p>
         ) : destinations.length === 0 ? (
           <p className="dest-empty">他の目的地がありません</p>
-        ) : (
+        ) : !useAccordion ? (
           <div className="dest-list">
-            {destinations.map((n) => (
-              <button
-                key={n.id}
-                className="dest-card"
-                onClick={() => goTo(n)}
-              >
-                <div className="dest-card-inner">
-                  <div className="dest-card-icon">▶</div>
-                  <div className="dest-card-info">
-                    <div className="dest-card-name-row">
-                      <span className="dest-card-name">{n.name}</span>
-                      {n.congestion_level > 0 && (
-                        <span className="dest-congestion-badge" style={{ background: CONGESTION_COLORS[n.congestion_level] }}>
-                          {CONGESTION_LABELS[n.congestion_level]}
-                        </span>
-                      )}
-                    </div>
-                    {n.description && (
-                      <span className="dest-card-desc">{n.description}</span>
-                    )}
+            {grouped[0]?.items.map((n) => <DestCard key={n.id} n={n} />)}
+          </div>
+        ) : (
+          <div className="dest-groups">
+            {grouped.map(({ key, label, items }) => (
+              <div key={key} className="dest-group">
+                <button className="dest-group-heading" onClick={() => toggleGroup(key)}>
+                  <span>{label}</span>
+                  <span className="dest-group-arrow">{isOpen(key) ? "▲" : "▼"}</span>
+                </button>
+                {isOpen(key) && (
+                  <div className="dest-list">
+                    {items.map((n) => <DestCard key={n.id} n={n} />)}
                   </div>
-                  <span className="dest-card-arrow">→</span>
-                </div>
-              </button>
+                )}
+              </div>
             ))}
           </div>
         )}

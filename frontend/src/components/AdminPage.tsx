@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
+import { Category, Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -18,7 +18,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs";
+type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -106,6 +106,7 @@ interface NodeFormState {
   id: number | null;
   name: string;
   description: string;
+  categoryId: number | "";
   x: string;
   y: string;
   lat: string;
@@ -116,25 +117,52 @@ interface NodeFormState {
 }
 
 const emptyNode = (): NodeFormState => ({
-  id: null, name: "", description: "", x: "", y: "", lat: "", lng: "", isSelectable: true, congestionLevel: 0, waitTime: "0",
+  id: null, name: "", description: "", categoryId: "", x: "", y: "", lat: "", lng: "", isSelectable: true, congestionLevel: 0, waitTime: "0",
 });
 
 function NodeTab({
   nodes,
+  categories: categoriesProp,
   onCreated,
   onUpdated,
   onDeleted,
+  onCategoryCreated,
 }: {
   nodes: Node[];
+  categories: Category[];
   onCreated: (n: Node) => void;
   onUpdated: (n: Node) => void;
   onDeleted: (id: number) => void;
+  onCategoryCreated?: (cat: Category) => void;
 }) {
   const [form, setForm] = useState<NodeFormState>(emptyNode());
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [fillGeo, setFillGeo] = useState(false);
   const [mapImage, setMapImage] = useState<MapImage | null>(null);
+  const [categories, setCategories] = useState<Category[]>(categoriesProp);
+  const [newCatName, setNewCatName] = useState("");
+  const [showNewCat, setShowNewCat] = useState(false);
+  const [addingCat, setAddingCat] = useState(false);
+
+  useEffect(() => { setCategories(categoriesProp); }, [categoriesProp]);
+
+  const addCategory = async () => {
+    if (!newCatName.trim()) return;
+    setAddingCat(true);
+    try {
+      const cat = await api.categories.create({ name: newCatName.trim(), sort_order: 0, is_open_default: true });
+      setCategories((p) => [...p, cat]);
+      setForm((f) => ({ ...f, categoryId: cat.id }));
+      setNewCatName("");
+      setShowNewCat(false);
+      onCategoryCreated?.(cat);
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setAddingCat(false);
+    }
+  };
 
   useEffect(() => {
     api.mapImages.getActive().then(setMapImage).catch(() => setMapImage(null));
@@ -180,6 +208,7 @@ function NodeTab({
       const data: Partial<Node> = {
         name: form.name.trim(),
         description: form.description.trim(),
+        category_id: form.categoryId !== "" ? Number(form.categoryId) : null,
         x: Number(form.x),
         y: Number(form.y),
         lat: form.lat !== "" ? Number(form.lat) : null,
@@ -207,7 +236,7 @@ function NodeTab({
 
   const startEdit = (n: Node) => {
     setForm({
-      id: n.id, name: n.name, description: n.description,
+      id: n.id, name: n.name, description: n.description, categoryId: n.category_id ?? "",
       x: String(n.x), y: String(n.y),
       lat: n.lat != null ? String(n.lat) : "",
       lng: n.lng != null ? String(n.lng) : "",
@@ -242,6 +271,40 @@ function NodeTab({
         <div className="adm-field">
           <label>名前 <span className="req">*</span></label>
           <input value={form.name} onChange={set("name")} placeholder="例: 入口" />
+        </div>
+        <div className="adm-field">
+          <label>カテゴリ</label>
+          <div className="adm-cat-row">
+            <select
+              value={form.categoryId}
+              onChange={(e) => setForm((f) => ({ ...f, categoryId: Number(e.target.value) || "" }))}
+            >
+              <option value="">未設定</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button type="button" className="btn-add-cat" onClick={() => setShowNewCat((v) => !v)}>
+              ＋
+            </button>
+          </div>
+          {showNewCat && (
+            <div className="adm-inline-cat-form">
+              <input
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="カテゴリ名を入力"
+                onKeyDown={(e) => { if (e.key === "Enter") addCategory(); }}
+                autoFocus
+              />
+              <button type="button" onClick={addCategory} disabled={addingCat || !newCatName.trim()}>
+                {addingCat ? "追加中..." : "追加"}
+              </button>
+              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(""); }}>
+                キャンセル
+              </button>
+            </div>
+          )}
         </div>
         <div className="adm-field">
           <label>説明</label>
@@ -353,7 +416,7 @@ function NodeTab({
           <table className="adm-table">
             <thead>
               <tr>
-                <th>名前</th><th>説明</th>
+                <th>名前</th><th>カテゴリ</th><th>説明</th>
                 <th>X</th><th>Y</th>
                 <th>緯度</th><th>経度</th>
                 <th>目的地</th>
@@ -366,6 +429,7 @@ function NodeTab({
               {nodes.map((n) => (
                 <tr key={n.id} className={form.id === n.id ? "editing" : ""}>
                   <td><strong>{n.name}</strong></td>
+                  <td>{n.category?.name ?? <span className="text-muted">—</span>}</td>
                   <td className="text-muted">{n.description || "—"}</td>
                   <td className="num">{Math.round(n.x)}</td>
                   <td className="num">{Math.round(n.y)}</td>
@@ -1202,6 +1266,107 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
   );
 }
 
+// ── Category Tab ─────────────────────────────────────────────────────────────
+
+function CategoryTab() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [name, setName] = useState("");
+  const [sortOrder, setSortOrder] = useState("0");
+  const [isOpenDefault, setIsOpenDefault] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    api.categories.list().then(setCategories).catch(() => {});
+  }, []);
+
+  const reset = () => { setName(""); setSortOrder("0"); setIsOpenDefault(true); setEditingId(null); };
+
+  const save = async () => {
+    if (!name.trim()) { setMsg({ type: "err", text: "名前は必須です" }); return; }
+    try {
+      const data = { name: name.trim(), sort_order: Number(sortOrder) || 0, is_open_default: isOpenDefault };
+      if (editingId) {
+        const updated = await api.categories.update(editingId, data);
+        setCategories((p) => p.map((c) => c.id === editingId ? updated : c));
+        setMsg({ type: "ok", text: "更新しました" });
+      } else {
+        const created = await api.categories.create(data);
+        setCategories((p) => [...p, created].sort((a, b) => a.sort_order - b.sort_order));
+        setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
+      }
+      reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const startEdit = (c: Category) => {
+    setEditingId(c.id); setName(c.name); setSortOrder(String(c.sort_order)); setIsOpenDefault(c.is_open_default);
+    setMsg(null);
+  };
+
+  const del = async (id: number, name: string) => {
+    if (!window.confirm(`「${name}」を削除しますか？\n紐づくノードのカテゴリは未設定になります。`)) return;
+    try {
+      await api.categories.delete(id);
+      setCategories((p) => p.filter((c) => c.id !== id));
+      if (editingId === id) reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>{editingId ? "カテゴリを編集" : "カテゴリを追加"}</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <div className="adm-field">
+          <label>名前 <span className="req">*</span></label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 教室、トイレ、食堂" />
+        </div>
+        <div className="adm-field">
+          <label>並び順（小さいほど上）</label>
+          <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} min="0" step="1" />
+        </div>
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input type="checkbox" checked={isOpenDefault} onChange={(e) => setIsOpenDefault(e.target.checked)} />
+            デフォルトで開いた状態にする
+          </label>
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={save}>{editingId ? "更新" : "追加"}</button>
+          {editingId && <button className="btn-secondary" onClick={reset}>キャンセル</button>}
+        </div>
+      </div>
+
+      <div className="adm-list-col">
+        <h3>カテゴリ一覧 <span className="count-badge">{categories.length}</span></h3>
+        {categories.length === 0 ? (
+          <p className="adm-empty">カテゴリがまだありません</p>
+        ) : (
+          <table className="adm-table">
+            <thead>
+              <tr><th>名前</th><th>並び順</th><th>初期状態</th><th></th></tr>
+            </thead>
+            <tbody>
+              {categories.map((c) => (
+                <tr key={c.id} className={editingId === c.id ? "editing" : ""}>
+                  <td><strong>{c.name}</strong></td>
+                  <td className="num">{c.sort_order}</td>
+                  <td className="center">{c.is_open_default ? "開く" : <span className="text-muted">閉じる</span>}</td>
+                  <td className="adm-row-actions">
+                    <button className="btn-edit" onClick={() => startEdit(c)}>編集</button>
+                    <button className="btn-del" onClick={() => del(c.id, c.name)}>削除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Logs Tab ──────────────────────────────────────────────────────────────────
 
 const ACTION_LABEL: Record<string, string> = {
@@ -1298,6 +1463,11 @@ export const AdminPage: React.FC<Props> = ({
   onPhotoUploaded, onPhotoDeleted, onPhotoReordered,
 }) => {
   const [tab, setTab] = useState<Tab>("node");
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    api.categories.list().then(setCategories).catch(() => {});
+  }, []);
 
   return (
     <div className="admin-page">
@@ -1319,6 +1489,9 @@ export const AdminPage: React.FC<Props> = ({
           <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
             設定
           </button>
+          <button className={tab === "category" ? "active" : ""} onClick={() => setTab("category")}>
+            カテゴリ <span className="count-badge">{categories.length}</span>
+          </button>
           <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
             利用者
           </button>
@@ -1332,9 +1505,11 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "node" && (
           <NodeTab
             nodes={nodes}
+            categories={categories}
             onCreated={onNodeCreated}
             onUpdated={onNodeUpdated}
             onDeleted={onNodeDeleted}
+            onCategoryCreated={(cat) => setCategories((p) => [...p, cat])}
           />
         )}
         {tab === "link" && (
@@ -1356,6 +1531,7 @@ export const AdminPage: React.FC<Props> = ({
           />
         )}
         {tab === "settings" && <SettingsTab />}
+        {tab === "category" && <CategoryTab />}
         {tab === "users" && <UsersTab nodes={nodes} />}
         {tab === "logs" && <LogsTab />}
       </div>

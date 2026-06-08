@@ -46,6 +46,7 @@ func main() {
 	api.POST("/users/register", handlers.RegisterUser)
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 	api.GET("/node-detours", handlers.ListNodeDetours)
+	api.GET("/categories", handlers.ListCategories)
 
 	// 管理者専用エンドポイント（トークン必須）
 	admin := api.Group("/").Use(middleware.AdminAuth())
@@ -74,6 +75,10 @@ func main() {
 
 		admin.POST("/node-detours", handlers.CreateNodeDetour)
 		admin.DELETE("/node-detours/:id", handlers.DeleteNodeDetour)
+
+		admin.POST("/categories", handlers.CreateCategory)
+		admin.PUT("/categories/:id", handlers.UpdateCategory)
+		admin.DELETE("/categories/:id", handlers.DeleteCategory)
 	}
 
 	r.GET("/ws/user", handlers.UserWS)

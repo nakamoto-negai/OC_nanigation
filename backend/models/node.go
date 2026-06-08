@@ -12,6 +12,8 @@ type Node struct {
 	Y                float64   `json:"y" gorm:"not null"`
 	Lat              *float64  `json:"lat"`
 	Lng              *float64  `json:"lng"`
+	CategoryID       *uint     `json:"category_id"`
+	Category         *Category `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
 	IsSelectable     bool      `json:"is_selectable" gorm:"not null;default:true"`
 	CongestionLevel  int       `json:"congestion_level" gorm:"not null;default:0"`
 	WaitTime         int       `json:"wait_time" gorm:"not null;default:0"`
