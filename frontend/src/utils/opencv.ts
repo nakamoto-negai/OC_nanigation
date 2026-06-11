@@ -7,7 +7,9 @@
 // 検出した特徴点（keypoints）と記述子（descriptors）は、後段の
 // 特徴点マッチング（平面認識・空間幾何）でカメラ映像と参照を突き合わせるのに使う。
 
-const OPENCV_URL = "https://docs.opencv.org/4.10.0/opencv.js";
+// docs.opencv.org は古いバージョンを随時削除するため、特定版を固定すると将来 404 になる。
+// 常に存在する最新安定版へ 301 リダイレクトされる "4.x" を使う（ブラウザは script のリダイレクトを追従する）。
+const OPENCV_URL = "https://docs.opencv.org/4.x/opencv.js";
 
 declare global {
   // eslint-disable-next-line no-var

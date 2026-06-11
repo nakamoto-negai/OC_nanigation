@@ -1827,43 +1827,57 @@ export const AdminPage: React.FC<Props> = ({
 }) => {
   const [tab, setTab] = useState<Tab>("node");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch(() => {});
   }, []);
 
+  const tabs: { key: Tab; label: string; badge?: number }[] = [
+    { key: "node", label: "ノード", badge: nodes.length },
+    { key: "link", label: "リンク", badge: links.length },
+    { key: "detour", label: "寄り道" },
+    { key: "photo", label: "写真" },
+    { key: "settings", label: "設定" },
+    { key: "category", label: "カテゴリ", badge: categories.length },
+    { key: "users", label: "利用者" },
+    { key: "logs", label: "ログ" },
+    { key: "ar", label: "AR特徴点" },
+  ];
+
+  const selectTab = (t: Tab) => {
+    setTab(t);
+    setMenuOpen(false);
+  };
+
+  const currentLabel = tabs.find((t) => t.key === tab)?.label ?? "";
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
-        <h2>管理画面</h2>
-        <div className="adm-tab-bar">
-          <button className={tab === "node" ? "active" : ""} onClick={() => setTab("node")}>
-            ノード <span className="count-badge">{nodes.length}</span>
+        <div className="admin-page-header-top">
+          <h2>管理画面</h2>
+          <button
+            className="adm-hamburger"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="メニュー"
+            aria-expanded={menuOpen}
+          >
+            <span className="adm-hamburger-label">{currentLabel}</span>
+            <span className="adm-hamburger-icon">{menuOpen ? "✕" : "☰"}</span>
           </button>
-          <button className={tab === "link" ? "active" : ""} onClick={() => setTab("link")}>
-            リンク <span className="count-badge">{links.length}</span>
-          </button>
-          <button className={tab === "detour" ? "active" : ""} onClick={() => setTab("detour")}>
-            寄り道
-          </button>
-          <button className={tab === "photo" ? "active" : ""} onClick={() => setTab("photo")}>
-            写真
-          </button>
-          <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
-            設定
-          </button>
-          <button className={tab === "category" ? "active" : ""} onClick={() => setTab("category")}>
-            カテゴリ <span className="count-badge">{categories.length}</span>
-          </button>
-          <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>
-            利用者
-          </button>
-          <button className={tab === "logs" ? "active" : ""} onClick={() => setTab("logs")}>
-            ログ
-          </button>
-          <button className={tab === "ar" ? "active" : ""} onClick={() => setTab("ar")}>
-            AR特徴点
-          </button>
+        </div>
+        <div className={`adm-tab-bar${menuOpen ? " open" : ""}`}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              className={tab === t.key ? "active" : ""}
+              onClick={() => selectTab(t.key)}
+            >
+              {t.label}
+              {t.badge != null && <span className="count-badge">{t.badge}</span>}
+            </button>
+          ))}
         </div>
       </div>
 
