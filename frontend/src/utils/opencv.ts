@@ -228,15 +228,15 @@ export class MatchEngine {
   }
 
   match(
-    frameCanvas: HTMLCanvasElement,
-    maxFeatures = 800,
+    image: ImageData,
+    maxFeatures = 500,
     minGood = 12,
     minInliers = 8,
   ): MatchResult | null {
     const cv = this.cv;
     if (this.refs.length === 0) return null;
 
-    const src = cv.imread(frameCanvas);
+    const src = cv.matFromImageData(image);
     const gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     const orb = new cv.ORB(maxFeatures);

@@ -18,10 +18,10 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const stopRef = useRef(false);
   const cvRef = useRef<any>(null);
   const engineRef = useRef<MatchEngine | null>(null);
-  const lastRef = useRef(0);
 
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [cameraOn, setCameraOn] = useState(false);
@@ -71,43 +71,51 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
     };
   }, [viewpointNodeId]);
 
-  const loop = () => {
-    rafRef.current = requestAnimationFrame(loop);
+  // 1 回分の認識処理。重い OpenCV 計算はメインスレッドを占有するため、
+  // 計算が終わるたびに setTimeout で必ず空き時間（IDLE_MS）を作り、
+  // その間にブラウザが映像描画・タップ操作を処理できるようにする（画面フリーズ防止）。
+  const IDLE_MS = 350;
+  const DETECT_WIDTH = 480; // 検出に使う縮小幅（小さいほど軽い）
+
+  const tick = () => {
+    if (stopRef.current) return;
     const video = videoRef.current;
     const overlay = overlayRef.current;
     const engine = engineRef.current;
-    if (!video || !overlay || !engine || video.readyState < 2) return;
 
-    const now = performance.now();
-    if (now - lastRef.current < 300) return;
-    lastRef.current = now;
+    if (video && overlay && engine && video.readyState >= 2) {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (vw && vh) {
+        const scale = Math.min(1, DETECT_WIDTH / vw);
+        const dw = Math.round(vw * scale);
+        const dh = Math.round(vh * scale);
+        const work = document.createElement("canvas");
+        work.width = dw;
+        work.height = dh;
+        const wctx = work.getContext("2d")!;
+        wctx.drawImage(video, 0, 0, dw, dh);
+        const imageData = wctx.getImageData(0, 0, dw, dh);
 
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    if (!vw || !vh) return;
-
-    const scale = Math.min(1, 640 / vw);
-    const dw = Math.round(vw * scale);
-    const dh = Math.round(vh * scale);
-    const work = document.createElement("canvas");
-    work.width = dw;
-    work.height = dh;
-    work.getContext("2d")!.drawImage(video, 0, 0, dw, dh);
-
-    const ctx = overlay.getContext("2d");
-    if (!ctx) return;
-    overlay.width = vw;
-    overlay.height = vh;
-    ctx.clearRect(0, 0, vw, vh);
-
-    let res: MatchResult | null = null;
-    try {
-      res = engine.match(work, 800);
-    } catch {
-      return;
+        const ctx = overlay.getContext("2d");
+        if (ctx) {
+          overlay.width = vw;
+          overlay.height = vh;
+          ctx.clearRect(0, 0, vw, vh);
+          let res: MatchResult | null = null;
+          try {
+            res = engine.match(imageData, 500);
+          } catch {
+            res = null;
+          }
+          if (res && res.quad) drawQuad(ctx, res.quad, vw / dw, vh / dh, res.name);
+          setResult(res);
+        }
+      }
     }
-    if (res && res.quad) drawQuad(ctx, res.quad, vw / dw, vh / dh, res.name);
-    setResult(res);
+
+    // 計算後に必ず空き時間を入れて次へ
+    timerRef.current = window.setTimeout(tick, IDLE_MS);
   };
 
   const startCamera = async () => {
@@ -123,16 +131,17 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
         await videoRef.current.play();
       }
       setCameraOn(true);
-      lastRef.current = 0;
-      rafRef.current = requestAnimationFrame(loop);
+      stopRef.current = false;
+      timerRef.current = window.setTimeout(tick, IDLE_MS);
     } catch (e: any) {
       setErr(`カメラを起動できませんでした: ${e.message}`);
     }
   };
 
   const stopCamera = () => {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
+    stopRef.current = true;
+    if (timerRef.current != null) clearTimeout(timerRef.current);
+    timerRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
