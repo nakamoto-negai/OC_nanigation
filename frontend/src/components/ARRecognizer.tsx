@@ -86,7 +86,15 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
 
   // ワーカーの生成・初期化（マウント時に一度だけ）
   useEffect(() => {
-    const worker = new Worker(new URL("../workers/opencvWorker.js", import.meta.url));
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL("../workers/opencvWorker.js", import.meta.url));
+    } catch (e: any) {
+      // 生成失敗（本番でのアセット配信ミス・MIME・CSP 等）でアプリごと落とさない
+      setErr(`ワーカーを生成できませんでした: ${e?.message ?? e}`);
+      setStatus("error");
+      return;
+    }
     workerRef.current = worker;
 
     worker.onmessage = (e: MessageEvent) => {
@@ -120,6 +128,12 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
         setErr(m.message);
         setStatus("error");
       }
+    };
+
+    // ワーカー自体の読み込み・実行エラー（Vite のバンドル失敗や importScripts ブロック等）を画面に出す
+    worker.onerror = (ev: ErrorEvent) => {
+      setErr(`ワーカーエラー: ${ev.message || "不明"} (${ev.filename}:${ev.lineno})`);
+      setStatus("error");
     };
 
     worker.postMessage({ type: "init" });

@@ -38,19 +38,25 @@ export function loadOpenCV(): Promise<any> {
     };
 
     const onReady = () => {
-      const g = window.cv;
-      if (!g) {
-        reject(new Error("OpenCV の読み込みに失敗しました"));
-        return;
-      }
-      // 新しい opencv.js はモジュール化されており cv が Promise（初期化完了で解決）になる。
-      // 旧ビルドでは cv.Mat が即使える、または cv.onRuntimeInitialized で完了通知される。
-      if (typeof g.then === "function") {
-        g.then(finish).catch(() => reject(new Error("OpenCV の初期化に失敗しました")));
-      } else if (g.Mat) {
-        finish(g);
-      } else {
-        g.onRuntimeInitialized = () => finish(g);
+      try {
+        const g = window.cv;
+        if (!g) {
+          reject(new Error("OpenCV の読み込みに失敗しました"));
+          return;
+        }
+        // 新しい opencv.js はモジュール化されており cv は「thenable な Module」になる。
+        // ※ これは本物の Promise ではないため .then() の戻り値に .catch は無い（繋ぐと例外）。
+        //   初期化完了で then のコールバックが呼ばれるので、それだけを使う。
+        // 旧ビルドでは cv.Mat が即使える、または cv.onRuntimeInitialized で完了通知される。
+        if (typeof g.then === "function") {
+          g.then((mod: any) => finish(mod && mod.Mat ? mod : g));
+        } else if (g.Mat) {
+          finish(g);
+        } else {
+          g.onRuntimeInitialized = () => finish(g);
+        }
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error(String(e)));
       }
     };
 

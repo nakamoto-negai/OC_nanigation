@@ -38,19 +38,25 @@ function init() {
     self.postMessage({ type: "ready" });
   };
 
-  // 新しい opencv.js はモジュール化されており self.cv が Promise（初期化完了で解決）になる。
+  // 新しい opencv.js はモジュール化されており self.cv は「thenable な Module」になる。
+  // ※ 本物の Promise ではないため .then() の戻り値に .catch は無い（繋ぐと例外）。then だけ使う。
   // 解決後の本体を self.cv に入れ直してから ready する。旧ビルドは Mat 即時 / onRuntimeInitialized。
-  const g = self.cv;
-  if (g && typeof g.then === "function") {
-    g.then((mod) => { self.cv = mod; ready(); }).catch(() => {
-      self.postMessage({ type: "error", message: "OpenCV の初期化に失敗しました" });
-    });
-  } else if (g && g.Mat) {
-    ready();
-  } else if (g) {
-    g.onRuntimeInitialized = ready;
-  } else {
-    self.postMessage({ type: "error", message: "OpenCV の読み込みに失敗しました" });
+  try {
+    const g = self.cv;
+    if (g && typeof g.then === "function") {
+      g.then((mod) => {
+        if (mod && mod.Mat) self.cv = mod;
+        ready();
+      });
+    } else if (g && g.Mat) {
+      ready();
+    } else if (g) {
+      g.onRuntimeInitialized = ready;
+    } else {
+      self.postMessage({ type: "error", message: "OpenCV の読み込みに失敗しました" });
+    }
+  } catch (err) {
+    self.postMessage({ type: "error", message: "OpenCV の初期化に失敗しました: " + (err && err.message ? err.message : err) });
   }
 }
 
