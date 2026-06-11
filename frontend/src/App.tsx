@@ -64,6 +64,9 @@ function AdminApp() {
 // ── ユーザーアプリ ────────────────────────────────────────────
 type Screen = "home" | "route";
 
+const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
+const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
+
 function UserApp() {
   useUser();
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -76,6 +79,7 @@ function UserApp() {
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
     reroute_congestion: true, reroute_other: true,
+    stamp_url: "", cafeteria_congestion: 0,
   });
 
   useEffect(() => {
@@ -99,11 +103,30 @@ function UserApp() {
         <h1 onClick={() => setScreen("home")} style={{ cursor: "pointer" }}>
           道案内アプリ
         </h1>
-        {screen === "route" && (
-          <nav>
+        <div className="header-actions">
+          <span className="cafeteria-congestion" title="食堂の混雑度">
+            <span className="cafeteria-congestion-label">食堂</span>
+            <span
+              className="cafeteria-congestion-badge"
+              style={{ background: CONGESTION_COLORS[settings.cafeteria_congestion] ?? CONGESTION_COLORS[0] }}
+            >
+              {CONGESTION_LABELS[settings.cafeteria_congestion] ?? "不明"}
+            </span>
+          </span>
+          {settings.stamp_url && (
+            <a
+              className="stamp-button"
+              href={settings.stamp_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              🎫 スタンプ
+            </a>
+          )}
+          {screen === "route" && (
             <button onClick={() => setScreen("home")}>← 目的地選択に戻る</button>
-          </nav>
-        )}
+          )}
+        </div>
       </header>
 
       {loadError && (

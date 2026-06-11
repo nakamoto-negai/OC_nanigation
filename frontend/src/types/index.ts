@@ -67,6 +67,8 @@ export interface Setting {
   reroute_incident: boolean;
   reroute_congestion: boolean;
   reroute_other: boolean;
+  stamp_url: string;
+  cafeteria_congestion: number;
 }
 
 export interface User {

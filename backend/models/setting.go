@@ -7,4 +7,6 @@ type Setting struct {
 	RerouteIncident     bool    `json:"reroute_incident" gorm:"not null;default:true"`
 	ReroteCongestion    bool    `json:"reroute_congestion" gorm:"not null;default:true"`
 	RerouteOther        bool    `json:"reroute_other" gorm:"not null;default:true"`
+	StampURL            string  `json:"stamp_url" gorm:"default:''"`
+	CafeteriaCongestion int     `json:"cafeteria_congestion" gorm:"not null;default:0"`
 }

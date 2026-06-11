@@ -802,6 +802,8 @@ function SettingsTab() {
   const [rerouteIncident, setRerouteIncident] = useState(true);
   const [reroteCongestion, setReroteCongestion] = useState(true);
   const [rerouteOther, setRerouteOther] = useState(true);
+  const [stampUrl, setStampUrl] = useState("");
+  const [cafeteriaCongestion, setCafeteriaCongestion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [mapImages, setMapImages] = useState<MapImage[]>([]);
@@ -820,6 +822,8 @@ function SettingsTab() {
       setRerouteIncident(s.reroute_incident);
       setReroteCongestion(s.reroute_congestion);
       setRerouteOther(s.reroute_other);
+      setStampUrl(s.stamp_url ?? "");
+      setCafeteriaCongestion(s.cafeteria_congestion ?? 0);
       setMapImages(imgs);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -833,6 +837,8 @@ function SettingsTab() {
         reroute_incident: rerouteIncident,
         reroute_congestion: reroteCongestion,
         reroute_other: rerouteOther,
+        stamp_url: stampUrl.trim(),
+        cafeteria_congestion: cafeteriaCongestion,
       });
       setMsg({ type: "ok", text: "設定を保存しました" });
     } catch (e: any) {
@@ -907,6 +913,31 @@ function SettingsTab() {
           <button className="btn-primary" onClick={uploadMap} disabled={uploading || !mapFile}>
             {uploading ? "アップロード中..." : "アップロード"}
           </button>
+        </div>
+
+        <div className="adm-section-label" style={{ marginTop: 24 }}>ヘッダー設定</div>
+        <div className="adm-field">
+          <label>スタンプボタンのリンク先URL</label>
+          <p className="hint">入力するとヘッダーに「スタンプ」ボタンが表示され、このURLを新しいタブで開きます。空にすると非表示。</p>
+          <input
+            type="url"
+            value={stampUrl}
+            onChange={(e) => setStampUrl(e.target.value)}
+            placeholder="例: https://example.com/stamp"
+          />
+        </div>
+        <div className="adm-field">
+          <label>食堂の混雑度</label>
+          <p className="hint">ヘッダーに表示されます。</p>
+          <select
+            value={cafeteriaCongestion}
+            onChange={(e) => setCafeteriaCongestion(Number(e.target.value))}
+          >
+            <option value={0}>不明</option>
+            <option value={1}>空き</option>
+            <option value={2}>普通</option>
+            <option value={3}>混雑</option>
+          </select>
         </div>
 
         <div className="adm-section-label" style={{ marginTop: 24 }}>コンパス設定</div>
