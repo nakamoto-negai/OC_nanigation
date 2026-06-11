@@ -31,17 +31,26 @@ export function loadOpenCV(): Promise<any> {
 
     const existing = document.getElementById("opencv-js") as HTMLScriptElement | null;
 
+    // 初期化完了後の cv（Mat 等が使える状態）を resolve する
+    const finish = (mod: any) => {
+      window.cv = mod;
+      resolve(mod);
+    };
+
     const onReady = () => {
-      // cv はモジュールとして読み込まれ、WASM 初期化後に onRuntimeInitialized が走る
-      const cv = window.cv;
-      if (!cv) {
+      const g = window.cv;
+      if (!g) {
         reject(new Error("OpenCV の読み込みに失敗しました"));
         return;
       }
-      if (cv.Mat) {
-        resolve(cv);
+      // 新しい opencv.js はモジュール化されており cv が Promise（初期化完了で解決）になる。
+      // 旧ビルドでは cv.Mat が即使える、または cv.onRuntimeInitialized で完了通知される。
+      if (typeof g.then === "function") {
+        g.then(finish).catch(() => reject(new Error("OpenCV の初期化に失敗しました")));
+      } else if (g.Mat) {
+        finish(g);
       } else {
-        cv.onRuntimeInitialized = () => resolve(cv);
+        g.onRuntimeInitialized = () => finish(g);
       }
     };
 
