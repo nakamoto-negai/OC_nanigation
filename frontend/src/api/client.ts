@@ -1,4 +1,4 @@
-import { Category, Link, MapImage, Node, NodeDetour, Setting, User, UserLog } from "../types";
+import { ARFeature, Category, Link, MapImage, Node, NodeDetour, Setting, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -102,6 +102,20 @@ settings: {
       adminReq<NodeDetour>("/api/node-detours", { method: "POST", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/node-detours/${id}`, { method: "DELETE" }),
+  },
+  arFeatures: {
+    list: () => adminReq<ARFeature[]>("/api/ar-features"),
+    // 公開エンドポイント（ユーザーアプリからも利用）。viewpointNodeId で現在地から見える建物に絞り込む
+    matchset: (viewpointNodeId?: number) =>
+      req<ARFeature[]>(
+        `/api/ar-features/matchset${viewpointNodeId ? `?viewpoint_node_id=${viewpointNodeId}` : ""}`,
+      ),
+    create: (form: FormData) =>
+      adminFetch("/api/ar-features", { method: "POST", body: form }).then((r) => {
+        if (!r.ok) throw new Error("登録に失敗しました");
+        return r.json() as Promise<ARFeature>;
+      }),
+    delete: (id: number) => adminReq<void>(`/api/ar-features/${id}`, { method: "DELETE" }),
   },
   admin: {
     login: (password: string) =>

@@ -1,0 +1,198 @@
+import React, { useEffect, useRef, useState } from "react";
+import { Node } from "../types";
+import { api } from "../api/client";
+import { loadOpenCV, MatchEngine, MatchResult } from "../utils/opencv";
+import { drawQuad } from "../utils/arDraw";
+
+interface Props {
+  nodes: Node[];
+  /** 現在地ノード。指定するとその地点から見える建物だけに絞り込む。null は絞り込みなし。 */
+  viewpointNodeId: number | null;
+}
+
+/**
+ * カメラ映像と登録済みの参照（建物）を特徴点マッチングし、認識した建物名を表示する。
+ * ユーザーアプリ・管理画面の両方から使う共通コンポーネント。
+ */
+export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const cvRef = useRef<any>(null);
+  const engineRef = useRef<MatchEngine | null>(null);
+  const lastRef = useRef(0);
+
+  const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
+  const [cameraOn, setCameraOn] = useState(false);
+  const [refCount, setRefCount] = useState(0);
+  const [result, setResult] = useState<MatchResult | null>(null);
+  const [err, setErr] = useState("");
+
+  // 参照（建物）の読み込み：現在地が変わるたびに絞り込んで再構築
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setStatus("loading");
+      setResult(null);
+      try {
+        const cv = await loadOpenCV();
+        if (cancelled) return;
+        cvRef.current = cv;
+        const full = await api.arFeatures.matchset(viewpointNodeId ?? undefined);
+        if (cancelled) return;
+        engineRef.current?.dispose();
+        const engine = new MatchEngine(cv);
+        engine.setReferences(
+          full.map((f) => ({
+            id: f.id,
+            // 認識時に表示する「建物名」。建物ノードがあればその名前、なければ登録名
+            name: f.node?.name ?? f.name,
+            keypoints: JSON.parse(f.keypoints || "[]"),
+            descriptors: f.descriptors || "",
+            descRows: f.desc_rows,
+            descCols: f.desc_cols,
+            width: f.width,
+            height: f.height,
+          })),
+        );
+        engineRef.current = engine;
+        setRefCount(engine.size);
+        setStatus(engine.size > 0 ? "ready" : "empty");
+      } catch (e: any) {
+        if (!cancelled) {
+          setErr(e.message);
+          setStatus("error");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewpointNodeId]);
+
+  const loop = () => {
+    rafRef.current = requestAnimationFrame(loop);
+    const video = videoRef.current;
+    const overlay = overlayRef.current;
+    const engine = engineRef.current;
+    if (!video || !overlay || !engine || video.readyState < 2) return;
+
+    const now = performance.now();
+    if (now - lastRef.current < 300) return;
+    lastRef.current = now;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return;
+
+    const scale = Math.min(1, 640 / vw);
+    const dw = Math.round(vw * scale);
+    const dh = Math.round(vh * scale);
+    const work = document.createElement("canvas");
+    work.width = dw;
+    work.height = dh;
+    work.getContext("2d")!.drawImage(video, 0, 0, dw, dh);
+
+    const ctx = overlay.getContext("2d");
+    if (!ctx) return;
+    overlay.width = vw;
+    overlay.height = vh;
+    ctx.clearRect(0, 0, vw, vh);
+
+    let res: MatchResult | null = null;
+    try {
+      res = engine.match(work, 800);
+    } catch {
+      return;
+    }
+    if (res && res.quad) drawQuad(ctx, res.quad, vw / dw, vh / dh, res.name);
+    setResult(res);
+  };
+
+  const startCamera = async () => {
+    try {
+      await loadOpenCV();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setCameraOn(true);
+      lastRef.current = 0;
+      rafRef.current = requestAnimationFrame(loop);
+    } catch (e: any) {
+      setErr(`カメラを起動できませんでした: ${e.message}`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    const overlay = overlayRef.current;
+    overlay?.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+    setCameraOn(false);
+    setResult(null);
+  };
+
+  useEffect(() => () => {
+    stopCamera();
+    engineRef.current?.dispose();
+    engineRef.current = null;
+  }, []);
+
+  const nodeName = viewpointNodeId != null ? nodes.find((n) => n.id === viewpointNodeId)?.name : null;
+
+  return (
+    <div className="ar-recognizer">
+      {err && <div className="global-error" onClick={() => setErr("")}>{err} ✕</div>}
+
+      <div className="ar-camera-wrap">
+        <video ref={videoRef} className="ar-camera-video" playsInline muted />
+        <canvas ref={overlayRef} className="ar-camera-overlay" />
+
+        {!cameraOn && (
+          <div className="ar-camera-placeholder">
+            {status === "loading"
+              ? "準備中..."
+              : status === "error"
+              ? "読み込みに失敗しました"
+              : "「カメラ起動」を押してください"}
+          </div>
+        )}
+
+        {/* 認識した建物名を大きく表示 */}
+        {cameraOn && result && (
+          <div className="ar-building-name">🏛 {result.name}</div>
+        )}
+        {cameraOn && !result && (
+          <div className="ar-building-scanning">建物を探しています…</div>
+        )}
+      </div>
+
+      <div className="ar-recognizer-bar">
+        {!cameraOn ? (
+          <button className="btn-primary" onClick={startCamera} disabled={status === "loading"}>
+            {status === "loading" ? "準備中..." : "カメラ起動"}
+          </button>
+        ) : (
+          <button className="btn-secondary" onClick={stopCamera}>カメラ停止</button>
+        )}
+        <span className="ar-recognizer-status">
+          {status === "empty"
+            ? nodeName
+              ? `「${nodeName}」から見える建物が未登録です`
+              : "建物が未登録です"
+            : `対象 ${refCount} 件`}
+        </span>
+      </div>
+    </div>
+  );
+};

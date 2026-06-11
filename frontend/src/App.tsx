@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api/client";
 import { AdminLogin } from "./components/AdminLogin";
 import { AdminPage } from "./components/AdminPage";
+import { ARView } from "./components/ARView";
 import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { useUser } from "./hooks/useUser";
@@ -62,7 +63,7 @@ function AdminApp() {
 }
 
 // ── ユーザーアプリ ────────────────────────────────────────────
-type Screen = "home" | "route";
+type Screen = "home" | "route" | "ar";
 
 const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -123,8 +124,11 @@ function UserApp() {
               🎫 スタンプ
             </a>
           )}
-          {screen === "route" && (
-            <button onClick={() => setScreen("home")}>← 目的地選択に戻る</button>
+          {screen === "home" && (
+            <button onClick={() => setScreen("ar")}>AR</button>
+          )}
+          {screen !== "home" && (
+            <button onClick={() => setScreen("home")}>← 戻る</button>
           )}
         </div>
       </header>
@@ -138,6 +142,8 @@ function UserApp() {
       {screen === "home" && (
         <HomePage nodes={nodes} links={links} onRouteReady={handleRouteReady} />
       )}
+
+      {screen === "ar" && <ARView nodes={nodes} />}
 
       {screen === "route" && route && (
         <RouteGuide

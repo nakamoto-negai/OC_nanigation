@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Category, Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
+import { ARFeature, Category, Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
+import { detectORB, loadOpenCV } from "../utils/opencv";
+import { drawKeypoints } from "../utils/arDraw";
+import { ARRecognizer } from "./ARRecognizer";
 
 interface Props {
   nodes: Node[];
@@ -18,7 +21,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category";
+type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -1485,6 +1488,335 @@ function LogsTab() {
   );
 }
 
+// ── AR Feature Tab ────────────────────────────────────────────────────────────
+
+function ARFeatureTab({ nodes }: { nodes: Node[] }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const cvRef = useRef<any>(null);
+  const lastDetectRef = useRef(0);
+
+  const [cvStatus, setCvStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [cameraOn, setCameraOn] = useState(false);
+  const [liveCount, setLiveCount] = useState(0);
+  const [maxFeatures, setMaxFeatures] = useState(500);
+
+  // モード（登録 / 認識テスト）
+  const [mode, setMode] = useState<"register" | "recognize">("register");
+  const [recognizeViewpointId, setRecognizeViewpointId] = useState<number | "">("");
+
+  const [features, setFeatures] = useState<ARFeature[]>([]);
+  const [name, setName] = useState("");
+  const [buildingNodeId, setBuildingNodeId] = useState<number | "">("");
+  const [viewpointNodeId, setViewpointNodeId] = useState<number | "">("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    api.arFeatures.list().then(setFeatures).catch(() => {});
+  }, []);
+
+  // OpenCV.js を遅延ロード
+  const ensureCV = async () => {
+    if (cvRef.current) return cvRef.current;
+    setCvStatus("loading");
+    try {
+      const cv = await loadOpenCV();
+      cvRef.current = cv;
+      setCvStatus("ready");
+      return cv;
+    } catch (e: any) {
+      setCvStatus("error");
+      setMsg({ type: "err", text: e.message });
+      throw e;
+    }
+  };
+
+  // ライブプレビューの検出ループ（記述子なし・スロットリングで軽量化）
+  const loop = () => {
+    rafRef.current = requestAnimationFrame(loop);
+    const video = videoRef.current;
+    const overlay = overlayRef.current;
+    const cv = cvRef.current;
+    if (!video || !overlay || !cv || video.readyState < 2) return;
+
+    const now = performance.now();
+    const overlayCtx = overlay.getContext("2d");
+    if (!overlayCtx) return;
+
+    // 検出は重いため 5fps 程度に間引く
+    if (now - lastDetectRef.current < 200) return;
+    lastDetectRef.current = now;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return;
+
+    // 検出は最大幅 640px に縮小して高速化
+    const scale = Math.min(1, 640 / vw);
+    const dw = Math.round(vw * scale);
+    const dh = Math.round(vh * scale);
+
+    const work = document.createElement("canvas");
+    work.width = dw;
+    work.height = dh;
+    work.getContext("2d")!.drawImage(video, 0, 0, dw, dh);
+
+    overlay.width = vw;
+    overlay.height = vh;
+    overlayCtx.clearRect(0, 0, vw, vh);
+
+    let count = 0;
+    try {
+      const kps = detectORB(cv, work, maxFeatures, false).keypoints;
+      drawKeypoints(overlayCtx, kps, vw / dw, vh / dh);
+      count = kps.length;
+    } catch {
+      return;
+    }
+    setLiveCount(count);
+  };
+
+  const startCamera = async () => {
+    try {
+      await ensureCV();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setCameraOn(true);
+      lastDetectRef.current = 0;
+      rafRef.current = requestAnimationFrame(loop);
+    } catch (e: any) {
+      setMsg({ type: "err", text: `カメラを起動できませんでした: ${e.message}` });
+    }
+  };
+
+  const stopCamera = () => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    const overlay = overlayRef.current;
+    overlay?.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+    setCameraOn(false);
+    setLiveCount(0);
+  };
+
+  // アンマウント時にカメラ停止
+  useEffect(() => () => stopCamera(), []);
+
+  // 認識モードへ：登録用カメラを止め、認識は ARRecognizer（独立カメラ）に任せる
+  const enterRecognize = () => {
+    stopCamera();
+    setMode("recognize");
+    setMsg(null);
+  };
+
+  const enterRegister = () => {
+    setMode("register");
+  };
+
+  const capture = async () => {
+    const video = videoRef.current;
+    const cv = cvRef.current;
+    if (!video || !cv || video.readyState < 2) {
+      setMsg({ type: "err", text: "カメラが起動していません" });
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    try {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+
+      // フル解像度フレームをキャプチャ
+      const frame = document.createElement("canvas");
+      frame.width = vw;
+      frame.height = vh;
+      frame.getContext("2d")!.drawImage(video, 0, 0, vw, vh);
+
+      // 記述子つきで本検出
+      const result = detectORB(cv, frame, maxFeatures, true);
+      if (result.keypoints.length === 0) {
+        setMsg({ type: "err", text: "特徴点が検出できませんでした。明るく模様のある場所を映してください" });
+        setSaving(false);
+        return;
+      }
+
+      // サムネイル画像（JPEG）を生成
+      const blob: Blob = await new Promise((res, rej) =>
+        frame.toBlob((b) => (b ? res(b) : rej(new Error("画像生成に失敗"))), "image/jpeg", 0.85),
+      );
+
+      const form = new FormData();
+      form.append("image", blob, "arfeature.jpg");
+      form.append("name", name.trim() || `特徴点 ${new Date().toLocaleString("ja-JP")}`);
+      if (buildingNodeId !== "") form.append("node_id", String(buildingNodeId));
+      if (viewpointNodeId !== "") form.append("viewpoint_node_id", String(viewpointNodeId));
+      form.append("width", String(vw));
+      form.append("height", String(vh));
+      form.append("keypoint_count", String(result.keypoints.length));
+      form.append("keypoints", JSON.stringify(result.keypoints));
+      form.append("descriptors", result.descriptors);
+      form.append("desc_rows", String(result.descRows));
+      form.append("desc_cols", String(result.descCols));
+
+      const created = await api.arFeatures.create(form);
+      setFeatures((p) => [created, ...p]);
+      setName("");
+      setMsg({ type: "ok", text: `${result.keypoints.length}個の特徴点を登録しました` });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("この特徴点データを削除しますか？")) return;
+    try {
+      await api.arFeatures.delete(id);
+      setFeatures((p) => p.filter((f) => f.id !== id));
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <div className="ar-mode-toggle">
+          <button className={mode === "register" ? "active" : ""} onClick={enterRegister}>登録</button>
+          <button className={mode === "recognize" ? "active" : ""} onClick={enterRecognize}>認識テスト</button>
+        </div>
+
+        <h3>{mode === "register" ? "カメラで特徴点を抽出" : "登録した対象を認識"}</h3>
+        {msg && (
+          <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>
+            {msg.text} ✕
+          </div>
+        )}
+
+        <p className="hint" style={{ marginBottom: 12 }}>
+          {mode === "register"
+            ? "カメラ映像から ORB 特徴点（コーナー）をリアルタイム抽出します。模様や凹凸のある建物・看板などを映すと多く検出されます。"
+            : "登録済みの建物とカメラ映像を特徴点マッチングし、認識した建物名を表示します。現在地で候補を絞り込めます。"}
+        </p>
+
+        {mode === "register" ? (
+          <>
+            <div className="ar-camera-wrap">
+              <video ref={videoRef} className="ar-camera-video" playsInline muted />
+              <canvas ref={overlayRef} className="ar-camera-overlay" />
+              {!cameraOn && (
+                <div className="ar-camera-placeholder">
+                  {cvStatus === "loading" ? "OpenCV.js を読み込み中..." : "「カメラ起動」を押してください"}
+                </div>
+              )}
+              {cameraOn && <div className="ar-live-badge">検出: {liveCount} 点</div>}
+            </div>
+
+            <div className="adm-actions" style={{ marginTop: 12 }}>
+              {!cameraOn ? (
+                <button className="btn-primary" onClick={startCamera} disabled={cvStatus === "loading"}>
+                  {cvStatus === "loading" ? "準備中..." : "カメラ起動"}
+                </button>
+              ) : (
+                <button className="btn-secondary" onClick={stopCamera}>カメラ停止</button>
+              )}
+            </div>
+
+            <div className="adm-field" style={{ marginTop: 16 }}>
+              <label>最大特徴点数</label>
+              <input
+                type="number"
+                min="50" max="2000" step="50"
+                value={maxFeatures}
+                onChange={(e) => setMaxFeatures(Number(e.target.value) || 500)}
+              />
+            </div>
+            <div className="adm-field">
+              <label>名前</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 〇〇館の正面" />
+            </div>
+            <div className="adm-field">
+              <label>建物ノード（認識時に表示する建物名）</label>
+              <select value={buildingNodeId} onChange={(e) => setBuildingNodeId(Number(e.target.value) || "")}>
+                <option value="">未設定</option>
+                {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+              </select>
+            </div>
+            <div className="adm-field">
+              <label>見える地点（現在地ノード）</label>
+              <select value={viewpointNodeId} onChange={(e) => setViewpointNodeId(Number(e.target.value) || "")}>
+                <option value="">未設定（どの地点でも対象）</option>
+                {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+              </select>
+              <p className="hint">この建物が見える地点。ユーザーがこの地点にいるとき認識候補になります。</p>
+            </div>
+
+            <div className="adm-actions">
+              <button className="btn-primary" onClick={capture} disabled={!cameraOn || saving}>
+                {saving ? "登録中..." : "撮影して登録"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="adm-field">
+              <label>現在地（地点で絞り込み）</label>
+              <select
+                value={recognizeViewpointId}
+                onChange={(e) => setRecognizeViewpointId(Number(e.target.value) || "")}
+              >
+                <option value="">絞り込みなし（全建物）</option>
+                {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+              </select>
+            </div>
+            <ARRecognizer
+              nodes={nodes}
+              viewpointNodeId={recognizeViewpointId === "" ? null : recognizeViewpointId}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="adm-list-col">
+        <h3>登録済み特徴点 <span className="count-badge">{features.length}</span></h3>
+        {features.length === 0 ? (
+          <p className="adm-empty">まだ登録がありません</p>
+        ) : (
+          <div className="ar-feature-list">
+            {features.map((f) => (
+              <div key={f.id} className="ar-feature-card">
+                <img src={`${BASE}${f.image_url}`} alt={f.name} className="ar-feature-thumb" />
+                <div className="ar-feature-info">
+                  <strong>{f.name}</strong>
+                  <span className="ar-feature-meta">{f.keypoint_count} 点 ／ {f.width}×{f.height}</span>
+                  {f.node && <span className="ar-feature-node">🏛 {f.node.name}</span>}
+                  {f.viewpoint_node && (
+                    <span className="ar-feature-meta">📍 {f.viewpoint_node.name} から見える</span>
+                  )}
+                </div>
+                <button className="btn-del" onClick={() => del(f.id)}>削除</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 
 export const AdminPage: React.FC<Props> = ({
@@ -1529,6 +1861,9 @@ export const AdminPage: React.FC<Props> = ({
           <button className={tab === "logs" ? "active" : ""} onClick={() => setTab("logs")}>
             ログ
           </button>
+          <button className={tab === "ar" ? "active" : ""} onClick={() => setTab("ar")}>
+            AR特徴点
+          </button>
         </div>
       </div>
 
@@ -1565,6 +1900,7 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "category" && <CategoryTab />}
         {tab === "users" && <UsersTab nodes={nodes} />}
         {tab === "logs" && <LogsTab />}
+        {tab === "ar" && <ARFeatureTab nodes={nodes} />}
       </div>
     </div>
   );

@@ -98,6 +98,24 @@ export interface MapImage {
   created_at: string;
 }
 
+export interface ARFeature {
+  id: number;
+  node_id: number | null;
+  node?: Node;
+  viewpoint_node_id: number | null;
+  viewpoint_node?: Node;
+  name: string;
+  image_url: string;
+  width: number;
+  height: number;
+  keypoint_count: number;
+  keypoints: string;
+  descriptors?: string;
+  desc_rows: number;
+  desc_cols: number;
+  created_at: string;
+}
+
 export interface NodeDetour {
   id: number;
   node_id: number;
