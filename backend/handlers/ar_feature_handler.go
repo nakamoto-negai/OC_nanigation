@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/oc-navigation/backend/database"
 	"github.com/oc-navigation/backend/models"
+	"github.com/oc-navigation/backend/vision"
 )
 
 // ListARFeatures は登録済みの AR 参照フレーム一覧を返す。
@@ -41,15 +43,15 @@ func ListARFeaturesForMatch(c *gin.Context) {
 	c.JSON(http.StatusOK, features)
 }
 
-// CreateARFeature は管理画面のカメラで抽出した特徴点と参照画像を登録する。
+// CreateARFeature は管理画面でアップロードされた参照画像から、サーバー側（gocv）で
+// ORB 特徴点・記述子を抽出して登録する。以前はフロント（OpenCV.js）が抽出した値を
+// そのまま保存していたが、ブラウザ側のロード不安定さを避けるため抽出をサーバーへ移した。
+//
 // multipart/form-data:
-//   image       : 参照フレームのサムネイル画像（必須）
-//   name        : 表示名
-//   node_id     : 紐づけるノード（任意）
-//   width/height: 特徴点座標の基準となる画像サイズ
-//   keypoints   : キーポイントの JSON 文字列
-//   descriptors : ORB 記述子の base64 文字列
-//   desc_rows/desc_cols: 記述子行列の形状
+//   image        : 参照画像（必須）
+//   name         : 表示名
+//   node_id      : 紐づけるノード（任意）
+//   max_features : 検出する最大特徴点数（任意・既定 500）
 func CreateARFeature(c *gin.Context) {
 	file, header, err := c.Request.FormFile("image")
 	if err != nil {
@@ -57,6 +59,25 @@ func CreateARFeature(c *gin.Context) {
 		return
 	}
 	defer file.Close()
+
+	// 画像バイト列を一度だけ読み、ディスク保存と ORB 抽出の両方に使う
+	imageData, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read image"})
+		return
+	}
+
+	// サーバー側で ORB 抽出（認識側 opencv.js とバイナリ互換の記述子を生成）
+	maxFeatures := atoiOr(c.PostForm("max_features"), 500)
+	orb, err := vision.ExtractORB(imageData, maxFeatures)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "特徴点抽出に失敗しました: " + err.Error()})
+		return
+	}
+	if orb.KeypointCount == 0 {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "特徴点が検出できませんでした。模様や凹凸のある建物・看板などの画像を使ってください"})
+		return
+	}
 
 	uploadDir := os.Getenv("UPLOAD_DIR")
 	if uploadDir == "" {
@@ -71,34 +92,21 @@ func CreateARFeature(c *gin.Context) {
 	filename := fmt.Sprintf("arfeat_%d%s", time.Now().UnixNano(), ext)
 	dst := filepath.Join(uploadDir, filename)
 
-	out, err := os.Create(dst)
-	if err != nil {
+	if err := os.WriteFile(dst, imageData, 0644); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
 		return
-	}
-	defer out.Close()
-
-	buf := make([]byte, 4*1024*1024)
-	for {
-		n, readErr := file.Read(buf)
-		if n > 0 {
-			out.Write(buf[:n])
-		}
-		if readErr != nil {
-			break
-		}
 	}
 
 	feat := models.ARFeature{
 		Name:          c.PostForm("name"),
 		ImageURL:      "/uploads/" + filename,
-		Keypoints:     c.PostForm("keypoints"),
-		Descriptors:   c.PostForm("descriptors"),
-		KeypointCount: atoiOr(c.PostForm("keypoint_count"), 0),
-		Width:         atoiOr(c.PostForm("width"), 0),
-		Height:        atoiOr(c.PostForm("height"), 0),
-		DescRows:      atoiOr(c.PostForm("desc_rows"), 0),
-		DescCols:      atoiOr(c.PostForm("desc_cols"), 0),
+		Keypoints:     orb.KeypointsJSON,
+		Descriptors:   orb.Descriptors,
+		KeypointCount: orb.KeypointCount,
+		Width:         orb.Width,
+		Height:        orb.Height,
+		DescRows:      orb.DescRows,
+		DescCols:      orb.DescCols,
 	}
 	if nid := c.PostForm("node_id"); nid != "" {
 		if v, err := strconv.Atoi(nid); err == nil && v > 0 {

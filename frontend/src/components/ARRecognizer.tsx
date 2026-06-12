@@ -86,11 +86,14 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
 
   // ワーカーの生成・初期化（マウント時に一度だけ）
   useEffect(() => {
+    console.log("[ARRecognizer] useEffect 実行 — ワーカーを生成します");
     let worker: Worker;
     try {
       worker = new Worker(new URL("../workers/opencvWorker.js", import.meta.url));
+      console.log("[ARRecognizer] new Worker 成功", worker);
     } catch (e: any) {
       // 生成失敗（本番でのアセット配信ミス・MIME・CSP 等）でアプリごと落とさない
+      console.error("[ARRecognizer] new Worker 失敗:", e);
       setErr(`ワーカーを生成できませんでした: ${e?.message ?? e}`);
       setStatus("error");
       return;
@@ -125,6 +128,7 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
         setResult(m.result ?? null);
         if (!stopRef.current) timerRef.current = window.setTimeout(postFrame, IDLE_MS);
       } else if (m.type === "error") {
+        console.error("[ARRecognizer] worker error message:", m.message);
         setErr(m.message);
         setStatus("error");
       }
@@ -132,10 +136,19 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
 
     // ワーカー自体の読み込み・実行エラー（Vite のバンドル失敗や importScripts ブロック等）を画面に出す
     worker.onerror = (ev: ErrorEvent) => {
-      setErr(`ワーカーエラー: ${ev.message || "不明"} (${ev.filename}:${ev.lineno})`);
+      // ev.message が空（クロスオリジンの "Script error."）でも ev.error には実体が残ることがある
+      console.error("[ARRecognizer] worker.onerror:", ev, ev.error);
+      setErr(`ワーカーエラー: ${ev.message || "不明（クロスオリジン）"} (${ev.filename}:${ev.lineno})`);
+      setStatus("error");
+    };
+    // 構造化クローンできないメッセージ等（postMessage 失敗）も検知する
+    worker.onmessageerror = (ev: MessageEvent) => {
+      console.error("[ARRecognizer] worker.onmessageerror:", ev);
+      setErr("ワーカーとのメッセージ受信に失敗しました");
       setStatus("error");
     };
 
+    console.log("[ARRecognizer] init メッセージを送信します");
     worker.postMessage({ type: "init" });
 
     return () => {

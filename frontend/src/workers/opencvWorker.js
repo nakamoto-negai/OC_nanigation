@@ -11,30 +11,59 @@ let cvReady = false;
 let refs = []; // { id, name, keypoints, desc(Mat), width, height }
 let bf = null;
 
+// ワーカー内のあらゆる未捕捉エラーをコンソールへ出し、かつ画面にも流す。
+// （これが無いと importScripts 由来のクロスオリジン例外が「Script error.」になり原因が見えない）
+self.onerror = (msg, src, line, col, err) => {
+  console.error("[opencvWorker] onerror:", msg, src, line, col, err);
+  self.postMessage({
+    type: "error",
+    message: `ワーカー内エラー: ${(err && err.message) || msg || "不明"} (${src || "?"}:${line || 0})`,
+  });
+};
+self.onunhandledrejection = (e) => {
+  console.error("[opencvWorker] unhandledrejection:", e.reason);
+  self.postMessage({
+    type: "error",
+    message: `ワーカー内Promiseエラー: ${(e.reason && e.reason.message) || e.reason || "不明"}`,
+  });
+};
+
 self.onmessage = (e) => {
   const msg = e.data;
-  if (msg.type === "init") {
-    init();
-  } else if (msg.type === "setRefs") {
-    setRefs(msg.refs);
-    self.postMessage({ type: "refsSet", count: refs.length });
-  } else if (msg.type === "match") {
-    const result = doMatch(msg);
-    self.postMessage({ type: "matchResult", seq: msg.seq, result });
+  try {
+    if (msg.type === "init") {
+      init();
+    } else if (msg.type === "setRefs") {
+      setRefs(msg.refs);
+      self.postMessage({ type: "refsSet", count: refs.length });
+    } else if (msg.type === "match") {
+      const result = doMatch(msg);
+      self.postMessage({ type: "matchResult", seq: msg.seq, result });
+    }
+  } catch (err) {
+    console.error("[opencvWorker] onmessage handler:", msg && msg.type, err);
+    self.postMessage({
+      type: "error",
+      message: `処理エラー(${msg && msg.type}): ${(err && err.message) || err}`,
+    });
   }
 };
 
 function init() {
   try {
     // docs.opencv.org は古い版を削除するため "4.x"（最新へリダイレクト）を使う
+    console.log("[opencvWorker] importScripts 開始");
     importScripts("https://docs.opencv.org/4.x/opencv.js");
+    console.log("[opencvWorker] importScripts 完了, typeof cv =", typeof self.cv);
   } catch (err) {
-    self.postMessage({ type: "error", message: "OpenCV.js の読み込みに失敗しました（ネットワークを確認してください）" });
+    console.error("[opencvWorker] importScripts 失敗:", err);
+    self.postMessage({ type: "error", message: `OpenCV.js の読み込みに失敗しました: ${(err && err.message) || err}` });
     return;
   }
   const ready = () => {
     cvReady = true;
     bf = new cv.BFMatcher(cv.NORM_HAMMING, false);
+    console.log("[opencvWorker] 初期化完了 ready");
     self.postMessage({ type: "ready" });
   };
 
@@ -43,6 +72,11 @@ function init() {
   // 解決後の本体を self.cv に入れ直してから ready する。旧ビルドは Mat 即時 / onRuntimeInitialized。
   try {
     const g = self.cv;
+    console.log("[opencvWorker] cv 種別:", {
+      hasThen: !!(g && typeof g.then === "function"),
+      hasMat: !!(g && g.Mat),
+      truthy: !!g,
+    });
     if (g && typeof g.then === "function") {
       g.then((mod) => {
         if (mod && mod.Mat) self.cv = mod;
@@ -53,9 +87,10 @@ function init() {
     } else if (g) {
       g.onRuntimeInitialized = ready;
     } else {
-      self.postMessage({ type: "error", message: "OpenCV の読み込みに失敗しました" });
+      self.postMessage({ type: "error", message: "OpenCV の読み込みに失敗しました（cv が未定義）" });
     }
   } catch (err) {
+    console.error("[opencvWorker] 初期化失敗:", err);
     self.postMessage({ type: "error", message: "OpenCV の初期化に失敗しました: " + (err && err.message ? err.message : err) });
   }
 }

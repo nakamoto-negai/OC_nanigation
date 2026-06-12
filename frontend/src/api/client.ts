@@ -111,8 +111,14 @@ settings: {
         `/api/ar-features/matchset${viewpointNodeId ? `?viewpoint_node_id=${viewpointNodeId}` : ""}`,
       ),
     create: (form: FormData) =>
-      adminFetch("/api/ar-features", { method: "POST", body: form }).then((r) => {
-        if (!r.ok) throw new Error("登録に失敗しました");
+      adminFetch("/api/ar-features", { method: "POST", body: form }).then(async (r) => {
+        if (!r.ok) {
+          // サーバーは {"error": "..."} で理由を返すので、それを表示に使う
+          const body = await r.text();
+          let detail = body;
+          try { detail = JSON.parse(body).error ?? body; } catch { /* プレーンテキスト */ }
+          throw new Error(detail || "登録に失敗しました");
+        }
         return r.json() as Promise<ARFeature>;
       }),
     delete: (id: number) => adminReq<void>(`/api/ar-features/${id}`, { method: "DELETE" }),
