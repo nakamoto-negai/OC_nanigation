@@ -14,6 +14,7 @@ function CongestionBadge({ level, alwaysShow }: { level: number; alwaysShow?: bo
 }
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
+import { ARNavGuide } from "./ARNavGuide";
 import { useCompass } from "../hooks/useCompass";
 import { useRouteWS } from "../hooks/useRouteWS";
 import { calcRoute } from "../utils/dijkstra";
@@ -61,6 +62,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   const [blockedLinkIds, setBlockedLinkIds] = useState<number[]>([]);
   const [rerouteError, setRerouteError] = useState<string | null>(null);
   const [visibleStepIndex, setVisibleStepIndex] = useState(0);
+  // どのステップのカードを AR 表示中か（null は通常＝画像表示）
+  const [arStepIndex, setArStepIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,8 +81,16 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
 
   useEffect(() => {
     setVisibleStepIndex(0);
+    setArStepIndex(null);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [route]);
+
+  // 別カードへスクロールしたら AR を閉じてカメラを止める
+  useEffect(() => {
+    if (arStepIndex !== null && arStepIndex !== visibleStepIndex) {
+      setArStepIndex(null);
+    }
+  }, [visibleStepIndex, arStepIndex]);
 
   // geolocation disabled
   void setUserLat; void setUserLng;
@@ -226,10 +237,35 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                 userLng={userLng}
                 mapNorthOffset={mapNorthOffset}
               />
-              {s.link.photos && s.link.photos.length > 0 && (
-                <div className="rg-photos">
-                  <PhotoSlider photos={s.link.photos} />
-                </div>
+              {arStepIndex === i ? (
+                <ARNavGuide
+                  step={s}
+                  heading={heading}
+                  permission={permission}
+                  onRequestPermission={requestPermission}
+                  userLat={userLat}
+                  userLng={userLng}
+                  mapNorthOffset={mapNorthOffset}
+                  onClose={() => setArStepIndex(null)}
+                />
+              ) : (
+                <>
+                  <button
+                    className="btn-ar-start"
+                    onClick={() => {
+                      // ボタン押下はユーザー操作なので、ここで iOS のコンパス許可も要求する
+                      if (permission === "prompt") requestPermission();
+                      setArStepIndex(i);
+                    }}
+                  >
+                    ARで案内する
+                  </button>
+                  {s.link.photos && s.link.photos.length > 0 && (
+                    <div className="rg-photos">
+                      <PhotoSlider photos={s.link.photos} />
+                    </div>
+                  )}
+                </>
               )}
               {detourNode && (
                 <div className="rg-detour-suggestion">
