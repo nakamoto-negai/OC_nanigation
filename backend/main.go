@@ -48,6 +48,7 @@ func main() {
 	api.GET("/node-detours", handlers.ListNodeDetours)
 	api.GET("/categories", handlers.ListCategories)
 	api.GET("/ar-features/matchset", handlers.ListARFeaturesForMatch)
+	api.GET("/ar-objects", handlers.ListARObjects)
 
 	// 管理者専用エンドポイント（トークン必須）
 	admin := api.Group("/").Use(middleware.AdminAuth())
@@ -80,6 +81,10 @@ func main() {
 		admin.GET("/ar-features", handlers.ListARFeatures)
 		admin.POST("/ar-features", handlers.CreateARFeature)
 		admin.DELETE("/ar-features/:id", handlers.DeleteARFeature)
+
+		admin.POST("/ar-objects", handlers.CreateARObject)
+		admin.PUT("/ar-objects/:id", handlers.UpdateARObject)
+		admin.DELETE("/ar-objects/:id", handlers.DeleteARObject)
 
 		admin.POST("/categories", handlers.CreateCategory)
 		admin.PUT("/categories/:id", handlers.UpdateCategory)

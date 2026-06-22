@@ -905,16 +905,49 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 /* 認識した建物名（カメラ映像の上に大きく表示） */
 .ar-building-name {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
-  background: rgba(59, 130, 246, 0.95); color: white;
+  background: rgba(59, 130, 246, 0.95); color: white; border: none; cursor: pointer;
   font-size: 20px; font-weight: 800; padding: 10px 22px; border-radius: 999px;
   white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-width: 92%;
   overflow: hidden; text-overflow: ellipsis;
 }
+.ar-building-name:active { background: rgba(37, 99, 235, 0.98); }
+.ar-building-tap { font-size: 12px; font-weight: 600; opacity: 0.85; margin-left: 4px; }
 .ar-building-scanning {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
   background: rgba(15, 23, 42, 0.7); color: #cbd5e1;
   font-size: 13px; padding: 6px 16px; border-radius: 999px; white-space: nowrap;
 }
+
+/* ── AR 認識物体の詳細モーダル ── */
+.ar-detail-modal {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.ar-detail-card {
+  position: relative; width: 100%; max-width: 360px; max-height: 100%;
+  background: #fff; border-radius: 14px; overflow: hidden auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.ar-detail-close {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+  width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(15, 23, 42, 0.6); color: #fff; font-size: 15px;
+}
+.ar-detail-img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
+.ar-detail-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.ar-detail-title { margin: 0; font-size: 18px; font-weight: 800; color: #1e293b; }
+.ar-detail-status { display: flex; align-items: center; gap: 8px; }
+.ar-detail-badge {
+  font-size: 12px; font-weight: 700; color: #fff;
+  padding: 2px 10px; border-radius: 10px;
+}
+.ar-detail-wait {
+  font-size: 12px; font-weight: 700; color: #c2410c;
+  background: #ffedd5; border-radius: 8px; padding: 2px 8px;
+}
+.ar-detail-desc { margin: 0; font-size: 14px; color: #475569; line-height: 1.6; }
+.ar-detail-empty { color: #94a3b8; }
 
 .ar-view-screen { padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .ar-view-hint { font-size: 13px; color: #64748b; }

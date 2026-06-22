@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Node } from "../types";
+import { ARFeature, Node } from "../types";
 import { api } from "../api/client";
 import { MatchResult } from "../utils/opencv";
 import { drawQuad } from "../utils/arDraw";
@@ -9,6 +9,10 @@ interface Props {
   /** 現在地ノード。指定するとその地点から見える建物だけに絞り込む。null は絞り込みなし。 */
   viewpointNodeId: number | null;
 }
+
+const BASE = import.meta.env.VITE_API_URL ?? "";
+const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
+const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
 
 const IDLE_MS = 250; // 1 回の照合後に挟む間隔
 const DETECT_WIDTH = 480; // 照合に使う縮小幅（小さいほど軽い）
@@ -39,11 +43,14 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
   const pendingRefsRef = useRef<any[] | null>(null);
   const inFlightRef = useRef<InFlight | null>(null);
   const seqRef = useRef(0);
+  // 認識結果(id)から詳細表示用の ARFeature（建物ノード付き）を引くためのマップ
+  const featureMapRef = useRef<Map<number, ARFeature>>(new Map());
 
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [cameraOn, setCameraOn] = useState(false);
   const [refCount, setRefCount] = useState(0);
   const [result, setResult] = useState<MatchResult | null>(null);
+  const [detail, setDetail] = useState<ARFeature | null>(null);
   const [err, setErr] = useState("");
 
   // 1 フレームをワーカーへ送る。結果が返ってきたら（onmessage 内で）次フレームを予約する。
@@ -169,6 +176,10 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
       .matchset(viewpointNodeId ?? undefined)
       .then((full) => {
         if (cancelled) return;
+        // 詳細表示用に id → ARFeature を保持（建物ノード情報を含む）
+        const fmap = new Map<number, ARFeature>();
+        for (const f of full) fmap.set(f.id, f);
+        featureMapRef.current = fmap;
         const refs = full.map((f) => ({
           id: f.id,
           // 認識時に表示する「建物名」。建物ノードがあればその名前、なければ登録名
@@ -227,6 +238,7 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
     overlay?.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
     setCameraOn(false);
     setResult(null);
+    setDetail(null);
   };
 
   // アンマウント時にカメラ停止
@@ -252,9 +264,67 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
           </div>
         )}
 
-        {/* 認識した建物名を大きく表示 */}
-        {cameraOn && result && <div className="ar-building-name">🏛 {result.name}</div>}
+        {/* 認識した建物名を大きく表示。タップで詳細を開く */}
+        {cameraOn && result && (
+          <button
+            className="ar-building-name"
+            onClick={() => {
+              const f = featureMapRef.current.get(result.id);
+              if (f) setDetail(f);
+            }}
+          >
+            🏛 {result.name} <span className="ar-building-tap">タップで詳細 ▸</span>
+          </button>
+        )}
         {cameraOn && !result && <div className="ar-building-scanning">建物を探しています…</div>}
+
+        {detail && (() => {
+          // 表示の優先順位: ARObject（建物以外の物体）→ Node（建物）→ 登録名
+          const obj = detail.ar_object;
+          const node = detail.node;
+          const title = obj?.name ?? node?.name ?? detail.name;
+          const imageUrl = obj?.image_url || detail.image_url;
+          const description = obj?.description || node?.description || "";
+          return (
+            <div className="ar-detail-modal" onClick={() => setDetail(null)}>
+              <div className="ar-detail-card" onClick={(e) => e.stopPropagation()}>
+                <button className="ar-detail-close" onClick={() => setDetail(null)}>✕</button>
+                {imageUrl && <img className="ar-detail-img" src={`${BASE}${imageUrl}`} alt="" />}
+                <div className="ar-detail-body">
+                  <h3 className="ar-detail-title">{title}</h3>
+                  {obj?.category && (
+                    <div className="ar-detail-status">
+                      <span className="ar-detail-badge" style={{ background: "#6366f1" }}>
+                        {obj.category}
+                      </span>
+                    </div>
+                  )}
+                  {/* 建物ノードのみ: 混雑・待ち時間（物体には無い） */}
+                  {!obj && node && (node.congestion_level > 0 || node.wait_time > 0) && (
+                    <div className="ar-detail-status">
+                      {node.congestion_level > 0 && (
+                        <span
+                          className="ar-detail-badge"
+                          style={{ background: CONGESTION_COLORS[node.congestion_level] ?? CONGESTION_COLORS[0] }}
+                        >
+                          {CONGESTION_LABELS[node.congestion_level] ?? "不明"}
+                        </span>
+                      )}
+                      {node.wait_time > 0 && (
+                        <span className="ar-detail-wait">待ち約{node.wait_time}分</span>
+                      )}
+                    </div>
+                  )}
+                  {description ? (
+                    <p className="ar-detail-desc">{description}</p>
+                  ) : (
+                    <p className="ar-detail-desc ar-detail-empty">詳細情報は登録されていません</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="ar-recognizer-bar">

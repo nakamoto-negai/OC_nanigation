@@ -98,12 +98,24 @@ export interface MapImage {
   created_at: string;
 }
 
+export interface ARObject {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ARFeature {
   id: number;
   node_id: number | null;
   node?: Node;
   viewpoint_node_id: number | null;
   viewpoint_node?: Node;
+  ar_object_id: number | null;
+  ar_object?: ARObject;
   name: string;
   image_url: string;
   width: number;

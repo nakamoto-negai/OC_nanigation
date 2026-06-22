@@ -1,4 +1,4 @@
-import { ARFeature, Category, Link, MapImage, Node, NodeDetour, Setting, User, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Setting, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -122,6 +122,14 @@ settings: {
         return r.json() as Promise<ARFeature>;
       }),
     delete: (id: number) => adminReq<void>(`/api/ar-features/${id}`, { method: "DELETE" }),
+  },
+  arObjects: {
+    list: () => req<ARObject[]>("/api/ar-objects"),
+    create: (data: Partial<ARObject>) =>
+      adminReq<ARObject>("/api/ar-objects", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<ARObject>) =>
+      adminReq<ARObject>(`/api/ar-objects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) => adminReq<void>(`/api/ar-objects/${id}`, { method: "DELETE" }),
   },
   admin: {
     login: (password: string) =>

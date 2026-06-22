@@ -16,6 +16,9 @@ type ARFeature struct {
 	Node            *Node     `json:"node,omitempty" gorm:"foreignKey:NodeID"`
 	ViewpointNodeID *uint     `json:"viewpoint_node_id"`
 	ViewpointNode   *Node     `json:"viewpoint_node,omitempty" gorm:"foreignKey:ViewpointNodeID"`
+	// 建物以外の物体を認識したときに表示する詳細情報。任意。
+	ARObjectID *uint     `json:"ar_object_id"`
+	ARObject   *ARObject `json:"ar_object,omitempty" gorm:"foreignKey:ARObjectID"`
 	Name            string    `json:"name"`
 	ImageURL        string    `json:"image_url" gorm:"not null"`
 	Width           int       `json:"width" gorm:"default:0"`

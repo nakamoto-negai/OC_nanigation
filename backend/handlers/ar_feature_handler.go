@@ -22,6 +22,7 @@ func ListARFeatures(c *gin.Context) {
 	database.DB.
 		Preload("Node").
 		Preload("ViewpointNode").
+		Preload("ARObject").
 		Omit("Descriptors").
 		Order("created_at desc").
 		Find(&features)
@@ -32,7 +33,7 @@ func ListARFeatures(c *gin.Context) {
 // クライアント側（OpenCV.js）の特徴点マッチングで参照として読み込むために使う。
 // ?viewpoint_node_id=N を付けると、その地点（現在地ノード）から見える建物だけに絞り込む。
 func ListARFeaturesForMatch(c *gin.Context) {
-	q := database.DB.Preload("Node").Preload("ViewpointNode").Order("created_at desc")
+	q := database.DB.Preload("Node").Preload("ViewpointNode").Preload("ARObject").Order("created_at desc")
 	if vp := c.Query("viewpoint_node_id"); vp != "" {
 		if v, err := strconv.Atoi(vp); err == nil && v > 0 {
 			q = q.Where("viewpoint_node_id = ?", v)
@@ -120,9 +121,15 @@ func CreateARFeature(c *gin.Context) {
 			feat.ViewpointNodeID = &u
 		}
 	}
+	if oid := c.PostForm("ar_object_id"); oid != "" {
+		if v, err := strconv.Atoi(oid); err == nil && v > 0 {
+			u := uint(v)
+			feat.ARObjectID = &u
+		}
+	}
 
 	database.DB.Create(&feat)
-	database.DB.Preload("Node").Preload("ViewpointNode").First(&feat, feat.ID)
+	database.DB.Preload("Node").Preload("ViewpointNode").Preload("ARObject").First(&feat, feat.ID)
 	c.JSON(http.StatusCreated, feat)
 }
 

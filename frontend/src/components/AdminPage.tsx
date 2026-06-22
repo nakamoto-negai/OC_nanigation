@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, Category, Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -1495,20 +1495,62 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [maxFeatures, setMaxFeatures] = useState(500);
 
-  // モード（登録 / 認識テスト）
-  const [mode, setMode] = useState<"register" | "recognize">("register");
+  // モード（登録 / 認識テスト / 物体マスタ）
+  const [mode, setMode] = useState<"register" | "recognize" | "objects">("register");
   const [recognizeViewpointId, setRecognizeViewpointId] = useState<number | "">("");
 
   const [features, setFeatures] = useState<ARFeature[]>([]);
   const [name, setName] = useState("");
   const [buildingNodeId, setBuildingNodeId] = useState<number | "">("");
   const [viewpointNodeId, setViewpointNodeId] = useState<number | "">("");
+  const [arObjectId, setArObjectId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
+  // 物体マスタ（建物以外の詳細情報）
+  const [arObjects, setArObjects] = useState<ARObject[]>([]);
+  const [objForm, setObjForm] = useState({ name: "", category: "", image_url: "", description: "" });
+  const [objSaving, setObjSaving] = useState(false);
+
   useEffect(() => {
     api.arFeatures.list().then(setFeatures).catch(() => {});
+    api.arObjects.list().then(setArObjects).catch(() => {});
   }, []);
+
+  const submitObject = async () => {
+    if (!objForm.name.trim()) {
+      setMsg({ type: "err", text: "物体名を入力してください" });
+      return;
+    }
+    setObjSaving(true);
+    setMsg(null);
+    try {
+      const created = await api.arObjects.create({
+        name: objForm.name.trim(),
+        category: objForm.category.trim(),
+        image_url: objForm.image_url.trim(),
+        description: objForm.description.trim(),
+      });
+      setArObjects((p) => [created, ...p]);
+      setObjForm({ name: "", category: "", image_url: "", description: "" });
+      setMsg({ type: "ok", text: `物体「${created.name}」を登録しました` });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setObjSaving(false);
+    }
+  };
+
+  const delObject = async (id: number) => {
+    if (!window.confirm("この物体を削除しますか？（紐づく認識データの参照は外れます）")) return;
+    try {
+      await api.arObjects.delete(id);
+      setArObjects((p) => p.filter((o) => o.id !== id));
+      if (arObjectId === id) setArObjectId("");
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
 
   // 画像を選択 → プレビュー用 URL を作成（特徴点抽出はサーバー側で行う）
   const onPickFile = (f: File | null) => {
@@ -1545,11 +1587,13 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
       form.append("name", name.trim() || `特徴点 ${new Date().toLocaleString("ja-JP")}`);
       if (buildingNodeId !== "") form.append("node_id", String(buildingNodeId));
       if (viewpointNodeId !== "") form.append("viewpoint_node_id", String(viewpointNodeId));
+      if (arObjectId !== "") form.append("ar_object_id", String(arObjectId));
       form.append("max_features", String(maxFeatures));
 
       const created = await api.arFeatures.create(form);
       setFeatures((p) => [created, ...p]);
       setName("");
+      setArObjectId("");
       onPickFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       setMsg({ type: "ok", text: `${created.keypoint_count}個の特徴点を登録しました` });
@@ -1576,9 +1620,10 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
         <div className="ar-mode-toggle">
           <button className={mode === "register" ? "active" : ""} onClick={enterRegister}>登録</button>
           <button className={mode === "recognize" ? "active" : ""} onClick={enterRecognize}>認識テスト</button>
+          <button className={mode === "objects" ? "active" : ""} onClick={() => { setMode("objects"); setMsg(null); }}>物体マスタ</button>
         </div>
 
-        <h3>{mode === "register" ? "画像から特徴点を抽出" : "登録した対象を認識"}</h3>
+        <h3>{mode === "register" ? "画像から特徴点を抽出" : mode === "recognize" ? "登録した対象を認識" : "物体マスタ（建物以外の詳細情報）"}</h3>
         {msg && (
           <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>
             {msg.text} ✕
@@ -1588,10 +1633,53 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
         <p className="hint" style={{ marginBottom: 12 }}>
           {mode === "register"
             ? "建物・看板などの画像をアップロードすると、サーバーが ORB 特徴点（コーナー）を抽出して登録します。模様や凹凸のある対象ほど多く検出されます。"
-            : "登録済みの建物とカメラ映像を特徴点マッチングし、認識した建物名を表示します。現在地で候補を絞り込めます。"}
+            : mode === "recognize"
+            ? "登録済みの対象とカメラ映像を特徴点マッチングし、認識した名前を表示します。現在地で候補を絞り込めます。"
+            : "建物に紐づかない物体（展示物・看板・設備など）の詳細情報を登録します。登録モードで認識データに紐づけると、認識時にこの詳細が表示されます。"}
         </p>
 
-        {mode === "register" ? (
+        {mode === "objects" ? (
+          <>
+            <div className="adm-field">
+              <label>物体名</label>
+              <input
+                value={objForm.name}
+                onChange={(e) => setObjForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="例: 〇〇の彫刻"
+              />
+            </div>
+            <div className="adm-field">
+              <label>種別（任意）</label>
+              <input
+                value={objForm.category}
+                onChange={(e) => setObjForm((f) => ({ ...f, category: e.target.value }))}
+                placeholder="例: 展示物 / 看板 / 設備"
+              />
+            </div>
+            <div className="adm-field">
+              <label>画像URL（任意）</label>
+              <input
+                value={objForm.image_url}
+                onChange={(e) => setObjForm((f) => ({ ...f, image_url: e.target.value }))}
+                placeholder="未入力なら認識画像で代替表示"
+              />
+            </div>
+            <div className="adm-field">
+              <label>詳細説明</label>
+              <textarea
+                rows={4}
+                value={objForm.description}
+                onChange={(e) => setObjForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="認識時に表示する説明文"
+              />
+            </div>
+            <div className="adm-actions">
+              <button className="btn-primary" onClick={submitObject} disabled={objSaving}>
+                {objSaving ? "登録中..." : "物体を登録"}
+              </button>
+            </div>
+          </>
+        ) : mode === "register" ? (
           <>
             <div className="ar-camera-wrap">
               {previewUrl ? (
@@ -1632,6 +1720,14 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
               </select>
             </div>
             <div className="adm-field">
+              <label>物体（建物以外の詳細情報）</label>
+              <select value={arObjectId} onChange={(e) => setArObjectId(Number(e.target.value) || "")}>
+                <option value="">未設定</option>
+                {arObjects.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              <p className="hint">建物ではない物体を認識させる場合に選びます。「物体マスタ」タブで先に登録してください。</p>
+            </div>
+            <div className="adm-field">
               <label>見える地点（現在地ノード）</label>
               <select value={viewpointNodeId} onChange={(e) => setViewpointNodeId(Number(e.target.value) || "")}>
                 <option value="">未設定（どの地点でも対象）</option>
@@ -1667,26 +1763,52 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
       </div>
 
       <div className="adm-list-col">
-        <h3>登録済み特徴点 <span className="count-badge">{features.length}</span></h3>
-        {features.length === 0 ? (
-          <p className="adm-empty">まだ登録がありません</p>
-        ) : (
-          <div className="ar-feature-list">
-            {features.map((f) => (
-              <div key={f.id} className="ar-feature-card">
-                <img src={`${BASE}${f.image_url}`} alt={f.name} className="ar-feature-thumb" />
-                <div className="ar-feature-info">
-                  <strong>{f.name}</strong>
-                  <span className="ar-feature-meta">{f.keypoint_count} 点 ／ {f.width}×{f.height}</span>
-                  {f.node && <span className="ar-feature-node">🏛 {f.node.name}</span>}
-                  {f.viewpoint_node && (
-                    <span className="ar-feature-meta">📍 {f.viewpoint_node.name} から見える</span>
-                  )}
-                </div>
-                <button className="btn-del" onClick={() => del(f.id)}>削除</button>
+        {mode === "objects" ? (
+          <>
+            <h3>登録済み物体 <span className="count-badge">{arObjects.length}</span></h3>
+            {arObjects.length === 0 ? (
+              <p className="adm-empty">まだ登録がありません</p>
+            ) : (
+              <div className="ar-feature-list">
+                {arObjects.map((o) => (
+                  <div key={o.id} className="ar-feature-card">
+                    {o.image_url && <img src={`${BASE}${o.image_url}`} alt={o.name} className="ar-feature-thumb" />}
+                    <div className="ar-feature-info">
+                      <strong>{o.name}</strong>
+                      {o.category && <span className="ar-feature-meta">{o.category}</span>}
+                      {o.description && <span className="ar-feature-meta">{o.description}</span>}
+                    </div>
+                    <button className="btn-del" onClick={() => delObject(o.id)}>削除</button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
+        ) : (
+          <>
+            <h3>登録済み特徴点 <span className="count-badge">{features.length}</span></h3>
+            {features.length === 0 ? (
+              <p className="adm-empty">まだ登録がありません</p>
+            ) : (
+              <div className="ar-feature-list">
+                {features.map((f) => (
+                  <div key={f.id} className="ar-feature-card">
+                    <img src={`${BASE}${f.image_url}`} alt={f.name} className="ar-feature-thumb" />
+                    <div className="ar-feature-info">
+                      <strong>{f.name}</strong>
+                      <span className="ar-feature-meta">{f.keypoint_count} 点 ／ {f.width}×{f.height}</span>
+                      {f.node && <span className="ar-feature-node">🏛 {f.node.name}</span>}
+                      {f.ar_object && <span className="ar-feature-node">🔖 {f.ar_object.name}</span>}
+                      {f.viewpoint_node && (
+                        <span className="ar-feature-meta">📍 {f.viewpoint_node.name} から見える</span>
+                      )}
+                    </div>
+                    <button className="btn-del" onClick={() => del(f.id)}>削除</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
