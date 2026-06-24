@@ -320,6 +320,16 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
                   ) : (
                     <p className="ar-detail-desc ar-detail-empty">詳細情報は登録されていません</p>
                   )}
+                  {obj?.link_url && (
+                    <a
+                      className="ar-detail-link"
+                      href={obj.link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      詳しく見る ↗
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

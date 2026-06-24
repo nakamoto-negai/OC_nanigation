@@ -13,12 +13,14 @@ import "time"
 //   Description : 詳細説明
 //   Category    : 種別ラベル（任意。例: 展示物 / 看板 / 設備）
 //   ImageURL    : 代表画像（任意。未設定なら認識参照画像で代替表示する）
+//   LinkURL     : 詳細リンク（任意。認識詳細から外部ページ等へ遷移させる）
 type ARObject struct {
 	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement"`
 	Name        string    `json:"name" gorm:"not null"`
 	Description string    `json:"description"`
 	Category    string    `json:"category"`
 	ImageURL    string    `json:"image_url"`
+	LinkURL     string    `json:"link_url"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

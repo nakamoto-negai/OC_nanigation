@@ -1509,7 +1509,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
 
   // 物体マスタ（建物以外の詳細情報）
   const [arObjects, setArObjects] = useState<ARObject[]>([]);
-  const [objForm, setObjForm] = useState({ name: "", category: "", image_url: "", description: "" });
+  const [objForm, setObjForm] = useState({ name: "", category: "", image_url: "", link_url: "", description: "" });
   const [objSaving, setObjSaving] = useState(false);
 
   useEffect(() => {
@@ -1529,10 +1529,11 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
         name: objForm.name.trim(),
         category: objForm.category.trim(),
         image_url: objForm.image_url.trim(),
+        link_url: objForm.link_url.trim(),
         description: objForm.description.trim(),
       });
       setArObjects((p) => [created, ...p]);
-      setObjForm({ name: "", category: "", image_url: "", description: "" });
+      setObjForm({ name: "", category: "", image_url: "", link_url: "", description: "" });
       setMsg({ type: "ok", text: `物体「${created.name}」を登録しました` });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
@@ -1663,6 +1664,15 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
                 onChange={(e) => setObjForm((f) => ({ ...f, image_url: e.target.value }))}
                 placeholder="未入力なら認識画像で代替表示"
               />
+            </div>
+            <div className="adm-field">
+              <label>リンクURL（任意）</label>
+              <input
+                value={objForm.link_url}
+                onChange={(e) => setObjForm((f) => ({ ...f, link_url: e.target.value }))}
+                placeholder="例: https://example.com/detail"
+              />
+              <p className="hint">認識詳細に「詳しく見る」リンクとして表示されます。</p>
             </div>
             <div className="adm-field">
               <label>詳細説明</label>

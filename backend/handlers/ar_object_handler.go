@@ -48,6 +48,7 @@ func UpdateARObject(c *gin.Context) {
 	obj.Description = in.Description
 	obj.Category = in.Category
 	obj.ImageURL = in.ImageURL
+	obj.LinkURL = in.LinkURL
 	database.DB.Save(&obj)
 	c.JSON(http.StatusOK, obj)
 }

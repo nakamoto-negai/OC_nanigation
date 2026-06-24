@@ -992,6 +992,12 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .ar-detail-desc { margin: 0; font-size: 14px; color: #475569; line-height: 1.6; }
 .ar-detail-empty { color: #94a3b8; }
+.ar-detail-link {
+  display: inline-block; margin-top: 4px; padding: 9px 14px;
+  background: #3b82f6; color: #fff; text-decoration: none;
+  border-radius: 8px; font-size: 14px; font-weight: 700; text-align: center;
+}
+.ar-detail-link:active { background: #2563eb; }
 
 .ar-view-screen { padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .ar-view-hint { font-size: 13px; color: #64748b; }
