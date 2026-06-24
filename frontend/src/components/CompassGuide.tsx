@@ -53,15 +53,13 @@ export const CompassGuide: React.FC<Props> = ({
     );
   }
 
+  // コンパス未許可時の「コンパスを有効にする」ボタンは、RouteGuide 側で
+  // 「ARで案内する」と横並びに配置するため、ここでは出さない（onRequestPermission は同上で使用）。
+  void onRequestPermission;
   return (
     <div className="cg-text">
       <span className="cg-dir-label cg-dir-ok">{dirText}</span>
       <span className="cg-dir-sub">{method}基準</span>
-      {permission === "prompt" && (
-        <button className="cg-enable-btn" onClick={onRequestPermission}>
-          コンパスを有効にする
-        </button>
-      )}
     </div>
   );
 };

@@ -101,9 +101,9 @@ function UserApp() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1 onClick={() => setScreen("home")} style={{ cursor: "pointer" }}>
-          道案内アプリ
-        </h1>
+        {/* タイトルは非表示。ホームへ戻る導線は「← 戻る」「AR」ボタンで担保。
+            space-between の右寄せレイアウトを保つため空のスペーサーを置く。 */}
+        <span className="header-spacer" onClick={() => setScreen("home")} />
         <div className="header-actions">
           <span className="cafeteria-congestion" title="食堂の混雑度">
             <span className="cafeteria-congestion-label">食堂</span>
@@ -121,7 +121,7 @@ function UserApp() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              🎫 スタンプ
+              スタンプ
             </a>
           )}
           {screen === "home" && (

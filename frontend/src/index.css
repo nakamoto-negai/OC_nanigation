@@ -318,6 +318,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   padding: 12px 20px; background: #1e3a5f; color: white;
 }
 .app-header h1 { font-size: 1.2rem; font-weight: 700; }
+/* タイトル撤去後の左側スペーサー（クリックでホームへ戻れる不可視領域） */
+.header-spacer { flex: 1; align-self: stretch; cursor: pointer; }
 .app-header nav { display: flex; gap: 8px; }
 .app-header nav button {
   padding: 6px 16px; border: none; border-radius: 6px;
@@ -815,6 +817,16 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   display: flex; align-items: center; justify-content: center; gap: 6px;
 }
 .btn-ar-start:active { background: #0284c7; }
+
+/* 「コンパスを有効にする」と「ARで案内する」を横並びにする行 */
+.rg-action-row {
+  display: flex; gap: 8px; align-items: stretch; margin: 6px 0;
+}
+.rg-action-row .btn-ar-start { flex: 1; width: auto; margin: 0; }
+.rg-action-row .cg-enable-btn {
+  flex: 1; width: auto; margin: 0; font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
 
 .arnav { margin-top: 6px; }
 .arnav-camera-wrap {
