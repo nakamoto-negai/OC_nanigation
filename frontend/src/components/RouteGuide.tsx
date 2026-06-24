@@ -13,6 +13,12 @@ const ARRIVAL_RADIUS_M = 20;
 // 「到着しました」を表示してから次のステップへ自動遷移するまでの待ち時間(ms)
 const ARRIVAL_ADVANCE_MS = 1800;
 
+// スクロール内に並ぶカード。通常の道案内ステップと、寄り道提案（独立カード）の2種類。
+// stepIndex は元になるステップの番号（WS送信・到着判定の基準）。
+type GuideCard =
+  | { kind: "step"; step: RouteStepDetail; stepIndex: number }
+  | { kind: "detour"; detourNode: Node; originStep: RouteStepDetail; stepIndex: number };
+
 interface Props {
   route: RouteResponse;
   nodes: Node[];
@@ -36,26 +42,38 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     return map;
   }, [nodeDetours]);
 
+  // スクロールに並べるカード列を構築。各ステップの直後に、寄り道先があれば独立カードを挿入する。
+  const cards = useMemo<GuideCard[]>(() => {
+    const list: GuideCard[] = [];
+    route.steps.forEach((s, i) => {
+      list.push({ kind: "step", step: s, stepIndex: i });
+      const dn = detourMap.get(s.to_node.id);
+      if (dn) list.push({ kind: "detour", detourNode: dn, originStep: s, stepIndex: i });
+    });
+    return list;
+  }, [route.steps, detourMap]);
+
   const { heading, permission, requestPermission } = useCompass();
   const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [blockedLinkIds, setBlockedLinkIds] = useState<number[]>([]);
   const [rerouteError, setRerouteError] = useState<string | null>(null);
-  const [visibleStepIndex, setVisibleStepIndex] = useState(0);
-  // どのステップのカードを AR 表示中か（null は通常＝画像表示）
-  const [arStepIndex, setArStepIndex] = useState<number | null>(null);
-  // 位置情報で到着したステップ（そのカードの ARNavGuide に「到着しました」を表示する）
-  const [arrivedStepIndex, setArrivedStepIndex] = useState<number | null>(null);
+  // 現在表示中のカードのインデックス（cards 配列基準。スクロール位置から算出）
+  const [visibleCardIndex, setVisibleCardIndex] = useState(0);
+  // どのカードを AR 表示中か（ステップカードのみ。null は通常＝画像表示）
+  const [arCardIndex, setArCardIndex] = useState<number | null>(null);
+  // 位置情報で到着したカード（その ARNavGuide に「到着しました」を表示する）
+  const [arrivedCardIndex, setArrivedCardIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 到着判定を一度処理したステップを記録（同じステップで何度も発火させない）
+  // 到着判定を一度処理したカードを記録（同じカードで何度も発火させない）
   const handledArrivalRef = useRef<Set<number>>(new Set());
   // 到着で自動遷移する際、遷移先でも AR を開いたままにするためのフラグ
   const autoAdvanceArRef = useRef<number | null>(null);
-  // 到着の自動遷移タイマー内から最新の arStepIndex を読むためのミラー
-  const arStepIndexRef = useRef<number | null>(null);
-  useEffect(() => { arStepIndexRef.current = arStepIndex; }, [arStepIndex]);
+  // 到着の自動遷移タイマー内から最新の arCardIndex を読むためのミラー
+  const arCardIndexRef = useRef<number | null>(null);
+  useEffect(() => { arCardIndexRef.current = arCardIndex; }, [arCardIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -70,9 +88,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   }, []);
 
   useEffect(() => {
-    setVisibleStepIndex(0);
-    setArStepIndex(null);
-    setArrivedStepIndex(null);
+    setVisibleCardIndex(0);
+    setArCardIndex(null);
+    setArrivedCardIndex(null);
     handledArrivalRef.current.clear();
     autoAdvanceArRef.current = null;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -81,15 +99,15 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   // 別カードへスクロールしたら AR を閉じてカメラを止める。
   // ただし到着による自動遷移中（autoAdvanceArRef が遷移先と一致）は、遷移先でも AR を開いたままにする。
   useEffect(() => {
-    if (arStepIndex !== null && arStepIndex !== visibleStepIndex) {
-      if (autoAdvanceArRef.current === visibleStepIndex) {
-        setArStepIndex(visibleStepIndex);
+    if (arCardIndex !== null && arCardIndex !== visibleCardIndex) {
+      if (autoAdvanceArRef.current === visibleCardIndex) {
+        setArCardIndex(visibleCardIndex);
         autoAdvanceArRef.current = null;
       } else {
-        setArStepIndex(null);
+        setArCardIndex(null);
       }
     }
-  }, [visibleStepIndex, arStepIndex]);
+  }, [visibleCardIndex, arCardIndex]);
 
   // 現在地（GPS）を監視。到着判定に使う。
   // 権限を永久拒否している場合は watchPosition を呼ぶとコンソールエラーになるため、事前に確認する。
@@ -122,40 +140,44 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     };
   }, []);
 
-  // 1 ステップ分スクロールする（到着時の自動遷移に使う）
-  const scrollToStep = (i: number) => {
+  // 1 カード分スクロールする（到着時の自動遷移に使う）
+  const scrollToCard = (i: number) => {
     const el = scrollRef.current;
     if (!el) return;
     const cardHeight = el.clientHeight - 44;
-    const top = i >= route.steps.length ? el.scrollHeight : i * cardHeight;
+    const top = i >= cards.length ? el.scrollHeight : i * cardHeight;
     el.scrollTo({ top, behavior: "smooth" });
   };
 
-  // GPS が次のチェックポイント（現在ステップの to_node）に近づいたら「到着しました」を表示し、
-  // 少し待ってから次のステップへ自動遷移する。
+  // GPS が次のチェックポイント（現在ステップカードの to_node）に近づいたら「到着しました」を表示し、
+  // 少し待ってから次のカードへ自動遷移する。
   useEffect(() => {
     if (userLat == null || userLng == null) return;
-    if (visibleStepIndex >= route.steps.length) return;
-    if (handledArrivalRef.current.has(visibleStepIndex)) return;
-    const target = route.steps[visibleStepIndex].to_node;
+    const card = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
+    if (!card || card.kind !== "step") return;
+    if (handledArrivalRef.current.has(visibleCardIndex)) return;
+    const target = card.step.to_node;
     if (target.lat == null || target.lng == null) return;
 
     const dist = gpsDistance(userLat, userLng, target.lat, target.lng);
     if (dist > ARRIVAL_RADIUS_M) return;
 
-    handledArrivalRef.current.add(visibleStepIndex);
-    setArrivedStepIndex(visibleStepIndex);
-    const next = visibleStepIndex + 1;
+    handledArrivalRef.current.add(visibleCardIndex);
+    setArrivedCardIndex(visibleCardIndex);
+    const next = visibleCardIndex + 1;
     const t = setTimeout(() => {
-      setArrivedStepIndex(null);
-      // AR 表示中だった場合は遷移先でも開いたままにする
-      if (arStepIndexRef.current === visibleStepIndex && next < route.steps.length) {
+      setArrivedCardIndex(null);
+      // AR 表示中で、遷移先もステップカードなら AR を継続する
+      if (
+        arCardIndexRef.current === visibleCardIndex &&
+        next < cards.length && cards[next].kind === "step"
+      ) {
         autoAdvanceArRef.current = next;
       }
-      scrollToStep(next);
+      scrollToCard(next);
     }, ARRIVAL_ADVANCE_MS);
     return () => clearTimeout(t);
-  }, [userLat, userLng, visibleStepIndex, route.steps]);
+  }, [userLat, userLng, visibleCardIndex, cards]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -163,16 +185,20 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     const cardHeight = el.clientHeight - 44;
     if (cardHeight <= 0) return;
     const rawIndex = Math.round(el.scrollTop / cardHeight);
-    if (rawIndex >= route.steps.length) {
-      setVisibleStepIndex(route.steps.length);
+    if (rawIndex >= cards.length) {
+      setVisibleCardIndex(cards.length);
       const goal = route.node_path[route.node_path.length - 1];
       sendGoalReached(goal.name, goal.id, route.steps.length);
       return;
     }
     if (rawIndex >= 0) {
-      setVisibleStepIndex(rawIndex);
-      const s = route.steps[rawIndex];
-      sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id);
+      setVisibleCardIndex(rawIndex);
+      const card = cards[rawIndex];
+      // 位置情報の送信はステップカードのときだけ（寄り道カードは現在地を変えない）
+      if (card.kind === "step") {
+        const s = card.step;
+        sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id);
+      }
     }
   };
 
@@ -207,6 +233,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     sendReroute(stepNumber, route.steps.length, fromNode, toNode, reason);
   };
 
+  // 現在表示中のカード（ステップカードのときだけ迂回バーや到着判定の対象になる）
+  const currentCard = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
+  const currentStep = currentCard?.kind === "step" ? currentCard.step : null;
+
   return (
     <div className="route-guide fullscreen">
       <div className="route-guide-header">
@@ -221,15 +251,14 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
         </div>
       )}
 
-      {visibleStepIndex < route.steps.length && (
+      {currentStep && (
         <div className="blocked-btn-bar">
           {REROUTE_REASONS.length === 0 ? (
             <button
               className="btn-blocked btn-blocked-single"
-              onClick={() => {
-                const s = route.steps[visibleStepIndex];
-                handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name, "other");
-              }}
+              onClick={() =>
+                handleBlock(currentStep.link.id, currentStep.step_number, currentStep.from_node.name, currentStep.to_node.name, "other")
+              }
             >
               迂回する
             </button>
@@ -238,10 +267,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
               <button
                 key={reason}
                 className="btn-blocked"
-                onClick={() => {
-                  const s = route.steps[visibleStepIndex];
-                  handleBlock(s.link.id, s.step_number, s.from_node.name, s.to_node.name, reason);
-                }}
+                onClick={() =>
+                  handleBlock(currentStep.link.id, currentStep.step_number, currentStep.from_node.name, currentStep.to_node.name, reason)
+                }
               >
                 {label}
               </button>
@@ -251,10 +279,49 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       )}
 
       <div className="route-guide-scroll" ref={scrollRef} onScroll={handleScroll}>
-        {route.steps.map((s: RouteStepDetail, i) => {
-          const detourNode = detourMap.get(s.to_node.id);
+        {cards.map((card, ci) => {
+          // 寄り道は独立したカードとして表示する
+          if (card.kind === "detour") {
+            const detourNode = card.detourNode;
+            const originStep = card.originStep;
+            return (
+              <div key={ci} className="rg-step rg-detour-card">
+                <div className="rg-detour-suggestion">
+                  <div className="rg-detour-header">
+                    <span className="rg-detour-badge">寄り道提案</span>
+                    <span className="rg-detour-name">{detourNode.name}</span>
+                  </div>
+                  {detourNode.wait_time > 0 && (
+                    <div className="rg-detour-status">
+                      <span className="rg-detour-wait">待ち約{detourNode.wait_time}分</span>
+                    </div>
+                  )}
+                  {detourNode.description && (
+                    <span className="rg-detour-desc">{detourNode.description}</span>
+                  )}
+                  <button
+                    className="btn-detour-start"
+                    onClick={() => {
+                      const newRoute = calcRoute(nodes, links, originStep.to_node.id, detourNode.id, blockedLinkIds);
+                      if (!newRoute) {
+                        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+                        setRerouteError("寄り道先への経路が見つかりませんでした");
+                        errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
+                        return;
+                      }
+                      onReroute(newRoute);
+                    }}
+                  >
+                    ここに進む
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          const s = card.step;
           return (
-            <div key={i} className="rg-step">
+            <div key={ci} className="rg-step">
               <div className="rg-step-header">
                 <div className="rg-step-number">{s.step_number}</div>
                 <div className="rg-step-title">
@@ -278,7 +345,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                 userLng={userLng}
                 mapNorthOffset={mapNorthOffset}
               />
-              {arStepIndex === i ? (
+              {arCardIndex === ci ? (
                 <ARNavGuide
                   step={s}
                   heading={heading}
@@ -287,8 +354,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   userLat={userLat}
                   userLng={userLng}
                   mapNorthOffset={mapNorthOffset}
-                  onClose={() => setArStepIndex(null)}
-                  arrived={arrivedStepIndex === i}
+                  onClose={() => setArCardIndex(null)}
+                  arrived={arrivedCardIndex === ci}
                 />
               ) : (
                 <>
@@ -303,7 +370,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       onClick={() => {
                         // ボタン押下はユーザー操作なので、ここで iOS のコンパス許可も要求する
                         if (permission === "prompt") requestPermission();
-                        setArStepIndex(i);
+                        setArCardIndex(ci);
                       }}
                     >
                       ARで案内する
@@ -315,37 +382,6 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                     </div>
                   )}
                 </>
-              )}
-              {detourNode && (
-                <div className="rg-detour-suggestion">
-                  <div className="rg-detour-header">
-                    <span className="rg-detour-badge">寄り道提案</span>
-                    <span className="rg-detour-name">{detourNode.name}</span>
-                  </div>
-                  {detourNode.wait_time > 0 && (
-                    <div className="rg-detour-status">
-                      <span className="rg-detour-wait">待ち約{detourNode.wait_time}分</span>
-                    </div>
-                  )}
-                  {detourNode.description && (
-                    <span className="rg-detour-desc">{detourNode.description}</span>
-                  )}
-                  <button
-                    className="btn-detour-start"
-                    onClick={() => {
-                      const newRoute = calcRoute(nodes, links, s.to_node.id, detourNode.id, blockedLinkIds);
-                      if (!newRoute) {
-                        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-                        setRerouteError("寄り道先への経路が見つかりませんでした");
-                        errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
-                        return;
-                      }
-                      onReroute(newRoute);
-                    }}
-                  >
-                    ここに進む
-                  </button>
-                </div>
               )}
             </div>
           );

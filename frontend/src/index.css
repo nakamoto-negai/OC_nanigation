@@ -570,6 +570,17 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .btn-detour-start:active { background: #ea580c; }
 
+/* 寄り道を 1 枚の独立カードとして表示するとき（.rg-step と併用） */
+.rg-detour-card {
+  display: flex; flex-direction: column; justify-content: center;
+  background: #fffbeb;
+}
+.rg-detour-card .rg-detour-suggestion { margin-top: 0; padding: 16px; gap: 10px; }
+.rg-detour-card .rg-detour-badge { font-size: 12px; }
+.rg-detour-card .rg-detour-name { font-size: 18px; }
+.rg-detour-card .rg-detour-desc { font-size: 14px; }
+.rg-detour-card .btn-detour-start { margin-top: 10px; padding: 12px 0; font-size: 15px; }
+
 .rg-goal {
   flex: none;
   height: calc(var(--card-h) * 0.8);
