@@ -18,6 +18,12 @@ import { ARNavGuide } from "./ARNavGuide";
 import { useCompass } from "../hooks/useCompass";
 import { useRouteWS } from "../hooks/useRouteWS";
 import { calcRoute } from "../utils/dijkstra";
+import { gpsDistance } from "../utils/bearing";
+
+// 次のチェックポイント（ノード）にこの距離(m)まで近づいたら「到着」とみなす
+const ARRIVAL_RADIUS_M = 20;
+// 「到着しました」を表示してから次のステップへ自動遷移するまでの待ち時間(ms)
+const ARRIVAL_ADVANCE_MS = 1800;
 
 interface Props {
   route: RouteResponse;
@@ -64,8 +70,17 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   const [visibleStepIndex, setVisibleStepIndex] = useState(0);
   // どのステップのカードを AR 表示中か（null は通常＝画像表示）
   const [arStepIndex, setArStepIndex] = useState<number | null>(null);
+  // 位置情報で到着したステップ（そのカードの ARNavGuide に「到着しました」を表示する）
+  const [arrivedStepIndex, setArrivedStepIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 到着判定を一度処理したステップを記録（同じステップで何度も発火させない）
+  const handledArrivalRef = useRef<Set<number>>(new Set());
+  // 到着で自動遷移する際、遷移先でも AR を開いたままにするためのフラグ
+  const autoAdvanceArRef = useRef<number | null>(null);
+  // 到着の自動遷移タイマー内から最新の arStepIndex を読むためのミラー
+  const arStepIndexRef = useRef<number | null>(null);
+  useEffect(() => { arStepIndexRef.current = arStepIndex; }, [arStepIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -82,18 +97,90 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   useEffect(() => {
     setVisibleStepIndex(0);
     setArStepIndex(null);
+    setArrivedStepIndex(null);
+    handledArrivalRef.current.clear();
+    autoAdvanceArRef.current = null;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [route]);
 
-  // 別カードへスクロールしたら AR を閉じてカメラを止める
+  // 別カードへスクロールしたら AR を閉じてカメラを止める。
+  // ただし到着による自動遷移中（autoAdvanceArRef が遷移先と一致）は、遷移先でも AR を開いたままにする。
   useEffect(() => {
     if (arStepIndex !== null && arStepIndex !== visibleStepIndex) {
-      setArStepIndex(null);
+      if (autoAdvanceArRef.current === visibleStepIndex) {
+        setArStepIndex(visibleStepIndex);
+        autoAdvanceArRef.current = null;
+      } else {
+        setArStepIndex(null);
+      }
     }
   }, [visibleStepIndex, arStepIndex]);
 
-  // geolocation disabled
-  void setUserLat; void setUserLng;
+  // 現在地（GPS）を監視。到着判定に使う。
+  // 権限を永久拒否している場合は watchPosition を呼ぶとコンソールエラーになるため、事前に確認する。
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    let cancelled = false;
+    let watchId: number | null = null;
+    const start = () => {
+      if (cancelled) return;
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLat(pos.coords.latitude);
+          setUserLng(pos.coords.longitude);
+        },
+        () => { /* 屋内など取得失敗は黙殺（到着判定は行われないだけ） */ },
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 },
+      );
+    };
+    if (navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((st) => { if (st.state !== "denied") start(); })
+        .catch(() => start());
+    } else {
+      start();
+    }
+    return () => {
+      cancelled = true;
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, []);
+
+  // 1 ステップ分スクロールする（到着時の自動遷移に使う）
+  const scrollToStep = (i: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const cardHeight = el.clientHeight - 44;
+    const top = i >= route.steps.length ? el.scrollHeight : i * cardHeight;
+    el.scrollTo({ top, behavior: "smooth" });
+  };
+
+  // GPS が次のチェックポイント（現在ステップの to_node）に近づいたら「到着しました」を表示し、
+  // 少し待ってから次のステップへ自動遷移する。
+  useEffect(() => {
+    if (userLat == null || userLng == null) return;
+    if (visibleStepIndex >= route.steps.length) return;
+    if (handledArrivalRef.current.has(visibleStepIndex)) return;
+    const target = route.steps[visibleStepIndex].to_node;
+    if (target.lat == null || target.lng == null) return;
+
+    const dist = gpsDistance(userLat, userLng, target.lat, target.lng);
+    if (dist > ARRIVAL_RADIUS_M) return;
+
+    handledArrivalRef.current.add(visibleStepIndex);
+    setArrivedStepIndex(visibleStepIndex);
+    const next = visibleStepIndex + 1;
+    const t = setTimeout(() => {
+      setArrivedStepIndex(null);
+      // AR 表示中だった場合は遷移先でも開いたままにする
+      if (arStepIndexRef.current === visibleStepIndex && next < route.steps.length) {
+        autoAdvanceArRef.current = next;
+      }
+      scrollToStep(next);
+    }, ARRIVAL_ADVANCE_MS);
+    return () => clearTimeout(t);
+  }, [userLat, userLng, visibleStepIndex, route.steps]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -247,6 +334,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   userLng={userLng}
                   mapNorthOffset={mapNorthOffset}
                   onClose={() => setArStepIndex(null)}
+                  arrived={arrivedStepIndex === i}
                 />
               ) : (
                 <>

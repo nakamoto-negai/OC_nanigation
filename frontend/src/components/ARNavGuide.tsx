@@ -12,6 +12,8 @@ interface Props {
   userLng: number | null;
   mapNorthOffset: number;
   onClose: () => void;
+  /** 位置情報で次のチェックポイントに到達したか。true の間カメラに「到着しました」を表示する。 */
+  arrived?: boolean;
 }
 
 /**
@@ -25,7 +27,7 @@ interface Props {
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, arrived = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -89,8 +91,18 @@ export const ARNavGuide: React.FC<Props> = ({
 
   return (
     <div className="arnav">
-      <div className="arnav-camera-wrap">
+      {/* touch-action: pan-y で、カメラ上を縦スワイプしたとき道案内が普通にスクロールできるようにする */}
+      <div className="arnav-camera-wrap" style={{ touchAction: "pan-y" }}>
         <video ref={videoRef} className="arnav-video" playsInline muted />
+
+        {/* 位置情報で到着したらカメラ全面に「到着しました」を表示 */}
+        {arrived && (
+          <div className="arnav-arrived">
+            <span className="arnav-arrived-check">✓</span>
+            <span className="arnav-arrived-text">到着しました</span>
+            <span className="arnav-arrived-sub">{step.to_node.name}</span>
+          </div>
+        )}
 
         <div className="arnav-overlay">
           {hasHeading ? (

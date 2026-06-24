@@ -22,6 +22,21 @@ export function mapBearing(
   return ((angle + mapNorthOffset) + 360) % 360;
 }
 
+// 2 つの GPS 座標間の距離（メートル）を Haversine 公式で求める。到着判定に使う。
+export function gpsDistance(
+  fromLat: number, fromLng: number,
+  toLat: number, toLng: number
+): number {
+  const R = 6371000; // 地球半径（m）
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(toLat - fromLat);
+  const dLng = toRad(toLng - fromLng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
 export function angleDiff(target: number, current: number): number {
   let diff = ((target - current) + 360) % 360;
   if (diff > 180) diff -= 360;

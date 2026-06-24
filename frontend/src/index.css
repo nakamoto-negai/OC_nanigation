@@ -859,6 +859,27 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   font-size: 14px; font-weight: 600; cursor: pointer;
 }
 
+/* 到着時にカメラ全面へ重ねる「到着しました」表示 */
+.arnav-arrived {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(16, 122, 56, 0.78);
+  color: #fff; text-align: center;
+  animation: arnav-arrived-in 0.3s ease-out;
+}
+.arnav-arrived-check {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: #fff; color: #16a34a;
+  font-size: 44px; font-weight: 900; line-height: 72px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.arnav-arrived-text { font-size: 26px; font-weight: 900; letter-spacing: 0.05em; }
+.arnav-arrived-sub { font-size: 15px; font-weight: 600; opacity: 0.9; }
+@keyframes arnav-arrived-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 .ar-feature-list { display: flex; flex-direction: column; gap: 10px; }
 .ar-feature-card {
   display: flex; align-items: center; gap: 12px;
