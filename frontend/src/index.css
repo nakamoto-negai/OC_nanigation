@@ -562,6 +562,10 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   background: #ffedd5; border-radius: 8px; padding: 2px 8px;
 }
 .rg-detour-desc { font-size: 12px; color: #c2410c; }
+.rg-detour-img {
+  width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 8px; display: block;
+}
 .btn-detour-start {
   width: 100%; margin-top: 6px; padding: 8px 0;
   background: #f97316; color: white; font-size: 13px; font-weight: 700;
@@ -876,11 +880,21 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .arnav-placeholder { color: #94a3b8; font-size: 14px; text-align: center; padding: 0 16px; }
 .arnav-error { color: #fca5a5; font-size: 14px; text-align: center; padding: 0 16px; }
-.arnav-close {
-  width: 100%; margin-top: 8px; padding: 9px 0;
-  background: #e2e8f0; color: #1e293b; border: none; border-radius: 10px;
-  font-size: 14px; font-weight: 600; cursor: pointer;
+/* カメラ上部の操作バー（画像案内へ戻る / 次に進む） */
+.arnav-topbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 8px;
 }
+.arnav-top-btn {
+  border: none; border-radius: 999px; cursor: pointer;
+  font-size: 14px; font-weight: 700; padding: 8px 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.arnav-top-switch { background: rgba(255, 255, 255, 0.92); color: #1e293b; }
+.arnav-top-switch:active { background: rgba(226, 232, 240, 0.95); }
+.arnav-top-next { background: #3b82f6; color: #fff; }
+.arnav-top-next:active { background: #2563eb; }
 
 /* 到着時にカメラ全面へ重ねる「到着しました」表示 */
 .arnav-arrived {
@@ -912,6 +926,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   width: 80px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #0f172a;
 }
 .ar-feature-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.adm-inline-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.adm-inline-edit textarea { width: 100%; }
 .ar-feature-meta { font-size: 12px; color: #64748b; }
 .ar-feature-node { font-size: 12px; color: #2563eb; }
 
@@ -946,58 +962,97 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .ar-recognizer-bar .btn-secondary { background: #e2e8f0; color: #334155; }
 .ar-recognizer-status { font-size: 13px; color: #64748b; }
 
-/* 認識した建物名（カメラ映像の上に大きく表示） */
-.ar-building-name {
-  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
-  background: rgba(59, 130, 246, 0.95); color: white; border: none; cursor: pointer;
-  font-size: 20px; font-weight: 800; padding: 10px 22px; border-radius: 999px;
-  white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-width: 92%;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.ar-building-name:active { background: rgba(37, 99, 235, 0.98); }
-.ar-building-tap { font-size: 12px; font-weight: 600; opacity: 0.85; margin-left: 4px; }
+/* 認識対象を探している間の表示 */
 .ar-building-scanning {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
   background: rgba(15, 23, 42, 0.7); color: #cbd5e1;
   font-size: 13px; padding: 6px 16px; border-radius: 999px; white-space: nowrap;
 }
 
-/* ── AR 認識物体の詳細モーダル ── */
-.ar-detail-modal {
-  position: absolute; inset: 0; z-index: 10;
-  background: rgba(15, 23, 42, 0.6);
-  display: flex; align-items: center; justify-content: center; padding: 16px;
+/* 認識した対象の簡易詳細（カメラ下部に直接表示。説明＋リンクのみ・画像なし） */
+.ar-detail-bar {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 5;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: 12px;
+  background: rgba(15, 23, 42, 0.82); color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
-.ar-detail-card {
-  position: relative; width: 100%; max-width: 360px; max-height: 100%;
-  background: #fff; border-radius: 14px; overflow: hidden auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-}
-.ar-detail-close {
-  position: absolute; top: 8px; right: 8px; z-index: 1;
-  width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
-  background: rgba(15, 23, 42, 0.6); color: #fff; font-size: 15px;
-}
-.ar-detail-img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
-.ar-detail-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
-.ar-detail-title { margin: 0; font-size: 18px; font-weight: 800; color: #1e293b; }
-.ar-detail-status { display: flex; align-items: center; gap: 8px; }
-.ar-detail-badge {
-  font-size: 12px; font-weight: 700; color: #fff;
-  padding: 2px 10px; border-radius: 10px;
-}
-.ar-detail-wait {
-  font-size: 12px; font-weight: 700; color: #c2410c;
-  background: #ffedd5; border-radius: 8px; padding: 2px 8px;
-}
-.ar-detail-desc { margin: 0; font-size: 14px; color: #475569; line-height: 1.6; }
-.ar-detail-empty { color: #94a3b8; }
-.ar-detail-link {
-  display: inline-block; margin-top: 4px; padding: 9px 14px;
+.ar-detail-bar-title { font-size: 17px; font-weight: 800; }
+.ar-detail-bar-desc { margin: 0; font-size: 13px; line-height: 1.6; color: #e2e8f0; }
+.ar-detail-bar-link {
+  align-self: flex-start; margin-top: 2px; padding: 9px 16px;
   background: #3b82f6; color: #fff; text-decoration: none;
-  border-radius: 8px; font-size: 14px; font-weight: 700; text-align: center;
+  border-radius: 8px; font-size: 14px; font-weight: 700;
 }
-.ar-detail-link:active { background: #2563eb; }
+.ar-detail-bar-link:active { background: #2563eb; }
+
+/* 認識した瞬間に詳細バーをポップイン＋一瞬きらめかせる */
+.ar-detail-bar {
+  animation: ar-bar-in 460ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+.ar-detail-bar-title {
+  text-shadow: 0 0 10px rgba(255, 213, 74, 0.55);
+}
+@keyframes ar-bar-in {
+  0%   { opacity: 0; transform: translateY(16px) scale(0.96); box-shadow: 0 0 0 rgba(255,215,0,0); }
+  55%  { box-shadow: 0 0 26px rgba(255, 213, 74, 0.7); }
+  100% { opacity: 1; transform: translateY(0) scale(1); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+}
+
+/* ── 煌びやか演出（認識成功時の一回再生） ── */
+.ar-celebrate {
+  position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.ar-celebrate-flash {
+  position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.6), rgba(255,240,180,0.25) 45%, rgba(255,255,255,0) 70%);
+  animation: ar-flash 620ms ease-out forwards;
+}
+@keyframes ar-flash {
+  0%   { opacity: 0; transform: scale(0.4); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+.ar-celebrate-ring {
+  position: absolute; width: 34%; aspect-ratio: 1; border-radius: 50%;
+  border: 3px solid rgba(255, 223, 130, 0.95);
+  box-shadow: 0 0 28px rgba(255, 215, 0, 0.75), inset 0 0 18px rgba(255, 215, 0, 0.5);
+  animation: ar-ring 900ms ease-out forwards;
+}
+.ar-celebrate-ring2 {
+  border-color: rgba(125, 211, 252, 0.9);
+  box-shadow: 0 0 24px rgba(125, 211, 252, 0.6), inset 0 0 16px rgba(125, 211, 252, 0.4);
+  animation: ar-ring 1100ms ease-out 90ms forwards;
+}
+@keyframes ar-ring {
+  0%   { transform: scale(0.3); opacity: 0; }
+  18%  { opacity: 1; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.ar-spark {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  animation: ar-spark-move 1000ms ease-out var(--d, 0ms) forwards;
+}
+.ar-spark svg {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.9));
+}
+@keyframes ar-spark-move {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0) scale(0) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.5), calc(var(--ty) * 0.5)) scale(1.1) rotate(80deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(0.2) rotate(220deg);
+  }
+}
 
 .ar-view-screen { padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .ar-view-hint { font-size: 13px; color: #64748b; }

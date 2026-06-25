@@ -98,8 +98,24 @@ settings: {
   },
   nodeDetours: {
     list: () => req<NodeDetour[]>("/api/node-detours"),
-    create: (data: { node_id: number; detour_node_id: number }) =>
-      adminReq<NodeDetour>("/api/node-detours", { method: "POST", body: JSON.stringify(data) }),
+    create: (form: FormData) =>
+      adminFetch("/api/node-detours", { method: "POST", body: form }).then(async (r) => {
+        if (!r.ok) {
+          let detail = await r.text();
+          try { detail = JSON.parse(detail).error ?? detail; } catch { /* プレーンテキスト */ }
+          throw new Error(detail || "追加に失敗しました");
+        }
+        return r.json() as Promise<NodeDetour>;
+      }),
+    update: (id: number, form: FormData) =>
+      adminFetch(`/api/node-detours/${id}`, { method: "PUT", body: form }).then(async (r) => {
+        if (!r.ok) {
+          let detail = await r.text();
+          try { detail = JSON.parse(detail).error ?? detail; } catch { /* プレーンテキスト */ }
+          throw new Error(detail || "更新に失敗しました");
+        }
+        return r.json() as Promise<NodeDetour>;
+      }),
     delete: (id: number) =>
       adminReq<void>(`/api/node-detours/${id}`, { method: "DELETE" }),
   },

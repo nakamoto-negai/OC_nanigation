@@ -12,6 +12,9 @@ uploads/
 # Docker
 .env
 
+# ローカル HTTPS 用の自己署名証明書（マシン固有・コミットしない）
+certs/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -76,6 +76,7 @@ func main() {
 		admin.DELETE("/map-images/:id", handlers.DeleteMapImage)
 
 		admin.POST("/node-detours", handlers.CreateNodeDetour)
+		admin.PUT("/node-detours/:id", handlers.UpdateNodeDetour)
 		admin.DELETE("/node-detours/:id", handlers.DeleteNodeDetour)
 
 		admin.GET("/ar-features", handlers.ListARFeatures)

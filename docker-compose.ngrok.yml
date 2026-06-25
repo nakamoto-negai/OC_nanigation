@@ -1,0 +1,25 @@
+# ngrok 経由でアプリを公開するための追加サービス。
+#
+# フロントエンド(nginx, :3000)が /api /uploads /ws を同一オリジンで
+# バックエンドへプロキシしているため、ngrok はこの 3000 番だけをトンネルすれば
+# API・WebSocket・アップロード画像・カメラ/コンパス(HTTPS必須)まですべて動く。
+#
+# 使い方:
+#   1. https://dashboard.ngrok.com/get-started/your-authtoken で authtoken を取得
+#   2. プロジェクト直下の .env に次の1行を追加（.env は .gitignore 済み）
+#        NGROK_AUTHTOKEN=xxxxxxxxxxxxxxxxxxxxx
+#   3. 起動:
+#        docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up --build
+#   4. http://localhost:4040 を開き、表示される https://〜.ngrok-free.app を
+#      スマホのブラウザで開く（無料プランは初回に「Visit Site」を1回クリック）
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: ["http", "frontend:3000", "--log=stdout"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040" # ngrok Web Inspector（公開URLの確認用）
+    depends_on:
+      - frontend
+    restart: unless-stopped

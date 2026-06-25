@@ -12,6 +12,8 @@ interface Props {
   userLng: number | null;
   mapNorthOffset: number;
   onClose: () => void;
+  /** 「次に進む」: 次のカードへ遷移する。 */
+  onNext: () => void;
   /** 位置情報で次のチェックポイントに到達したか。true の間カメラに「到着しました」を表示する。 */
   arrived?: boolean;
 }
@@ -27,7 +29,7 @@ interface Props {
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, arrived = false,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, onNext, arrived = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -95,6 +97,12 @@ export const ARNavGuide: React.FC<Props> = ({
       <div className="arnav-camera-wrap" style={{ touchAction: "pan-y" }}>
         <video ref={videoRef} className="arnav-video" playsInline muted />
 
+        {/* カメラ上部の操作バー: 画像案内へ戻る / 次に進む */}
+        <div className="arnav-topbar">
+          <button className="arnav-top-btn arnav-top-switch" onClick={onClose}>画像案内に戻る</button>
+          <button className="arnav-top-btn arnav-top-next" onClick={onNext}>次に進む →</button>
+        </div>
+
         {/* 位置情報で到着したらカメラ全面に「到着しました」を表示 */}
         {arrived && (
           <div className="arnav-arrived">
@@ -131,8 +139,6 @@ export const ARNavGuide: React.FC<Props> = ({
         {err && <div className="arnav-error">{err}</div>}
         <div className="arnav-method">{method}基準</div>
       </div>
-
-      <button className="arnav-close" onClick={onClose}>← 画像に戻る</button>
     </div>
   );
 };

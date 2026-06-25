@@ -37,6 +37,45 @@ cp .env.prod.example .env.prod  # DB_PASSWORD を変更すること
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+## ngrok で外部公開（スマホ実機テスト）
+
+カメラ・コンパス・GPS は **HTTPS（または localhost）でしか動かない**。スマホ実機で AR を試すには ngrok の HTTPS トンネルが手軽。
+
+フロントの nginx(:3000) が `/api`・`/uploads`・`/ws` を同一オリジンでプロキシしており、フロントは相対パス＋`window.location.host` を使うため、**3000番をトンネルするだけで全機能が動く**（WS は https→wss を自動選択）。
+
+```bash
+# 1. authtoken を取得して .env に記載（.env は .gitignore 済み）
+cp .env.ngrok.example .env   # NGROK_AUTHTOKEN を記入
+
+# 2. 起動（ngrok サービスを追加で立ち上げる）
+docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up --build
+
+# 3. http://localhost:4040 で公開URL（https://〜.ngrok-free.app）を確認しスマホで開く
+```
+
+- 無料プランは初回アクセスで警告ページが出るので「Visit Site」を1回クリックする。
+- `VITE_API_URL` は **設定しない**こと（設定するとフロントが絶対URLを焼き込み、ngrok 経由で壊れる）。
+
+## LAN 内 HTTPS で実機テスト（ngrok 不要）
+
+同じ WiFi のスマホから HTTPS でアクセスし、インターネット無しで AR を試す方法。自己署名証明書で nginx を 443 配信する。
+
+```bash
+# 1. 自己署名証明書を生成（PC の LAN IP を SAN に自動で含める。openssl 不要・Docker 使用）
+powershell -ExecutionPolicy Bypass -File scripts/gen-local-cert.ps1
+#   → certs/server.crt, certs/server.key が生成される（certs/ は .gitignore 済み）
+
+# 2. HTTPS override で起動
+docker compose -f docker-compose.yml -f docker-compose.https.yml up --build
+
+# 3. スマホ（同じ WiFi）で https://<PCのLAN IP> を開く
+```
+
+- 自己署名のため初回は証明書警告 → 「詳細」→「アクセスする」で続行（HTTPS 扱いになりカメラ/コンパスが有効）。
+- 443 が使えない場合は `docker-compose.https.yml` の `"443:443"` を `"8443:443"` にして `https://<IP>:8443`。
+- スマホから繋がらない時は Windows ファイアウォールの受信許可（443/3000）を確認。
+- 証明書は LAN IP を SAN に含む必要があるため、IP が変わったら `gen-local-cert.ps1` を再実行。
+
 ## バックエンド構成
 
 ### 主要パッケージ

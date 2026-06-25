@@ -1,0 +1,21 @@
+# 同一 LAN のスマホから HTTPS でアクセスして AR を試すための override。
+#
+# フロントの nginx を自己署名証明書で 443 配信に切り替える。
+# /api・/uploads・/ws は従来どおり同一オリジンでバックエンドへプロキシされる。
+#
+# 使い方:
+#   1. 証明書を生成（PC の LAN IP を SAN に含める）
+#        powershell -ExecutionPolicy Bypass -File scripts/gen-local-cert.ps1
+#   2. 起動
+#        docker compose -f docker-compose.yml -f docker-compose.https.yml up --build
+#   3. スマホ（同じ WiFi）で https://<PCのLAN IP> を開く
+#      （自己署名のため初回は警告 → 「詳細」→「アクセスする」で続行）
+#
+# 注: ports と volumes は base の定義に "追記" される（置換ではない）。
+services:
+  frontend:
+    volumes:
+      - ./frontend/nginx.local-https.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    ports:
+      - "443:443" # 443 が使えない/権限不足の場合は "8443:443" に変更し https://<IP>:8443 で開く

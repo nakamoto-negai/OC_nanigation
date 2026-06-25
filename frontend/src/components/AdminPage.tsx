@@ -1170,8 +1170,17 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
   const [detours, setDetours] = useState<NodeDetour[]>([]);
   const [nodeId, setNodeId] = useState<number | "">("");
   const [detourNodeId, setDetourNodeId] = useState<number | "">("");
+  const [description, setDescription] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 既存ペアのインライン編集（説明・画像）
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.nodeDetours.list().then(setDetours).catch(() => {});
@@ -1191,13 +1200,18 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
     }
     setSaving(true);
     try {
-      const created = await api.nodeDetours.create({
-        node_id: Number(nodeId),
-        detour_node_id: Number(detourNodeId),
-      });
+      const form = new FormData();
+      form.append("node_id", String(nodeId));
+      form.append("detour_node_id", String(detourNodeId));
+      form.append("description", description.trim());
+      if (imageFile) form.append("image", imageFile, imageFile.name || "detour.jpg");
+      const created = await api.nodeDetours.create(form);
       setDetours((prev) => [...prev, created]);
       setNodeId("");
       setDetourNodeId("");
+      setDescription("");
+      setImageFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setMsg({ type: "ok", text: "寄り道ペアを追加しました" });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
@@ -1206,11 +1220,33 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
     }
   };
 
+  const startEdit = (d: NodeDetour) => {
+    setEditingId(d.id);
+    setEditDesc(d.description ?? "");
+    setEditImageFile(null);
+    if (editFileInputRef.current) editFileInputRef.current.value = "";
+  };
+
+  const saveEdit = async (id: number) => {
+    try {
+      const form = new FormData();
+      form.append("description", editDesc.trim());
+      if (editImageFile) form.append("image", editImageFile, editImageFile.name || "detour.jpg");
+      const updated = await api.nodeDetours.update(id, form);
+      setDetours((prev) => prev.map((d) => (d.id === id ? updated : d)));
+      setEditingId(null);
+      setMsg({ type: "ok", text: "更新しました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    }
+  };
+
   const del = async (id: number) => {
     if (!window.confirm("このペアを削除しますか？")) return;
     try {
       await api.nodeDetours.delete(id);
       setDetours((prev) => prev.filter((d) => d.id !== id));
+      if (editingId === id) setEditingId(null);
       setMsg({ type: "ok", text: "削除しました" });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
@@ -1254,6 +1290,24 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
             <p className="hint">すでに寄り道先として使用中のノードは非表示</p>
           </div>
         </div>
+        <div className="adm-field">
+          <label>説明文（任意）</label>
+          <textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="寄り道カードに表示する説明（未入力なら寄り道先ノードの説明を表示）"
+          />
+        </div>
+        <div className="adm-field">
+          <label>画像（任意）</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
         <div className="adm-actions">
           <button
             className="btn-primary"
@@ -1270,28 +1324,49 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
         {detours.length === 0 ? (
           <p className="adm-empty">寄り道ペアがまだありません</p>
         ) : (
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>元ノード</th>
-                <th></th>
-                <th>寄り道先ノード</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {detours.map((d) => (
-                <tr key={d.id}>
-                  <td><strong>{d.node?.name ?? nodeName(d.node_id)}</strong></td>
-                  <td className="text-muted">⇄</td>
-                  <td><strong>{d.detour_node?.name ?? nodeName(d.detour_node_id)}</strong></td>
-                  <td className="adm-row-actions">
-                    <button className="btn-del" onClick={() => del(d.id)}>削除</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="ar-feature-list">
+            {detours.map((d) => (
+              <div key={d.id} className="ar-feature-card">
+                {d.image_url && (
+                  <img src={`${BASE}${d.image_url}`} alt="" className="ar-feature-thumb" />
+                )}
+                <div className="ar-feature-info">
+                  <strong>
+                    {d.node?.name ?? nodeName(d.node_id)} ⇄ {d.detour_node?.name ?? nodeName(d.detour_node_id)}
+                  </strong>
+                  {d.description && <span className="ar-feature-meta">{d.description}</span>}
+
+                  {editingId === d.id && (
+                    <div className="adm-inline-edit">
+                      <textarea
+                        rows={3}
+                        value={editDesc}
+                        onChange={(e) => setEditDesc(e.target.value)}
+                        placeholder="説明文"
+                      />
+                      <input
+                        ref={editFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditImageFile(e.target.files?.[0] ?? null)}
+                      />
+                      <p className="hint">画像未選択なら現在の画像を維持します。</p>
+                      <div className="adm-actions">
+                        <button className="btn-primary" onClick={() => saveEdit(d.id)}>保存</button>
+                        <button className="btn-secondary" onClick={() => setEditingId(null)}>キャンセル</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="adm-row-actions">
+                  {editingId === d.id ? null : (
+                    <button className="btn-secondary" onClick={() => startEdit(d)}>編集</button>
+                  )}
+                  <button className="btn-del" onClick={() => del(d.id)}>削除</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -1497,12 +1572,10 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
 
   // モード（登録 / 認識テスト / 物体マスタ）
   const [mode, setMode] = useState<"register" | "recognize" | "objects">("register");
-  const [recognizeViewpointId, setRecognizeViewpointId] = useState<number | "">("");
 
   const [features, setFeatures] = useState<ARFeature[]>([]);
   const [name, setName] = useState("");
   const [buildingNodeId, setBuildingNodeId] = useState<number | "">("");
-  const [viewpointNodeId, setViewpointNodeId] = useState<number | "">("");
   const [arObjectId, setArObjectId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -1587,7 +1660,6 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
       form.append("image", file, file.name || "arfeature.jpg");
       form.append("name", name.trim() || `特徴点 ${new Date().toLocaleString("ja-JP")}`);
       if (buildingNodeId !== "") form.append("node_id", String(buildingNodeId));
-      if (viewpointNodeId !== "") form.append("viewpoint_node_id", String(viewpointNodeId));
       if (arObjectId !== "") form.append("ar_object_id", String(arObjectId));
       form.append("max_features", String(maxFeatures));
 
@@ -1635,7 +1707,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
           {mode === "register"
             ? "建物・看板などの画像をアップロードすると、サーバーが ORB 特徴点（コーナー）を抽出して登録します。模様や凹凸のある対象ほど多く検出されます。"
             : mode === "recognize"
-            ? "登録済みの対象とカメラ映像を特徴点マッチングし、認識した名前を表示します。現在地で候補を絞り込めます。"
+            ? "登録済みの対象とカメラ映像を特徴点マッチングし、認識した名前と簡易詳細を表示します。"
             : "建物に紐づかない物体（展示物・看板・設備など）の詳細情報を登録します。登録モードで認識データに紐づけると、認識時にこの詳細が表示されます。"}
         </p>
 
@@ -1737,14 +1809,6 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
               </select>
               <p className="hint">建物ではない物体を認識させる場合に選びます。「物体マスタ」タブで先に登録してください。</p>
             </div>
-            <div className="adm-field">
-              <label>見える地点（現在地ノード）</label>
-              <select value={viewpointNodeId} onChange={(e) => setViewpointNodeId(Number(e.target.value) || "")}>
-                <option value="">未設定（どの地点でも対象）</option>
-                {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
-              </select>
-              <p className="hint">この建物が見える地点。ユーザーがこの地点にいるとき認識候補になります。</p>
-            </div>
 
             <div className="adm-actions">
               <button className="btn-primary" onClick={submit} disabled={!file || saving}>
@@ -1753,22 +1817,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
             </div>
           </>
         ) : (
-          <>
-            <div className="adm-field">
-              <label>現在地（地点で絞り込み）</label>
-              <select
-                value={recognizeViewpointId}
-                onChange={(e) => setRecognizeViewpointId(Number(e.target.value) || "")}
-              >
-                <option value="">絞り込みなし（全建物）</option>
-                {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
-              </select>
-            </div>
-            <ARRecognizer
-              nodes={nodes}
-              viewpointNodeId={recognizeViewpointId === "" ? null : recognizeViewpointId}
-            />
-          </>
+          <ARRecognizer />
         )}
       </div>
 
@@ -1807,11 +1856,8 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
                     <div className="ar-feature-info">
                       <strong>{f.name}</strong>
                       <span className="ar-feature-meta">{f.keypoint_count} 点 ／ {f.width}×{f.height}</span>
-                      {f.node && <span className="ar-feature-node">🏛 {f.node.name}</span>}
-                      {f.ar_object && <span className="ar-feature-node">🔖 {f.ar_object.name}</span>}
-                      {f.viewpoint_node && (
-                        <span className="ar-feature-meta">📍 {f.viewpoint_node.name} から見える</span>
-                      )}
+                      {f.node && <span className="ar-feature-node">建物: {f.node.name}</span>}
+                      {f.ar_object && <span className="ar-feature-node">物体: {f.ar_object.name}</span>}
                     </div>
                     <button className="btn-del" onClick={() => del(f.id)}>削除</button>
                   </div>

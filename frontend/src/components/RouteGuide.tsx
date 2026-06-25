@@ -8,6 +8,8 @@ import { useRouteWS } from "../hooks/useRouteWS";
 import { calcRoute } from "../utils/dijkstra";
 import { gpsDistance } from "../utils/bearing";
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 // 次のチェックポイント（ノード）にこの距離(m)まで近づいたら「到着」とみなす
 const ARRIVAL_RADIUS_M = 20;
 // 「到着しました」を表示してから次のステップへ自動遷移するまでの待ち時間(ms)
@@ -17,7 +19,7 @@ const ARRIVAL_ADVANCE_MS = 1800;
 // stepIndex は元になるステップの番号（WS送信・到着判定の基準）。
 type GuideCard =
   | { kind: "step"; step: RouteStepDetail; stepIndex: number }
-  | { kind: "detour"; detourNode: Node; originStep: RouteStepDetail; stepIndex: number };
+  | { kind: "detour"; detour: NodeDetour; originStep: RouteStepDetail; stepIndex: number };
 
 interface Props {
   route: RouteResponse;
@@ -33,11 +35,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
 
-  // node_id → detour_node のルックアップマップ
+  // node_id → NodeDetour のルックアップマップ（説明・画像も持つ）
   const detourMap = useMemo(() => {
-    const map = new Map<number, Node>();
+    const map = new Map<number, NodeDetour>();
     for (const d of nodeDetours) {
-      if (d.detour_node) map.set(d.node_id, d.detour_node);
+      if (d.detour_node) map.set(d.node_id, d);
     }
     return map;
   }, [nodeDetours]);
@@ -47,8 +49,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     const list: GuideCard[] = [];
     route.steps.forEach((s, i) => {
       list.push({ kind: "step", step: s, stepIndex: i });
-      const dn = detourMap.get(s.to_node.id);
-      if (dn) list.push({ kind: "detour", detourNode: dn, originStep: s, stepIndex: i });
+      const d = detourMap.get(s.to_node.id);
+      if (d && d.detour_node) list.push({ kind: "detour", detour: d, originStep: s, stepIndex: i });
     });
     return list;
   }, [route.steps, detourMap]);
@@ -147,6 +149,18 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     const cardHeight = el.clientHeight - 44;
     const top = i >= cards.length ? el.scrollHeight : i * cardHeight;
     el.scrollTo({ top, behavior: "smooth" });
+  };
+
+  // AR から「次に進む」を押したとき：次のカードへ。次もステップカードなら AR を継続する。
+  const goToNextCard = (fromIndex: number) => {
+    const next = fromIndex + 1;
+    if (
+      arCardIndexRef.current === fromIndex &&
+      next < cards.length && cards[next].kind === "step"
+    ) {
+      autoAdvanceArRef.current = next;
+    }
+    scrollToCard(next);
   };
 
   // GPS が次のチェックポイント（現在ステップカードの to_node）に近づいたら「到着しました」を表示し、
@@ -282,8 +296,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
         {cards.map((card, ci) => {
           // 寄り道は独立したカードとして表示する
           if (card.kind === "detour") {
-            const detourNode = card.detourNode;
+            const detour = card.detour;
+            const detourNode = detour.detour_node!;
             const originStep = card.originStep;
+            // 説明は寄り道カード専用のものを優先し、無ければノードの説明で代替
+            const detourDesc = detour.description || detourNode.description;
             return (
               <div key={ci} className="rg-step rg-detour-card">
                 <div className="rg-detour-suggestion">
@@ -296,8 +313,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       <span className="rg-detour-wait">待ち約{detourNode.wait_time}分</span>
                     </div>
                   )}
-                  {detourNode.description && (
-                    <span className="rg-detour-desc">{detourNode.description}</span>
+                  {detour.image_url && (
+                    <img className="rg-detour-img" src={`${BASE}${detour.image_url}`} alt="" />
+                  )}
+                  {detourDesc && (
+                    <span className="rg-detour-desc">{detourDesc}</span>
                   )}
                   <button
                     className="btn-detour-start"
@@ -355,6 +375,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   userLng={userLng}
                   mapNorthOffset={mapNorthOffset}
                   onClose={() => setArCardIndex(null)}
+                  onNext={() => goToNextCard(ci)}
                   arrived={arrivedCardIndex === ci}
                 />
               ) : (

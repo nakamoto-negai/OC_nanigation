@@ -135,6 +135,8 @@ export interface NodeDetour {
   detour_node_id: number;
   node?: Node;
   detour_node?: Node;
+  description: string;
+  image_url: string;
   created_at: string;
   updated_at: string;
 }

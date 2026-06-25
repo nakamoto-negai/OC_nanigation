@@ -1,18 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ARFeature, Node } from "../types";
+import { ARFeature } from "../types";
 import { api } from "../api/client";
 import { MatchResult } from "../utils/opencv";
 import { drawQuad } from "../utils/arDraw";
 
-interface Props {
-  nodes: Node[];
-  /** 現在地ノード。指定するとその地点から見える建物だけに絞り込む。null は絞り込みなし。 */
-  viewpointNodeId: number | null;
-}
-
-const BASE = import.meta.env.VITE_API_URL ?? "";
-const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
-const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
+// 認識成功時に中央から飛び散る星屑（煌びやか演出）。角度・距離・遅延・色をあらかじめ決めておく。
+const SPARK_COLORS = ["#ffd54a", "#fff1a8", "#7dd3fc", "#f9a8d4", "#a7f3d0", "#ffffff"];
+const SPARKS = Array.from({ length: 18 }, (_, i) => {
+  const ang = (Math.PI * 2 * i) / 18 + (i % 2 ? 0.18 : 0);
+  const dist = 95 + (i % 3) * 30;
+  return {
+    tx: `${Math.round(Math.cos(ang) * dist)}px`,
+    ty: `${Math.round(Math.sin(ang) * dist)}px`,
+    delay: `${(i % 5) * 45}ms`,
+    color: SPARK_COLORS[i % SPARK_COLORS.length],
+    size: 12 + (i % 3) * 7,
+  };
+});
 
 const IDLE_MS = 250; // 1 回の照合後に挟む間隔
 const DETECT_WIDTH = 480; // 照合に使う縮小幅（小さいほど軽い）
@@ -25,13 +29,15 @@ interface InFlight {
 }
 
 /**
- * カメラ映像と登録済みの参照（建物）を特徴点マッチングし、認識した建物名を表示する。
+ * カメラ映像と登録済みの参照を特徴点マッチングし、認識した対象名と
+ * 簡易詳細（説明＋リンク）をカメラ下部に直接表示する。
+ * 現在地による絞り込みは行わず、常に全登録対象を照合する。
  * ユーザーアプリ・管理画面の両方から使う共通コンポーネント。
  *
  * OpenCV.js の読み込み・初期化・照合はすべて Web Worker（opencvWorker.js）で行う。
  * メインスレッドはカメラ映像と UI だけを扱うため、読み込み中も画面が固まらない。
  */
-export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
+export const ARRecognizer: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -45,12 +51,15 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
   const seqRef = useRef(0);
   // 認識結果(id)から詳細表示用の ARFeature（建物ノード付き）を引くためのマップ
   const featureMapRef = useRef<Map<number, ARFeature>>(new Map());
+  // 煌びやか演出：新しい対象を認識したときだけ1回再生するためのキーと、直近認識idの記録
+  const lastCelebratedIdRef = useRef<number | null>(null);
+  const lostTimerRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [cameraOn, setCameraOn] = useState(false);
   const [refCount, setRefCount] = useState(0);
   const [result, setResult] = useState<MatchResult | null>(null);
-  const [detail, setDetail] = useState<ARFeature | null>(null);
+  const [burst, setBurst] = useState(0);
   const [err, setErr] = useState("");
 
   // 1 フレームをワーカーへ送る。結果が返ってきたら（onmessage 内で）次フレームを予約する。
@@ -167,23 +176,23 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
     };
   }, [postFrame]);
 
-  // 参照（建物）の読み込み：現在地が変わるたびに絞り込んで再構築
+  // 参照の読み込み：マウント時に全登録対象を取得する（現在地での絞り込みはしない）
   useEffect(() => {
     setStatus("loading");
     setResult(null);
     let cancelled = false;
     api.arFeatures
-      .matchset(viewpointNodeId ?? undefined)
+      .matchset()
       .then((full) => {
         if (cancelled) return;
-        // 詳細表示用に id → ARFeature を保持（建物ノード情報を含む）
+        // 詳細表示用に id → ARFeature を保持（建物ノード/物体情報を含む）
         const fmap = new Map<number, ARFeature>();
         for (const f of full) fmap.set(f.id, f);
         featureMapRef.current = fmap;
         const refs = full.map((f) => ({
           id: f.id,
-          // 認識時に表示する「建物名」。建物ノードがあればその名前、なければ登録名
-          name: f.node?.name ?? f.name,
+          // 認識時に表示する名前。物体名→建物ノード名→登録名 の順
+          name: f.ar_object?.name ?? f.node?.name ?? f.name,
           keypoints: JSON.parse(f.keypoints || "[]"),
           descriptors: f.descriptors || "",
           descRows: f.desc_rows,
@@ -206,7 +215,7 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
     return () => {
       cancelled = true;
     };
-  }, [viewpointNodeId]);
+  }, []);
 
   const startCamera = async () => {
     try {
@@ -238,13 +247,45 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
     overlay?.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
     setCameraOn(false);
     setResult(null);
-    setDetail(null);
   };
 
   // アンマウント時にカメラ停止
   useEffect(() => () => stopCamera(), []);
 
-  const nodeName = viewpointNodeId != null ? nodes.find((n) => n.id === viewpointNodeId)?.name : null;
+  // 新しい対象を認識したら煌びやか演出を1回再生する。
+  // フレーム単位の一瞬の見失い（null）で連発しないよう、一定時間ロスしたときだけ再演出を許可する。
+  useEffect(() => {
+    const id = result?.id ?? null;
+    if (id !== null) {
+      if (lostTimerRef.current != null) {
+        clearTimeout(lostTimerRef.current);
+        lostTimerRef.current = null;
+      }
+      if (id !== lastCelebratedIdRef.current) {
+        lastCelebratedIdRef.current = id;
+        setBurst((b) => b + 1);
+        try { navigator.vibrate?.(60); } catch { /* 非対応端末は無視 */ }
+      }
+    } else if (lostTimerRef.current == null) {
+      // 1.5秒以上見失ったら、同じ対象を再び見つけたときに再演出できるようにリセット
+      lostTimerRef.current = window.setTimeout(() => {
+        lastCelebratedIdRef.current = null;
+        lostTimerRef.current = null;
+      }, 1500);
+    }
+  }, [result]);
+
+  useEffect(() => () => {
+    if (lostTimerRef.current != null) clearTimeout(lostTimerRef.current);
+  }, []);
+
+  // 認識結果から、カメラ下部に出す簡易詳細（名前・説明・リンク）を引く
+  const matched = result ? featureMapRef.current.get(result.id) : null;
+  const matchedObj = matched?.ar_object;
+  const matchedNode = matched?.node;
+  const detailTitle = matchedObj?.name ?? matchedNode?.name ?? result?.name ?? "";
+  const detailDesc = matchedObj?.description || matchedNode?.description || "";
+  const detailLink = matchedObj?.link_url || "";
 
   return (
     <div className="ar-recognizer">
@@ -264,77 +305,51 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
           </div>
         )}
 
-        {/* 認識した建物名を大きく表示。タップで詳細を開く */}
-        {cameraOn && result && (
-          <button
-            className="ar-building-name"
-            onClick={() => {
-              const f = featureMapRef.current.get(result.id);
-              if (f) setDetail(f);
-            }}
-          >
-            🏛 {result.name} <span className="ar-building-tap">タップで詳細 ▸</span>
-          </button>
-        )}
-        {cameraOn && !result && <div className="ar-building-scanning">建物を探しています…</div>}
+        {cameraOn && !result && <div className="ar-building-scanning">対象を探しています…</div>}
 
-        {detail && (() => {
-          // 表示の優先順位: ARObject（建物以外の物体）→ Node（建物）→ 登録名
-          const obj = detail.ar_object;
-          const node = detail.node;
-          const title = obj?.name ?? node?.name ?? detail.name;
-          const imageUrl = obj?.image_url || detail.image_url;
-          const description = obj?.description || node?.description || "";
-          return (
-            <div className="ar-detail-modal" onClick={() => setDetail(null)}>
-              <div className="ar-detail-card" onClick={(e) => e.stopPropagation()}>
-                <button className="ar-detail-close" onClick={() => setDetail(null)}>✕</button>
-                {imageUrl && <img className="ar-detail-img" src={`${BASE}${imageUrl}`} alt="" />}
-                <div className="ar-detail-body">
-                  <h3 className="ar-detail-title">{title}</h3>
-                  {obj?.category && (
-                    <div className="ar-detail-status">
-                      <span className="ar-detail-badge" style={{ background: "#6366f1" }}>
-                        {obj.category}
-                      </span>
-                    </div>
-                  )}
-                  {/* 建物ノードのみ: 混雑・待ち時間（物体には無い） */}
-                  {!obj && node && (node.congestion_level > 0 || node.wait_time > 0) && (
-                    <div className="ar-detail-status">
-                      {node.congestion_level > 0 && (
-                        <span
-                          className="ar-detail-badge"
-                          style={{ background: CONGESTION_COLORS[node.congestion_level] ?? CONGESTION_COLORS[0] }}
-                        >
-                          {CONGESTION_LABELS[node.congestion_level] ?? "不明"}
-                        </span>
-                      )}
-                      {node.wait_time > 0 && (
-                        <span className="ar-detail-wait">待ち約{node.wait_time}分</span>
-                      )}
-                    </div>
-                  )}
-                  {description ? (
-                    <p className="ar-detail-desc">{description}</p>
-                  ) : (
-                    <p className="ar-detail-desc ar-detail-empty">詳細情報は登録されていません</p>
-                  )}
-                  {obj?.link_url && (
-                    <a
-                      className="ar-detail-link"
-                      href={obj.link_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      詳しく見る ↗
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {/* 認識成功の瞬間に1回だけ再生する煌びやか演出（光のリング・フラッシュ・星屑） */}
+        {burst > 0 && (
+          <div className="ar-celebrate" key={burst}>
+            <div className="ar-celebrate-flash" />
+            <div className="ar-celebrate-ring" />
+            <div className="ar-celebrate-ring ar-celebrate-ring2" />
+            {SPARKS.map((s, i) => (
+              <span
+                key={i}
+                className="ar-spark"
+                style={{
+                  ["--tx" as string]: s.tx,
+                  ["--ty" as string]: s.ty,
+                  ["--d" as string]: s.delay,
+                  width: s.size,
+                  height: s.size,
+                } as React.CSSProperties}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" fill={s.color} />
+                </svg>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* 認識したらカメラ下部に簡易詳細（説明＋リンク）を直接表示する */}
+        {cameraOn && result && (
+          <div className="ar-detail-bar">
+            <div className="ar-detail-bar-title">{detailTitle}</div>
+            {detailDesc && <p className="ar-detail-bar-desc">{detailDesc}</p>}
+            {detailLink && (
+              <a
+                className="ar-detail-bar-link"
+                href={detailLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                詳しく見る
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="ar-recognizer-bar">
@@ -349,9 +364,7 @@ export const ARRecognizer: React.FC<Props> = ({ nodes, viewpointNodeId }) => {
           {status === "loading"
             ? "準備中..."
             : status === "empty"
-            ? nodeName
-              ? `「${nodeName}」から見える建物が未登録です`
-              : "建物が未登録です"
+            ? "認識対象が未登録です"
             : `対象 ${refCount} 件`}
         </span>
       </div>
