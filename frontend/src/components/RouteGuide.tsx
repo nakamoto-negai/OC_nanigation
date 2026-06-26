@@ -15,11 +15,13 @@ const ARRIVAL_RADIUS_M = 20;
 // 「到着しました」を表示してから次のステップへ自動遷移するまでの待ち時間(ms)
 const ARRIVAL_ADVANCE_MS = 1800;
 
-// スクロール内に並ぶカード。通常の道案内ステップと、寄り道提案（独立カード）の2種類。
+// スクロール内に並ぶカード。通常の道案内ステップと、展開された寄り道（独立カード）の2種類。
+// 寄り道は既定では「1つ後のカード」のヘッダーにプルダウンとして畳まれており（incomingDetour）、
+// 展開したときだけ独立した detour カードとして列に挿入される。
 // stepIndex は元になるステップの番号（WS送信・到着判定の基準）。
 type GuideCard =
-  | { kind: "step"; step: RouteStepDetail; stepIndex: number }
-  | { kind: "detour"; detour: NodeDetour; originStep: RouteStepDetail; stepIndex: number };
+  | { kind: "step"; step: RouteStepDetail; stepIndex: number; incomingDetour: NodeDetour | null }
+  | { kind: "detour"; detour: NodeDetour };
 
 interface Props {
   route: RouteResponse;
@@ -44,16 +46,47 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     return map;
   }, [nodeDetours]);
 
-  // スクロールに並べるカード列を構築。各ステップの直後に、寄り道先があれば独立カードを挿入する。
+  // 展開中の寄り道（detour.id の集合）。既定は畳まれた状態。
+  const [expandedDetours, setExpandedDetours] = useState<Set<number>>(new Set());
+  const toggleDetour = (id: number) => {
+    setExpandedDetours((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // ゴールカードがホストする寄り道（最後のステップに紐づく寄り道）
+  const goalDetour = useMemo(() => {
+    const lastStep = route.steps[route.steps.length - 1];
+    const d = lastStep ? detourMap.get(lastStep.to_node.id) : undefined;
+    return d && d.detour_node ? d : null;
+  }, [route.steps, detourMap]);
+
+  // スクロールに並べるカード列を構築。
+  // 寄り道は既定では「1つ後のステップカード」のヘッダーにプルダウン(incomingDetour)として畳む。
+  // 展開された寄り道だけ、ホストカードの直前に独立した detour カードとして挿入する。
   const cards = useMemo<GuideCard[]>(() => {
     const list: GuideCard[] = [];
     route.steps.forEach((s, i) => {
-      list.push({ kind: "step", step: s, stepIndex: i });
-      const d = detourMap.get(s.to_node.id);
-      if (d && d.detour_node) list.push({ kind: "detour", detour: d, originStep: s, stepIndex: i });
+      // このステップカードがホストする寄り道 = 直前ステップ(i-1)の到達ノードに紐づく寄り道
+      const prevStep = i > 0 ? route.steps[i - 1] : null;
+      const pd = prevStep ? detourMap.get(prevStep.to_node.id) : undefined;
+      const incoming = pd && pd.detour_node ? pd : null;
+      if (incoming && expandedDetours.has(incoming.id)) {
+        list.push({ kind: "detour", detour: incoming });
+        list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: null });
+      } else {
+        list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: incoming });
+      }
     });
+    // 最後のステップの寄り道はゴールカードがホストする。展開時はゴールの直前に挿入。
+    if (goalDetour && expandedDetours.has(goalDetour.id)) {
+      list.push({ kind: "detour", detour: goalDetour });
+    }
     return list;
-  }, [route.steps, detourMap]);
+  }, [route.steps, detourMap, expandedDetours, goalDetour]);
 
   const { heading, permission, requestPermission } = useCompass();
   const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
@@ -93,6 +126,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     setVisibleCardIndex(0);
     setArCardIndex(null);
     setArrivedCardIndex(null);
+    setExpandedDetours(new Set());
     handledArrivalRef.current.clear();
     autoAdvanceArRef.current = null;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -294,20 +328,20 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
 
       <div className="route-guide-scroll" ref={scrollRef} onScroll={handleScroll}>
         {cards.map((card, ci) => {
-          // 寄り道は独立したカードとして表示する
+          // 展開された寄り道は独立したカードとして表示する
           if (card.kind === "detour") {
             const detour = card.detour;
             const detourNode = detour.detour_node!;
-            const originStep = card.originStep;
             // 説明は寄り道カード専用のものを優先し、無ければノードの説明で代替
             const detourDesc = detour.description || detourNode.description;
             return (
               <div key={ci} className="rg-step rg-detour-card">
                 <div className="rg-detour-suggestion">
-                  <div className="rg-detour-header">
+                  <button className="rg-detour-collapse" onClick={() => toggleDetour(detour.id)}>
                     <span className="rg-detour-badge">寄り道提案</span>
                     <span className="rg-detour-name">{detourNode.name}</span>
-                  </div>
+                    <span className="rg-detour-caret">▲</span>
+                  </button>
                   {detourNode.wait_time > 0 && (
                     <div className="rg-detour-status">
                       <span className="rg-detour-wait">待ち約{detourNode.wait_time}分</span>
@@ -322,7 +356,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   <button
                     className="btn-detour-start"
                     onClick={() => {
-                      const newRoute = calcRoute(nodes, links, originStep.to_node.id, detourNode.id, blockedLinkIds);
+                      const newRoute = calcRoute(nodes, links, detour.node_id, detourNode.id, blockedLinkIds);
                       if (!newRoute) {
                         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
                         setRerouteError("寄り道先への経路が見つかりませんでした");
@@ -342,6 +376,18 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
           const s = card.step;
           return (
             <div key={ci} className="rg-step">
+              {/* 1つ前のステップに紐づく寄り道を、このカードのヘッダーにプルダウンで畳んでおく */}
+              {card.incomingDetour && (
+                <button
+                  className="rg-detour-pulldown"
+                  onClick={() => toggleDetour(card.incomingDetour!.id)}
+                >
+                  <span className="rg-detour-badge">寄り道できます</span>
+                  <span className="rg-detour-pulldown-name">{card.incomingDetour.detour_node!.name}</span>
+                  <span className="rg-detour-caret">▼</span>
+                </button>
+              )}
+              <div className="rg-step-content">
               <div className="rg-step-header">
                 <div className="rg-step-number">{s.step_number}</div>
                 <div className="rg-step-title">
@@ -404,11 +450,23 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   )}
                 </>
               )}
+              </div>
             </div>
           );
         })}
 
         <div className="rg-goal">
+          {/* 最後のステップの寄り道は、畳まれている間ゴールカードのヘッダーにプルダウンで出す */}
+          {goalDetour && !expandedDetours.has(goalDetour.id) && (
+            <button
+              className="rg-detour-pulldown"
+              onClick={() => toggleDetour(goalDetour.id)}
+            >
+              <span className="rg-detour-badge">寄り道できます</span>
+              <span className="rg-detour-pulldown-name">{goalDetour.detour_node!.name}</span>
+              <span className="rg-detour-caret">▼</span>
+            </button>
+          )}
           <div className="rg-goal-icon">ゴール</div>
           <div className="rg-goal-name">{last.name}</div>
           <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>

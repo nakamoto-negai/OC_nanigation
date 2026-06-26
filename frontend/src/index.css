@@ -517,10 +517,12 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   height: calc(var(--card-h) - 44px);
   scroll-snap-align: start;
   overflow-y: auto;
-  padding: 12px;
+  padding: 0;
   border-bottom: none;
   box-sizing: border-box;
 }
+/* ステップ本体のパディング。プルダウンはこの外側＝カード全幅に置く。 */
+.rg-step-content { padding: 12px; }
 .rg-step:last-of-type { border-bottom: none; }
 
 .rg-step-header {
@@ -563,7 +565,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .rg-detour-desc { font-size: 12px; color: #c2410c; }
 .rg-detour-img {
-  width: 100%; max-height: 220px; object-fit: cover;
+  width: 100%; height: auto; object-fit: contain;
   border-radius: 8px; display: block;
 }
 .btn-detour-start {
@@ -575,8 +577,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .btn-detour-start:active { background: #ea580c; }
 
 /* 寄り道を 1 枚の独立カードとして表示するとき（.rg-step と併用） */
+/* 写真が大きいと縦に伸びるため、上詰め＋カード内スクロールで全体を見られるようにする */
 .rg-detour-card {
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: flex-start;
   background: #fffbeb;
 }
 .rg-detour-card .rg-detour-suggestion { margin-top: 0; padding: 16px; gap: 10px; }
@@ -584,6 +587,28 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-detour-card .rg-detour-name { font-size: 18px; }
 .rg-detour-card .rg-detour-desc { font-size: 14px; }
 .rg-detour-card .btn-detour-start { margin-top: 10px; padding: 12px 0; font-size: 15px; }
+
+/* 畳まれた寄り道：1つ後のカードの「上辺」に接続したタブ風プルダウン。
+   カードのパディングは .rg-step-content 側に移したので、ここは負マージン無しで全幅になる。 */
+.rg-detour-pulldown {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  margin: 0; padding: 12px; box-sizing: border-box;
+  background: #ffedd5; border: none; border-bottom: 2px solid #fb923c;
+  cursor: pointer; text-align: left;
+}
+.rg-detour-pulldown:active { background: #fed7aa; }
+/* ゴールカードは中身が padding(24px 16px) 持ちなので、負マージンで上辺いっぱいに広げる。
+   ゴールは中央寄せ(align-items:center)なので stretch も併用する。 */
+.rg-goal .rg-detour-pulldown { margin: -24px -16px 18px -16px; width: auto; align-self: stretch; }
+.rg-detour-pulldown-name { font-size: 14px; font-weight: 700; color: #c2410c; flex: 1; min-width: 0; }
+.rg-detour-caret { font-size: 11px; color: #c2410c; flex-shrink: 0; }
+
+/* 展開された寄り道カードのヘッダー（タップで畳む） */
+.rg-detour-collapse {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: none; cursor: pointer; padding: 0; text-align: left;
+}
+.rg-detour-collapse .rg-detour-name { flex: 1; min-width: 0; }
 
 .rg-goal {
   flex: none;
