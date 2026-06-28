@@ -80,7 +80,7 @@ function UserApp() {
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
     reroute_congestion: true, reroute_other: true,
-    stamp_url: "", cafeteria_congestion: 0,
+    stamp_url: "", cafeteria_congestion: 0, survey_url: "",
   });
 
   useEffect(() => {

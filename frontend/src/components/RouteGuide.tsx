@@ -356,10 +356,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   <button
                     className="btn-detour-start"
                     onClick={() => {
-                      const newRoute = calcRoute(nodes, links, detour.node_id, detourNode.id, blockedLinkIds);
+                      // 寄り道先ノードを起点に、最終目的地までの道案内を新たに開始する
+                      const newRoute = calcRoute(nodes, links, detourNode.id, last.id, blockedLinkIds);
                       if (!newRoute) {
                         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-                        setRerouteError("寄り道先への経路が見つかりませんでした");
+                        setRerouteError("寄り道先からの経路が見つかりませんでした");
                         errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
                         return;
                       }
@@ -469,6 +470,16 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
           )}
           <div className="rg-goal-icon">ゴール</div>
           <div className="rg-goal-name">{last.name}</div>
+          {settings.survey_url && (
+            <a
+              className="btn-survey"
+              href={settings.survey_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              アンケートにご協力お願いします
+            </a>
+          )}
           <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>
         </div>
       </div>

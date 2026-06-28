@@ -23,6 +23,7 @@ func UpdateSettings(c *gin.Context) {
 		RerouteOther        bool    `json:"reroute_other"`
 		StampURL            string  `json:"stamp_url"`
 		CafeteriaCongestion int     `json:"cafeteria_congestion"`
+		SurveyURL           string  `json:"survey_url"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -37,6 +38,7 @@ func UpdateSettings(c *gin.Context) {
 	s.RerouteOther = body.RerouteOther
 	s.StampURL = body.StampURL
 	s.CafeteriaCongestion = body.CafeteriaCongestion
+	s.SurveyURL = body.SurveyURL
 	database.DB.Save(&s)
 	c.JSON(http.StatusOK, s)
 }

@@ -69,6 +69,7 @@ export interface Setting {
   reroute_other: boolean;
   stamp_url: string;
   cafeteria_congestion: number;
+  survey_url: string;
 }
 
 export interface User {

@@ -804,6 +804,7 @@ function SettingsTab() {
   const [reroteCongestion, setReroteCongestion] = useState(true);
   const [rerouteOther, setRerouteOther] = useState(true);
   const [stampUrl, setStampUrl] = useState("");
+  const [surveyUrl, setSurveyUrl] = useState("");
   const [cafeteriaCongestion, setCafeteriaCongestion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -824,6 +825,7 @@ function SettingsTab() {
       setReroteCongestion(s.reroute_congestion);
       setRerouteOther(s.reroute_other);
       setStampUrl(s.stamp_url ?? "");
+      setSurveyUrl(s.survey_url ?? "");
       setCafeteriaCongestion(s.cafeteria_congestion ?? 0);
       setMapImages(imgs);
       setLoading(false);
@@ -840,6 +842,7 @@ function SettingsTab() {
         reroute_other: rerouteOther,
         stamp_url: stampUrl.trim(),
         cafeteria_congestion: cafeteriaCongestion,
+        survey_url: surveyUrl.trim(),
       });
       setMsg({ type: "ok", text: "設定を保存しました" });
     } catch (e: any) {
@@ -939,6 +942,18 @@ function SettingsTab() {
             <option value={2}>普通</option>
             <option value={3}>混雑</option>
           </select>
+        </div>
+
+        <div className="adm-section-label" style={{ marginTop: 24 }}>到着カード設定</div>
+        <div className="adm-field">
+          <label>アンケートのリンク先URL</label>
+          <p className="hint">入力すると到着カードに「アンケートにご協力お願いします」ボタンが表示され、このURLを新しいタブで開きます。空にすると非表示。</p>
+          <input
+            type="url"
+            value={surveyUrl}
+            onChange={(e) => setSurveyUrl(e.target.value)}
+            placeholder="例: https://forms.gle/xxxx"
+          />
         </div>
 
         <div className="adm-section-label" style={{ marginTop: 24 }}>コンパス設定</div>
