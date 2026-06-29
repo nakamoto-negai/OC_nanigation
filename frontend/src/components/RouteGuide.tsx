@@ -89,10 +89,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   }, [route.steps, detourMap, expandedDetours, goalDetour]);
 
   const { heading, permission, requestPermission } = useCompass();
-  const { sendPosition, sendGoalReached, sendReroute } = useRouteWS();
+  const { sendPosition, sendGoalReached } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
-  const [blockedLinkIds, setBlockedLinkIds] = useState<number[]>([]);
+  const [blockedLinkIds] = useState<number[]>([]);
   const [rerouteError, setRerouteError] = useState<string | null>(null);
   // 現在表示中のカードのインデックス（cards 配列基準。スクロール位置から算出）
   const [visibleCardIndex, setVisibleCardIndex] = useState(0);
@@ -250,79 +250,12 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     }
   };
 
-  const REROUTE_REASONS = [
-    { label: "写真識別不可で迂回する！", reason: "visibility", enabled: settings.reroute_visibility },
-    { label: "事故・工事で迂回する！",   reason: "incident",   enabled: settings.reroute_incident },
-    { label: "混雑過多で迂回する！",     reason: "congestion", enabled: settings.reroute_congestion },
-    { label: "その他で迂回する！",       reason: "other",      enabled: settings.reroute_other },
-  ].filter((r) => r.enabled);
-
-  const handleBlock = (
-    linkId: number,
-    stepNumber: number,
-    fromNode: string,
-    toNode: string,
-    reason: string,
-  ) => {
-    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-
-    const newBlocked = [...blockedLinkIds, linkId];
-    const startId = route.node_path[0].id;
-    const goalId = route.node_path[route.node_path.length - 1].id;
-    const newRoute = calcRoute(nodes, links, startId, goalId, newBlocked);
-
-    if (!newRoute) {
-      setRerouteError("迂回路が見つかりませんでした");
-      errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
-      return;
-    }
-    setBlockedLinkIds(newBlocked);
-    onReroute(newRoute);
-    sendReroute(stepNumber, route.steps.length, fromNode, toNode, reason);
-  };
-
-  // 現在表示中のカード（ステップカードのときだけ迂回バーや到着判定の対象になる）
-  const currentCard = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
-  const currentStep = currentCard?.kind === "step" ? currentCard.step : null;
 
   return (
     <div className="route-guide fullscreen">
-      <div className="route-guide-header">
-        <div className="route-header-right">
-          <button className="close-btn" onClick={onClose}>✕ 閉じる</button>
-        </div>
-      </div>
-
       {rerouteError && (
         <div className="reroute-error" onClick={() => setRerouteError(null)}>
           ⚠ {rerouteError}
-        </div>
-      )}
-
-      {currentStep && (
-        <div className="blocked-btn-bar">
-          {REROUTE_REASONS.length === 0 ? (
-            <button
-              className="btn-blocked btn-blocked-single"
-              onClick={() =>
-                handleBlock(currentStep.link.id, currentStep.step_number, currentStep.from_node.name, currentStep.to_node.name, "other")
-              }
-            >
-              迂回する
-            </button>
-          ) : (
-            REROUTE_REASONS.map(({ label, reason }) => (
-              <button
-                key={reason}
-                className="btn-blocked"
-                onClick={() =>
-                  handleBlock(currentStep.link.id, currentStep.step_number, currentStep.from_node.name, currentStep.to_node.name, reason)
-                }
-              >
-                {label}
-              </button>
-            ))
-          )}
         </div>
       )}
 
