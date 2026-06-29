@@ -289,11 +289,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   <button
                     className="btn-detour-start"
                     onClick={() => {
-                      // 寄り道先ノードを起点に、最終目的地までの道案内を新たに開始する
-                      const newRoute = calcRoute(nodes, links, detourNode.id, last.id, blockedLinkIds);
+                      // 元ノード（寄り道の分岐ノード）から寄り道先までの道案内を新たに開始する
+                      const newRoute = calcRoute(nodes, links, detour.node_id, detour.detour_node_id, blockedLinkIds);
                       if (!newRoute) {
                         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-                        setRerouteError("寄り道先からの経路が見つかりませんでした");
+                        setRerouteError("元ノードから寄り道先への経路が見つかりませんでした");
                         errorTimerRef.current = setTimeout(() => setRerouteError(null), 4000);
                         return;
                       }
