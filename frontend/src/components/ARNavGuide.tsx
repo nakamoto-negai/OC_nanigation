@@ -82,6 +82,17 @@ export const ARNavGuide: React.FC<Props> = ({
   const hasHeading = heading !== null && permission === "granted";
   const diff = hasHeading ? angleDiff(targetBearing, heading!) : 0;
   const absD = Math.abs(diff);
+
+  // 矢印の回転は連続値（アンラップ）で保持する。
+  // diff は [-180,180] に折り返されるため、目標がほぼ真後ろのとき +179°⇄-179° と反転すると
+  // CSS transition が 358° 逆回りしてしまい、一瞬だけ文字の角度表示と正反対を向いてしまう。
+  // 直前の連続回転値からの最短差分だけを足し込むことで、常に最短方向へ回しつつ
+  // 360° の剰余は diff（＝文字表示）と一致させる。
+  const [arrowRot, setArrowRot] = useState(0);
+  useEffect(() => {
+    if (!hasHeading) return;
+    setArrowRot((prev) => prev + angleDiff(diff, ((prev % 360) + 360) % 360));
+  }, [diff, hasHeading]);
   const status: "ok" | "warn" | "ng" = absD <= 20 ? "ok" : absD <= 60 ? "warn" : "ng";
   const label = !hasHeading
     ? "コンパス未取得"
@@ -117,7 +128,7 @@ export const ARNavGuide: React.FC<Props> = ({
             <svg
               className={`arnav-arrow arnav-${status}`}
               viewBox="0 0 100 100"
-              style={{ transform: `rotate(${diff}deg)` }}
+              style={{ transform: `rotate(${arrowRot}deg)` }}
             >
               <polygon points="50,8 80,72 50,56 20,72" />
             </svg>
