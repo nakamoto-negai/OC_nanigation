@@ -339,13 +339,16 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
               {s.link.name && <p className="rg-link-name">{s.link.name}</p>}
               {s.link.description && <p className="rg-description">{s.link.description}</p>}
               <p className="rg-distance">距離: {s.link.distance.toFixed(1)}</p>
+              {/* コンパスの向きは常にマップ座標＋map_north_offset で算出する。
+                  GPS(userLat/Lng)を渡すと屋内で不安定な GPS 方位に切り替わり、
+                  オフセット補正が効かなくなるため、ここでは渡さない（GPS は到着判定のみに使用）。 */}
               <CompassGuide
                 step={s}
                 heading={heading}
                 permission={permission}
                 onRequestPermission={requestPermission}
-                userLat={userLat}
-                userLng={userLng}
+                userLat={null}
+                userLng={null}
                 mapNorthOffset={mapNorthOffset}
               />
               {arCardIndex === ci ? (
@@ -354,8 +357,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   heading={heading}
                   permission={permission}
                   onRequestPermission={requestPermission}
-                  userLat={userLat}
-                  userLng={userLng}
+                  userLat={null}
+                  userLng={null}
                   mapNorthOffset={mapNorthOffset}
                   onClose={() => setArCardIndex(null)}
                   onNext={() => goToNextCard(ci)}
