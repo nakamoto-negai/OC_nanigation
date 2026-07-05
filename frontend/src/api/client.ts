@@ -1,4 +1,4 @@
-import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Setting, User, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -146,6 +146,27 @@ settings: {
     update: (id: number, data: Partial<ARObject>) =>
       adminReq<ARObject>(`/api/ar-objects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) => adminReq<void>(`/api/ar-objects/${id}`, { method: "DELETE" }),
+  },
+  survey: {
+    // ユーザーアプリ: 有効な質問と回答済みフラグを取得
+    get: (deviceId: string) =>
+      req<SurveyPublic>(`/api/survey?device_id=${encodeURIComponent(deviceId)}`),
+    // ユーザーアプリ: 回答送信
+    submit: (deviceId: string, answers: SurveyAnswerInput[]) =>
+      req<SurveyResponse>("/api/survey/responses", {
+        method: "POST",
+        body: JSON.stringify({ device_id: deviceId, answers }),
+      }),
+    // 管理: 質問CRUD（無効な質問も含む一覧）
+    listQuestions: () => adminReq<SurveyQuestion[]>("/api/survey/questions"),
+    createQuestion: (data: Partial<SurveyQuestion>) =>
+      adminReq<SurveyQuestion>("/api/survey/questions", { method: "POST", body: JSON.stringify(data) }),
+    updateQuestion: (id: number, data: Partial<SurveyQuestion>) =>
+      adminReq<SurveyQuestion>(`/api/survey/questions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    deleteQuestion: (id: number) =>
+      adminReq<void>(`/api/survey/questions/${id}`, { method: "DELETE" }),
+    // 管理: 回答一覧
+    listResponses: () => adminReq<SurveyResponse[]>("/api/survey/responses"),
   },
   admin: {
     login: (password: string) =>

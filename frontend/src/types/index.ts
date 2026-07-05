@@ -130,6 +130,53 @@ export interface ARFeature {
   created_at: string;
 }
 
+export type SurveyQuestionType = "likert" | "text";
+
+export interface SurveyQuestion {
+  id: number;
+  text: string;
+  type: SurveyQuestionType;
+  required: boolean;
+  page: number;
+  sort_order: number;
+  is_active: boolean;
+  scale_max: number;
+  min_label: string;
+  max_label: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SurveyAnswer {
+  id: number;
+  response_id: number;
+  question_id: number;
+  value: number;
+  text: string;
+  question_text: string;
+  question_type: SurveyQuestionType;
+}
+
+export interface SurveyResponse {
+  id: number;
+  device_id: string;
+  created_at: string;
+  answers: SurveyAnswer[];
+}
+
+// ユーザーアプリ向け公開エンドポイントのレスポンス
+export interface SurveyPublic {
+  questions: SurveyQuestion[];
+  answered: boolean;
+}
+
+// 送信ペイロードの1回答
+export interface SurveyAnswerInput {
+  question_id: number;
+  value?: number;
+  text?: string;
+}
+
 export interface NodeDetour {
   id: number;
   node_id: number;

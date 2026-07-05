@@ -49,6 +49,8 @@ func main() {
 	api.GET("/categories", handlers.ListCategories)
 	api.GET("/ar-features/matchset", handlers.ListARFeaturesForMatch)
 	api.GET("/ar-objects", handlers.ListARObjects)
+	api.GET("/survey", handlers.GetSurvey)
+	api.POST("/survey/responses", handlers.SubmitSurveyResponse)
 
 	// 管理者専用エンドポイント（トークン必須）
 	admin := api.Group("/").Use(middleware.AdminAuth())
@@ -90,6 +92,12 @@ func main() {
 		admin.POST("/categories", handlers.CreateCategory)
 		admin.PUT("/categories/:id", handlers.UpdateCategory)
 		admin.DELETE("/categories/:id", handlers.DeleteCategory)
+
+		admin.GET("/survey/questions", handlers.ListSurveyQuestions)
+		admin.POST("/survey/questions", handlers.CreateSurveyQuestion)
+		admin.PUT("/survey/questions/:id", handlers.UpdateSurveyQuestion)
+		admin.DELETE("/survey/questions/:id", handlers.DeleteSurveyQuestion)
+		admin.GET("/survey/responses", handlers.ListSurveyResponses)
 	}
 
 	r.GET("/ws/user", handlers.UserWS)

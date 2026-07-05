@@ -3,6 +3,7 @@ import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail, Setting } from 
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { ARNavGuide } from "./ARNavGuide";
+import { SurveyLauncher } from "./SurveyLauncher";
 import { useCompass } from "../hooks/useCompass";
 import { useRouteWS } from "../hooks/useRouteWS";
 import { calcRoute } from "../utils/dijkstra";
@@ -31,9 +32,11 @@ interface Props {
   onClose: () => void;
   settings: Setting;
   onReroute: (newRoute: RouteResponse) => void;
+  /** 到着カードのアンケートボタンから /survey へ遷移する。 */
+  onOpenSurvey: () => void;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey }) => {
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
 
@@ -403,16 +406,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
           )}
           <div className="rg-goal-icon">ゴール</div>
           <div className="rg-goal-name">{last.name}</div>
-          {settings.survey_url && (
-            <a
-              className="btn-survey"
-              href={settings.survey_url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              アンケートにご協力お願いします
-            </a>
-          )}
+          <SurveyLauncher fallbackUrl={settings.survey_url} onOpen={onOpenSurvey} />
           <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>
         </div>
       </div>

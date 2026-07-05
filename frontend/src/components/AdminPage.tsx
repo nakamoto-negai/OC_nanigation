@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Photo, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -19,7 +19,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar";
+type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -1500,6 +1500,7 @@ const ACTION_LABEL: Record<string, string> = {
   reroute_incident:   "迂回:事件等",
   reroute_congestion: "迂回:混雑",
   reroute_other:      "迂回:その他",
+  survey_submit:      "アンケート回答",
 };
 const ACTION_COLOR: Record<string, string> = {
   app_open:           "#3b82f6",
@@ -1510,6 +1511,7 @@ const ACTION_COLOR: Record<string, string> = {
   reroute_incident:   "#ef4444",
   reroute_congestion: "#a855f7",
   reroute_other:      "#94a3b8",
+  survey_submit:      "#0ea5e9",
 };
 
 function LogsTab() {
@@ -1575,6 +1577,233 @@ function LogsTab() {
     </div>
   );
 }
+
+// ── Survey Tab ────────────────────────────────────────────────────────────────
+
+function SurveyTab() {
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
+  const [responses, setResponses] = useState<SurveyResponse[]>([]);
+  const [view, setView] = useState<"questions" | "responses">("questions");
+
+  // 質問フォーム
+  const [text, setText] = useState("");
+  const [type, setType] = useState<"likert" | "text">("likert");
+  const [required, setRequired] = useState(false);
+  const [scaleMax, setScaleMax] = useState("5");
+  const [minLabel, setMinLabel] = useState("");
+  const [maxLabel, setMaxLabel] = useState("");
+  const [pageNo, setPageNo] = useState("1");
+  const [sortOrder, setSortOrder] = useState("0");
+  const [isActive, setIsActive] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    api.survey.listQuestions().then(setQuestions).catch(() => {});
+  }, []);
+
+  const loadResponses = () => {
+    api.survey.listResponses().then(setResponses).catch(() => {});
+  };
+
+  const reset = () => {
+    setText(""); setType("likert"); setRequired(false); setScaleMax("5");
+    setMinLabel(""); setMaxLabel(""); setPageNo("1"); setSortOrder("0"); setIsActive(true); setEditingId(null);
+  };
+
+  const save = async () => {
+    if (!text.trim()) { setMsg({ type: "err", text: "質問文は必須です" }); return; }
+    try {
+      const data: Partial<SurveyQuestion> = {
+        text: text.trim(),
+        type,
+        required,
+        page: Math.max(1, Number(pageNo) || 1),
+        sort_order: Number(sortOrder) || 0,
+        is_active: isActive,
+        scale_max: Number(scaleMax) || 5,
+        min_label: minLabel.trim(),
+        max_label: maxLabel.trim(),
+      };
+      if (editingId) {
+        const updated = await api.survey.updateQuestion(editingId, data);
+        setQuestions((p) => p.map((q) => q.id === editingId ? updated : q).sort(byOrder));
+        setMsg({ type: "ok", text: "更新しました" });
+      } else {
+        const created = await api.survey.createQuestion(data);
+        setQuestions((p) => [...p, created].sort(byOrder));
+        setMsg({ type: "ok", text: "質問を追加しました" });
+      }
+      reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const startEdit = (q: SurveyQuestion) => {
+    setEditingId(q.id); setText(q.text); setType(q.type); setRequired(q.required);
+    setScaleMax(String(q.scale_max)); setMinLabel(q.min_label); setMaxLabel(q.max_label);
+    setPageNo(String(q.page)); setSortOrder(String(q.sort_order)); setIsActive(q.is_active); setMsg(null);
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("この質問を削除しますか？\n既存の回答データは残ります。")) return;
+    try {
+      await api.survey.deleteQuestion(id);
+      setQuestions((p) => p.filter((q) => q.id !== id));
+      if (editingId === id) reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const activeCount = questions.filter((q) => q.is_active).length;
+
+  return (
+    <div>
+      <div className="sv-view-switch">
+        <button className={view === "questions" ? "active" : ""} onClick={() => setView("questions")}>
+          質問設定 <span className="count-badge">{questions.length}</span>
+        </button>
+        <button
+          className={view === "responses" ? "active" : ""}
+          onClick={() => { setView("responses"); loadResponses(); }}
+        >
+          回答一覧 <span className="count-badge">{responses.length}</span>
+        </button>
+      </div>
+
+      {view === "questions" ? (
+        <div className="adm-layout">
+          <div className="adm-form-col">
+            <h3>{editingId ? "質問を編集" : "質問を追加"}</h3>
+            {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+            <div className="adm-field">
+              <label>質問文 <span className="req">*</span></label>
+              <input value={text} onChange={(e) => setText(e.target.value)} placeholder="例: 道案内は分かりやすかったですか？" />
+            </div>
+            <div className="adm-field">
+              <label>回答形式</label>
+              <select value={type} onChange={(e) => setType(e.target.value as "likert" | "text")}>
+                <option value="likert">リッカート尺度（段階評価）</option>
+                <option value="text">自由記述</option>
+              </select>
+            </div>
+            {type === "likert" && (
+              <>
+                <div className="adm-field">
+                  <label>段階数</label>
+                  <select value={scaleMax} onChange={(e) => setScaleMax(e.target.value)}>
+                    {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <option key={n} value={n}>{n} 段階</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="adm-field">
+                  <label>左端（1）のラベル</label>
+                  <input value={minLabel} onChange={(e) => setMinLabel(e.target.value)} placeholder="例: 不満" />
+                </div>
+                <div className="adm-field">
+                  <label>右端（{scaleMax}）のラベル</label>
+                  <input value={maxLabel} onChange={(e) => setMaxLabel(e.target.value)} placeholder="例: 満足" />
+                </div>
+              </>
+            )}
+            <div className="adm-field">
+              <label>ページ番号</label>
+              <p className="hint">同じ番号の質問が1つのページにまとまって表示されます。番号の小さいページから順に表示。</p>
+              <input type="number" value={pageNo} onChange={(e) => setPageNo(e.target.value)} min="1" step="1" />
+            </div>
+            <div className="adm-field">
+              <label>ページ内の並び順（小さいほど上）</label>
+              <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} min="0" step="1" />
+            </div>
+            <div className="adm-field">
+              <label className="adm-checkbox-label">
+                <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} />
+                必須の質問にする
+              </label>
+            </div>
+            <div className="adm-field">
+              <label className="adm-checkbox-label">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+                有効（利用者に表示する）
+              </label>
+            </div>
+            <div className="adm-actions">
+              <button className="btn-primary" onClick={save}>{editingId ? "更新" : "追加"}</button>
+              {editingId && <button className="btn-secondary" onClick={reset}>キャンセル</button>}
+            </div>
+          </div>
+
+          <div className="adm-list-col">
+            <h3>質問一覧 <span className="count-badge">{questions.length}</span>
+              <span className="adm-section-sub">表示中 {activeCount} 問</span>
+            </h3>
+            {questions.length === 0 ? (
+              <p className="adm-empty">質問がまだありません。追加すると到着画面にアプリ内アンケートが表示されます。</p>
+            ) : (
+              <table className="adm-table">
+                <thead>
+                  <tr><th>P</th><th>質問</th><th>形式</th><th>必須</th><th>状態</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {questions.map((q) => (
+                    <tr key={q.id} className={editingId === q.id ? "editing" : ""}>
+                      <td className="num">{q.page}</td>
+                      <td>
+                        <strong>{q.text}</strong>
+                        {q.type === "likert" && (
+                          <div className="text-muted" style={{ fontSize: 11 }}>
+                            {q.scale_max}段階{q.min_label || q.max_label ? `（${q.min_label || "1"}〜${q.max_label || q.scale_max}）` : ""}
+                          </div>
+                        )}
+                      </td>
+                      <td className="center">{q.type === "likert" ? "段階" : "記述"}</td>
+                      <td className="center">{q.required ? "必須" : <span className="text-muted">任意</span>}</td>
+                      <td className="center">{q.is_active ? "表示" : <span className="text-muted">非表示</span>}</td>
+                      <td className="adm-row-actions">
+                        <button className="btn-edit" onClick={() => startEdit(q)}>編集</button>
+                        <button className="btn-del" onClick={() => del(q.id)}>削除</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="adm-list-col">
+          <h3>回答一覧 <span className="count-badge">{responses.length}</span></h3>
+          {responses.length === 0 ? (
+            <p className="adm-empty">まだ回答がありません。</p>
+          ) : (
+            <div className="sv-response-list">
+              {responses.map((r) => (
+                <div key={r.id} className="sv-response-card">
+                  <div className="sv-response-head">
+                    <span className="sv-response-device" title={r.device_id}>利用者 {r.device_id.slice(0, 8)}</span>
+                    <span className="sv-response-date">{new Date(r.created_at).toLocaleString("ja-JP")}</span>
+                  </div>
+                  <ul className="sv-response-answers">
+                    {r.answers.map((a) => (
+                      <li key={a.id}>
+                        <span className="sv-response-q">{a.question_text}</span>
+                        <span className="sv-response-a">
+                          {a.question_type === "likert" ? `★ ${a.value}` : a.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const byOrder = (a: SurveyQuestion, b: SurveyQuestion) =>
+  a.page - b.page || a.sort_order - b.sort_order || a.id - b.id;
 
 // ── AR Feature Tab ────────────────────────────────────────────────────────────
 
@@ -1912,6 +2141,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "users", label: "利用者" },
     { key: "logs", label: "ログ" },
     { key: "ar", label: "AR特徴点" },
+    { key: "survey", label: "アンケート" },
   ];
 
   const selectTab = (t: Tab) => {
@@ -1984,6 +2214,7 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "users" && <UsersTab nodes={nodes} />}
         {tab === "logs" && <LogsTab />}
         {tab === "ar" && <ARFeatureTab nodes={nodes} />}
+        {tab === "survey" && <SurveyTab />}
       </div>
     </div>
   );
