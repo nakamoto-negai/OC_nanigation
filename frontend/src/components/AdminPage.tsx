@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Event, Link, MapImage, Node, NodeDetour, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -19,7 +19,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey";
+type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -1489,6 +1489,93 @@ function CategoryTab() {
   );
 }
 
+// ── Event Tab ────────────────────────────────────────────────────────────────
+
+function EventTab({ nodes }: { nodes: Node[] }) {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [nodeId, setNodeId] = useState<number | "">("");
+  const [name, setName] = useState("");
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    api.events.list().then(setEvents).catch(() => {});
+  }, []);
+
+  const nodeName = (id: number) => nodes.find((n) => n.id === id)?.name ?? `#${id}`;
+
+  const add = async () => {
+    if (nodeId === "") { setMsg({ type: "err", text: "地点を選択してください" }); return; }
+    if (!name.trim()) { setMsg({ type: "err", text: "イベント名は必須です" }); return; }
+    try {
+      const created = await api.events.create({ node_id: Number(nodeId), name: name.trim() });
+      setEvents((p) => [...p, created]);
+      setName("");
+      setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const del = async (id: number, nm: string) => {
+    if (!window.confirm(`「${nm}」を削除しますか？`)) return;
+    try {
+      await api.events.delete(id);
+      setEvents((p) => p.filter((e) => e.id !== id));
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>イベントを追加</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <p className="hint" style={{ marginBottom: 12 }}>
+          地点で開催されるイベント名を登録すると、目的地選択画面のその地点カードにオレンジ色で流れて表示されます。
+        </p>
+        <div className="adm-field">
+          <label>地点（目的地ノード） <span className="req">*</span></label>
+          <select value={nodeId} onChange={(e) => setNodeId(Number(e.target.value) || "")}>
+            <option value="">選択してください</option>
+            {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+          </select>
+        </div>
+        <div className="adm-field">
+          <label>イベント名 <span className="req">*</span></label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") add(); }}
+            placeholder="例: 模擬店、ダンス公演、研究発表"
+          />
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={add}>追加</button>
+        </div>
+      </div>
+
+      <div className="adm-list-col">
+        <h3>登録済みイベント <span className="count-badge">{events.length}</span></h3>
+        {events.length === 0 ? (
+          <p className="adm-empty">イベントがまだありません</p>
+        ) : (
+          <table className="adm-table">
+            <thead><tr><th>地点</th><th>イベント名</th><th></th></tr></thead>
+            <tbody>
+              {events.map((ev) => (
+                <tr key={ev.id}>
+                  <td>{nodeName(ev.node_id)}</td>
+                  <td><strong>{ev.name}</strong></td>
+                  <td className="adm-row-actions">
+                    <button className="btn-del" onClick={() => del(ev.id, ev.name)}>削除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Logs Tab ──────────────────────────────────────────────────────────────────
 
 const ACTION_LABEL: Record<string, string> = {
@@ -2138,6 +2225,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "photo", label: "写真" },
     { key: "settings", label: "設定" },
     { key: "category", label: "カテゴリ", badge: categories.length },
+    { key: "event", label: "イベント" },
     { key: "users", label: "利用者" },
     { key: "logs", label: "ログ" },
     { key: "ar", label: "AR特徴点" },
@@ -2211,6 +2299,7 @@ export const AdminPage: React.FC<Props> = ({
         )}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
+        {tab === "event" && <EventTab nodes={nodes} />}
         {tab === "users" && <UsersTab nodes={nodes} />}
         {tab === "logs" && <LogsTab />}
         {tab === "ar" && <ARFeatureTab nodes={nodes} />}

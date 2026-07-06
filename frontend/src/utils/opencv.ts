@@ -7,9 +7,10 @@
 // 検出した特徴点（keypoints）と記述子（descriptors）は、後段の
 // 特徴点マッチング（平面認識・空間幾何）でカメラ映像と参照を突き合わせるのに使う。
 
-// docs.opencv.org は古いバージョンを随時削除するため、特定版を固定すると将来 404 になる。
-// 常に存在する最新安定版へ 301 リダイレクトされる "4.x" を使う（ブラウザは script のリダイレクトを追従する）。
-const OPENCV_URL = "https://docs.opencv.org/4.x/opencv.js";
+// opencv.js は同一オリジンで自ホストする（public/opencv.js）。
+// 以前は docs.opencv.org から読んでいたが、そこが Cloudflare のボット判定(403 チャレンジページ)を
+// 返すようになり読み込めなくなったため、ビルドに含めず public/ から配信する方式に変更した。
+const OPENCV_URL = "/opencv.js";
 
 declare global {
   // eslint-disable-next-line no-var

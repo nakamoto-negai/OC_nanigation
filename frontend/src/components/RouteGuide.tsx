@@ -388,6 +388,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       <PhotoSlider photos={s.link.photos} />
                     </div>
                   )}
+                  <p className="rg-scroll-hint">スクロールして次の案内を開始する</p>
                 </>
               )}
               </div>

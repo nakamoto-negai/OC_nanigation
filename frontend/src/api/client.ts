@@ -1,4 +1,4 @@
-import { ARFeature, ARObject, Category, Link, MapImage, Node, NodeDetour, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Event, Link, MapImage, Node, NodeDetour, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -95,6 +95,16 @@ settings: {
       adminReq<Category>(`/api/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/categories/${id}`, { method: "DELETE" }),
+  },
+  events: {
+    list: (nodeId?: number) =>
+      req<Event[]>(`/api/events${nodeId ? `?node_id=${nodeId}` : ""}`),
+    create: (data: { node_id: number; name: string; sort_order?: number }) =>
+      adminReq<Event>("/api/events", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<Event>) =>
+      adminReq<Event>(`/api/events/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      adminReq<void>(`/api/events/${id}`, { method: "DELETE" }),
   },
   nodeDetours: {
     list: () => req<NodeDetour[]>("/api/node-detours"),

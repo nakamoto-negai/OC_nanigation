@@ -51,9 +51,11 @@ self.onmessage = (e) => {
 
 function init() {
   try {
-    // docs.opencv.org は古い版を削除するため "4.x"（最新へリダイレクト）を使う
+    // opencv.js は同一オリジンで自ホストする（public/opencv.js）。
+    // 以前は docs.opencv.org から読んでいたが、そこが Cloudflare のボット判定(403 チャレンジ)を
+    // 返すようになり、Worker の importScripts では突破できず読み込めなくなったため。
     console.log("[opencvWorker] importScripts 開始");
-    importScripts("https://docs.opencv.org/4.x/opencv.js");
+    importScripts("/opencv.js");
     console.log("[opencvWorker] importScripts 完了, typeof cv =", typeof self.cv);
   } catch (err) {
     console.error("[opencvWorker] importScripts 失敗:", err);

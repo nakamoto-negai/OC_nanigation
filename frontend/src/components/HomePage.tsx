@@ -162,6 +162,19 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
             )}
           </div>
           {n.description && <span className="dest-card-desc">{n.description}</span>}
+          {n.events && n.events.length > 0 && (
+            <div className="dest-event-marquee" aria-label="開催イベント">
+              <div className="dest-event-track">
+                {n.events.map((e) => (
+                  <span key={e.id} className="dest-event-item">{e.name}</span>
+                ))}
+                {/* シームレスにループさせるため同じ内容をもう一組並べる */}
+                {n.events.map((e) => (
+                  <span key={`dup-${e.id}`} className="dest-event-item" aria-hidden="true">{e.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <span className="dest-card-arrow">→</span>
       </div>
@@ -225,6 +238,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
           )}
         </div>
       </div>
+
+      <p className="research-note">アプリの利用ログが研究に使われる場合があります</p>
 
       {error && (
         <div className="home-error" onClick={() => setError("")}>{error} ✕</div>

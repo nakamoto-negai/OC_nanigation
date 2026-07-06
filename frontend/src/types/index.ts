@@ -7,6 +7,15 @@ export interface Category {
   updated_at: string;
 }
 
+export interface Event {
+  id: number;
+  node_id: number;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Node {
   id: number;
   name: string;
@@ -20,6 +29,7 @@ export interface Node {
   is_selectable: boolean;
   congestion_level: number;
   wait_time: number;
+  events?: Event[];
   created_at: string;
   updated_at: string;
 }

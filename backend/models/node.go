@@ -17,6 +17,8 @@ type Node struct {
 	IsSelectable     bool      `json:"is_selectable" gorm:"not null;default:true"`
 	CongestionLevel  int       `json:"congestion_level" gorm:"not null;default:0"`
 	WaitTime         int       `json:"wait_time" gorm:"not null;default:0"`
+	// この地点で開催されるイベント（目的地カードに流して表示する）
+	Events           []Event   `json:"events,omitempty" gorm:"foreignKey:NodeID;constraint:OnDelete:CASCADE"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }

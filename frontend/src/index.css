@@ -68,6 +68,12 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   color: #dc2626; padding: 10px 20px; font-size: 13px; cursor: pointer;
 }
 
+/* 現在地選択の直下に出す、利用ログ利用の注記 */
+.research-note {
+  padding: 8px 20px; font-size: 11px; color: #94a3b8;
+  background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+}
+
 .dest-section { flex: 1; padding: 20px; }
 .dest-heading { font-size: 15px; font-weight: 700; color: #1e3a5f; margin-bottom: 14px; }
 .dest-empty { color: #94a3b8; font-size: 14px; padding: 40px 0; text-align: center; }
@@ -116,6 +122,30 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   color: white; font-size: 11px; font-weight: 700; flex-shrink: 0;
 }
 .dest-card-arrow { font-size: 18px; color: #94a3b8; }
+
+/* 目的地カードで開催イベント名をオレンジ色で横に流す（マーキー） */
+.dest-event-marquee {
+  overflow: hidden; white-space: nowrap; width: 100%; margin-top: 4px;
+}
+.dest-event-track {
+  display: inline-flex; align-items: center;
+  will-change: transform;
+  animation: dest-event-scroll 14s linear infinite;
+}
+.dest-event-item {
+  color: #f97316; font-size: 12px; font-weight: 700; padding-right: 32px;
+}
+/* track は同じ内容を2組並べているので、-50% ちょうどで継ぎ目なくループする */
+@keyframes dest-event-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+/* ホバー中は止めて読みやすく */
+.dest-card:hover .dest-event-track { animation-play-state: paused; }
+/* アニメーションを控えたいユーザー設定では流さない */
+@media (prefers-reduced-motion: reduce) {
+  .dest-event-track { animation: none; }
+}
 .dest-card-loading { font-size: 13px; color: #3b82f6; animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
@@ -671,6 +701,12 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-description { font-size: 13px; color: #475569; margin: 2px 0; }
 .rg-distance { font-size: 12px; color: #94a3b8; margin: 1px 0 6px; }
 .rg-photos { margin-top: 6px; }
+
+/* カード下部の「スクロールして次の案内へ」案内文（グレー） */
+.rg-scroll-hint {
+  margin-top: 14px; text-align: center;
+  font-size: 12px; color: #94a3b8;
+}
 
 .rg-detour-suggestion {
   display: flex; flex-direction: column; gap: 6px;
