@@ -9,6 +9,9 @@ type Setting struct {
 	RerouteOther        bool    `json:"reroute_other" gorm:"not null;default:true"`
 	StampURL            string  `json:"stamp_url" gorm:"default:''"`
 	CafeteriaCongestion int     `json:"cafeteria_congestion" gorm:"not null;default:0"`
+	// ヘッダーの食堂混雑度表示・AR ボタンの表示ON/OFF
+	ShowCafeteriaCongestion bool `json:"show_cafeteria_congestion" gorm:"not null;default:true"`
+	ShowARButton            bool `json:"show_ar_button" gorm:"not null;default:true"`
 	// 到着カードに表示するアンケートのリンク先（空なら非表示）
 	SurveyURL string `json:"survey_url" gorm:"default:''"`
 }

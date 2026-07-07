@@ -806,6 +806,8 @@ function SettingsTab() {
   const [stampUrl, setStampUrl] = useState("");
   const [surveyUrl, setSurveyUrl] = useState("");
   const [cafeteriaCongestion, setCafeteriaCongestion] = useState(0);
+  const [showCafeteriaCongestion, setShowCafeteriaCongestion] = useState(true);
+  const [showArButton, setShowArButton] = useState(true);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [mapImages, setMapImages] = useState<MapImage[]>([]);
@@ -827,6 +829,8 @@ function SettingsTab() {
       setStampUrl(s.stamp_url ?? "");
       setSurveyUrl(s.survey_url ?? "");
       setCafeteriaCongestion(s.cafeteria_congestion ?? 0);
+      setShowCafeteriaCongestion(s.show_cafeteria_congestion ?? true);
+      setShowArButton(s.show_ar_button ?? true);
       setMapImages(imgs);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -842,6 +846,8 @@ function SettingsTab() {
         reroute_other: rerouteOther,
         stamp_url: stampUrl.trim(),
         cafeteria_congestion: cafeteriaCongestion,
+        show_cafeteria_congestion: showCafeteriaCongestion,
+        show_ar_button: showArButton,
         survey_url: surveyUrl.trim(),
       });
       setMsg({ type: "ok", text: "設定を保存しました" });
@@ -930,18 +936,40 @@ function SettingsTab() {
             placeholder="例: https://example.com/stamp"
           />
         </div>
+        <div className="adm-section-label" style={{ marginTop: 24 }}>ヘッダー表示</div>
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input
+              type="checkbox"
+              checked={showCafeteriaCongestion}
+              onChange={(e) => setShowCafeteriaCongestion(e.target.checked)}
+            />
+            食堂の混雑度をヘッダーに表示する
+          </label>
+        </div>
         <div className="adm-field">
           <label>食堂の混雑度</label>
-          <p className="hint">ヘッダーに表示されます。</p>
+          <p className="hint">「表示する」がONのとき、ヘッダーにこの混雑度が出ます。</p>
           <select
             value={cafeteriaCongestion}
             onChange={(e) => setCafeteriaCongestion(Number(e.target.value))}
+            disabled={!showCafeteriaCongestion}
           >
             <option value={0}>不明</option>
             <option value={1}>空き</option>
             <option value={2}>普通</option>
             <option value={3}>混雑</option>
           </select>
+        </div>
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input
+              type="checkbox"
+              checked={showArButton}
+              onChange={(e) => setShowArButton(e.target.checked)}
+            />
+            AR ボタンをヘッダーに表示する
+          </label>
         </div>
 
         <div className="adm-section-label" style={{ marginTop: 24 }}>到着カード設定</div>

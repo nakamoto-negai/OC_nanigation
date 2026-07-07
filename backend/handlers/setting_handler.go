@@ -16,14 +16,16 @@ func GetSettings(c *gin.Context) {
 
 func UpdateSettings(c *gin.Context) {
 	var body struct {
-		MapNorthOffset      float64 `json:"map_north_offset"`
-		RerouteVisibility   bool    `json:"reroute_visibility"`
-		RerouteIncident     bool    `json:"reroute_incident"`
-		ReroteCongestion    bool    `json:"reroute_congestion"`
-		RerouteOther        bool    `json:"reroute_other"`
-		StampURL            string  `json:"stamp_url"`
-		CafeteriaCongestion int     `json:"cafeteria_congestion"`
-		SurveyURL           string  `json:"survey_url"`
+		MapNorthOffset          float64 `json:"map_north_offset"`
+		RerouteVisibility       bool    `json:"reroute_visibility"`
+		RerouteIncident         bool    `json:"reroute_incident"`
+		ReroteCongestion        bool    `json:"reroute_congestion"`
+		RerouteOther            bool    `json:"reroute_other"`
+		StampURL                string  `json:"stamp_url"`
+		CafeteriaCongestion     int     `json:"cafeteria_congestion"`
+		ShowCafeteriaCongestion bool    `json:"show_cafeteria_congestion"`
+		ShowARButton            bool    `json:"show_ar_button"`
+		SurveyURL               string  `json:"survey_url"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -38,6 +40,8 @@ func UpdateSettings(c *gin.Context) {
 	s.RerouteOther = body.RerouteOther
 	s.StampURL = body.StampURL
 	s.CafeteriaCongestion = body.CafeteriaCongestion
+	s.ShowCafeteriaCongestion = body.ShowCafeteriaCongestion
+	s.ShowARButton = body.ShowARButton
 	s.SurveyURL = body.SurveyURL
 	database.DB.Save(&s)
 	c.JSON(http.StatusOK, s)

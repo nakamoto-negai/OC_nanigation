@@ -99,7 +99,9 @@ function UserApp() {
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
     reroute_congestion: true, reroute_other: true,
-    stamp_url: "", cafeteria_congestion: 0, survey_url: "",
+    stamp_url: "", cafeteria_congestion: 0,
+    show_cafeteria_congestion: true, show_ar_button: true,
+    survey_url: "",
   });
 
   useEffect(() => {
@@ -171,15 +173,17 @@ function UserApp() {
             space-between の右寄せレイアウトを保つため空のスペーサーを置く。 */}
         <span className="header-spacer" onClick={() => navigate("home")} />
         <div className="header-actions">
-          <span className="cafeteria-congestion" title="食堂の混雑度">
-            <span className="cafeteria-congestion-label">食堂</span>
-            <span
-              className="cafeteria-congestion-badge"
-              style={{ background: CONGESTION_COLORS[settings.cafeteria_congestion] ?? CONGESTION_COLORS[0] }}
-            >
-              {CONGESTION_LABELS[settings.cafeteria_congestion] ?? "不明"}
+          {settings.show_cafeteria_congestion && (
+            <span className="cafeteria-congestion" title="食堂の混雑度">
+              <span className="cafeteria-congestion-label">食堂</span>
+              <span
+                className="cafeteria-congestion-badge"
+                style={{ background: CONGESTION_COLORS[settings.cafeteria_congestion] ?? CONGESTION_COLORS[0] }}
+              >
+                {CONGESTION_LABELS[settings.cafeteria_congestion] ?? "不明"}
+              </span>
             </span>
-          </span>
+          )}
           {settings.stamp_url && (
             <a
               className="stamp-button"
@@ -190,7 +194,7 @@ function UserApp() {
               スタンプ
             </a>
           )}
-          {screen === "home" && (
+          {screen === "home" && settings.show_ar_button && (
             <button onClick={() => navigate("ar")}>AR</button>
           )}
           {screen !== "home" && screen !== "survey" && (

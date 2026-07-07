@@ -79,6 +79,8 @@ export interface Setting {
   reroute_other: boolean;
   stamp_url: string;
   cafeteria_congestion: number;
+  show_cafeteria_congestion: boolean;
+  show_ar_button: boolean;
   survey_url: string;
 }
 
