@@ -113,7 +113,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; flex-shrink: 0;
 }
-.dest-card-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+/* min-width:0 が無いと、横長のイベントマーキーが縮まずカード幅を押し広げてはみ出す */
+.dest-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dest-card-name-row { display: flex; align-items: center; gap: 8px; }
 .dest-card-name { font-size: 15px; font-weight: 700; color: #1e293b; }
 .dest-card-desc { font-size: 12px; color: #64748b; }
@@ -123,9 +124,12 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .dest-card-arrow { font-size: 18px; color: #94a3b8; }
 
-/* 目的地カードで開催イベント名をオレンジ色で横に流す（マーキー） */
+/* 目的地カードで開催イベント名をオレンジ色で横に流す（マーキー）。
+   min-width:0 の親の中で overflow:hidden により、はみ出さずカード内でクリップされる。
+   右端は 14px 内側までにして、文字がカードの右端ぴったりではなく少し内側から見えるようにする。 */
 .dest-event-marquee {
-  overflow: hidden; white-space: nowrap; width: 100%; margin-top: 4px;
+  overflow: hidden; white-space: nowrap;
+  max-width: 100%; margin-top: 4px; margin-right: 14px;
 }
 .dest-event-track {
   display: inline-flex; align-items: center;
