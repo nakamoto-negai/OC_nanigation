@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { RouteStepDetail } from "../types";
 import { CompassPermission } from "../hooks/useCompass";
-import { gpsBearing, mapBearing, angleDiff } from "../utils/bearing";
+import { gpsBearing, mapBearing, angleDiff, gpsDistance } from "../utils/bearing";
 
 interface Props {
   step: RouteStepDetail;
@@ -98,6 +98,20 @@ export const ARNavGuide: React.FC<Props> = ({
     if (!hasHeading) return;
     setArrowRot((prev) => prev + angleDiff(diff, ((prev % 360) + 360) % 360));
   }, [diff, hasHeading]);
+  // このカード（出発ノード→終着ノード）の進捗。区間の全長に対する到達割合を 0〜1 で表す。
+  // 全長 = 出発ノードと終着ノードの GPS 距離、残り = distance（終着ノードまでの距離）。
+  // GPS が無い（distance が null / 座標欠落）ときは進捗を出さない（null）。
+  const from = step.from_node;
+  const to = step.to_node;
+  let progress: number | null = null;
+  if (arrived) {
+    progress = 1;
+  } else if (distance != null && from.lat != null && from.lng != null && to.lat != null && to.lng != null) {
+    const total = gpsDistance(from.lat, from.lng, to.lat, to.lng);
+    progress = total > 0 ? Math.min(1, Math.max(0, (total - distance) / total)) : (distance <= 2 ? 1 : 0);
+  }
+  const progressPct = (progress ?? 0) * 100;
+
   const status: "ok" | "warn" | "ng" = absD <= 20 ? "ok" : absD <= 60 ? "warn" : "ng";
   const label = !hasHeading
     ? "コンパス未取得"
@@ -117,6 +131,22 @@ export const ARNavGuide: React.FC<Props> = ({
         <div className="arnav-topbar">
           <button className="arnav-top-btn arnav-top-switch" onClick={onClose}>画像案内に戻る</button>
           <button className="arnav-top-btn arnav-top-next" onClick={onNext}>次に進む →</button>
+        </div>
+
+        {/* このカードの出発点→終着点を結ぶ進捗バー */}
+        <div className="arnav-progress">
+          <div className="arnav-progress-labels">
+            <span className="arnav-progress-name">{from.name}</span>
+            <span className="arnav-progress-name arnav-progress-name-to">{to.name}</span>
+          </div>
+          <div className="arnav-progress-track">
+            <div className="arnav-progress-fill" style={{ width: `${progressPct}%` }} />
+            <span className="arnav-progress-dot arnav-progress-dot-start" />
+            <span className="arnav-progress-dot arnav-progress-dot-end" />
+            {progress != null && (
+              <span className="arnav-progress-walker" style={{ left: `${progressPct}%` }} />
+            )}
+          </div>
         </div>
 
         {/* 位置情報で到着したらカメラ全面に「到着しました」を表示 */}

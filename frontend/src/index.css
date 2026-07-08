@@ -1087,9 +1087,45 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .arnav-top-next { background: #3b82f6; color: #fff; }
 .arnav-top-next:active { background: #2563eb; }
 
+/* このカードの出発点→終着点を結ぶ進捗バー（カメラ上部に重ねる） */
+.arnav-progress {
+  position: absolute; top: 50px; left: 12px; right: 12px; z-index: 3;
+  pointer-events: none;
+}
+.arnav-progress-labels {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 11px; font-weight: 700; color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  margin-bottom: 5px;
+}
+.arnav-progress-name {
+  max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.arnav-progress-name-to { text-align: right; }
+.arnav-progress-track {
+  position: relative; height: 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.arnav-progress-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: #22c55e; border-radius: 999px; transition: width 0.4s ease;
+}
+.arnav-progress-dot {
+  position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: #fff; border: 2px solid #22c55e;
+}
+.arnav-progress-dot-start { left: 0; }
+.arnav-progress-dot-end { left: 100%; }
+.arnav-progress-walker {
+  position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #22c55e; border: 2px solid #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.55); transition: left 0.4s ease;
+}
+
 /* 到着直前にカメラ上部へ重ねる「到着まで◯m」表示 */
 .arnav-distance {
-  position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 92px; left: 50%; transform: translateX(-50%);
   z-index: 3;
   font-size: 16px; font-weight: 800; letter-spacing: 0.03em;
   color: #fff; background: rgba(16, 122, 56, 0.82);
