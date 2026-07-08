@@ -12,7 +12,7 @@ import { gpsDistance } from "../utils/bearing";
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 // 次のチェックポイント（ノード）にこの距離(m)まで近づいたら「到着」とみなす
-const ARRIVAL_RADIUS_M = 20;
+const ARRIVAL_RADIUS_M = 2;
 // 「到着しました」を表示してから次のステップへ自動遷移するまでの待ち時間(ms)
 const ARRIVAL_ADVANCE_MS = 1800;
 
@@ -103,6 +103,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   const [arCardIndex, setArCardIndex] = useState<number | null>(null);
   // 位置情報で到着したカード（その ARNavGuide に「到着しました」を表示する）
   const [arrivedCardIndex, setArrivedCardIndex] = useState<number | null>(null);
+  // 現在カードの目的ノードまでの距離(m)。AR の「到着まで◯m」表示に使う（GPS が無ければ null）
+  const [distanceToTarget, setDistanceToTarget] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 到着判定を一度処理したカードを記録（同じカードで何度も発火させない）
@@ -228,6 +230,17 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       scrollToCard(next);
     }, ARRIVAL_ADVANCE_MS);
     return () => clearTimeout(t);
+  }, [userLat, userLng, visibleCardIndex, cards]);
+
+  // 現在カードの目的ノードまでの距離を常時計算し、AR の「到着まで◯m」表示に渡す。
+  // ステップカード以外・GPS 未取得・座標未設定のときは null（表示しない）。
+  useEffect(() => {
+    if (userLat == null || userLng == null) { setDistanceToTarget(null); return; }
+    const card = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
+    if (!card || card.kind !== "step") { setDistanceToTarget(null); return; }
+    const target = card.step.to_node;
+    if (target.lat == null || target.lng == null) { setDistanceToTarget(null); return; }
+    setDistanceToTarget(gpsDistance(userLat, userLng, target.lat, target.lng));
   }, [userLat, userLng, visibleCardIndex, cards]);
 
   const handleScroll = () => {
@@ -363,6 +376,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   onClose={() => setArCardIndex(null)}
                   onNext={() => goToNextCard(ci)}
                   arrived={arrivedCardIndex === ci}
+                  distance={distanceToTarget}
                 />
               ) : (
                 <>

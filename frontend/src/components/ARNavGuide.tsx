@@ -16,7 +16,12 @@ interface Props {
   onNext: () => void;
   /** 位置情報で次のチェックポイントに到達したか。true の間カメラに「到着しました」を表示する。 */
   arrived?: boolean;
+  /** 目的ノードまでの距離(m)。GPS が無ければ null。近づくと「到着まで◯m」を表示する。 */
+  distance?: number | null;
 }
+
+// 目的ノードまでこの距離(m)以内に近づいたら「到着まで◯m」のカウントダウンを表示する
+const APPROACH_DISPLAY_M = 10;
 
 /**
  * 純コンパス AR 道案内（360 画像を使わない方式）。
@@ -29,7 +34,7 @@ interface Props {
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, onNext, arrived = false,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, onNext, arrived = false, distance = null,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -120,6 +125,13 @@ export const ARNavGuide: React.FC<Props> = ({
             <span className="arnav-arrived-check">✓</span>
             <span className="arnav-arrived-text">到着しました</span>
             <span className="arnav-arrived-sub">{step.to_node.name}</span>
+          </div>
+        )}
+
+        {/* 到着直前（APPROACH_DISPLAY_M 以内）は残り距離を表示する */}
+        {!arrived && distance != null && distance <= APPROACH_DISPLAY_M && (
+          <div className="arnav-distance">
+            到着まで 約{Math.max(1, Math.ceil(distance))}m
           </div>
         )}
 
