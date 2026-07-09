@@ -425,14 +425,17 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
           )}
           <div className="rg-goal-icon">ゴール</div>
           <div className="rg-goal-name">{last.name}</div>
+          {/* アンケート・戻るボタンを横一列で、写真の上に配置する */}
+          <div className="rg-goal-actions">
+            <SurveyLauncher fallbackUrl={settings.survey_url} onOpen={onOpenSurvey} />
+            <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>
+          </div>
           {/* 到着地点の写真（閲覧専用）。登録・削除は管理画面のみ。
               nodes プロップに写真があればそれを初期値に使う。 */}
           <GoalPhotoGallery
             nodeId={last.id}
             initialPhotos={nodes.find((n) => n.id === last.id)?.photos}
           />
-          <SurveyLauncher fallbackUrl={settings.survey_url} onOpen={onOpenSurvey} />
-          <button className="btn-back-home" onClick={onClose}>目的地選択に戻る</button>
         </div>
       </div>
     </div>
