@@ -801,7 +801,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .goal-photo-item { position: relative; width: 100%; }
 .goal-photo-item img {
-  display: block; width: 100%; height: auto; max-height: 60vh; object-fit: contain;
+  display: block; width: 100%; height: auto; max-height: 40vh; object-fit: contain;
   border-radius: 12px; border: 1px solid #bbf7d0; background: #dcfce7;
 }
 
