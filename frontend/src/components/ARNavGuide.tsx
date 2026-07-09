@@ -91,16 +91,28 @@ export const ARNavGuide: React.FC<Props> = ({
   const diff = hasHeading ? angleDiff(targetBearing, heading!) : 0;
   const absD = Math.abs(diff);
 
-  // 矢印の回転は連続値（アンラップ）で保持する。
-  // diff は [-180,180] に折り返されるため、目標がほぼ真後ろのとき +179°⇄-179° と反転すると
-  // CSS transition が 358° 逆回りしてしまい、一瞬だけ文字の角度表示と正反対を向いてしまう。
-  // 直前の連続回転値からの最短差分だけを足し込むことで、常に最短方向へ回しつつ
-  // 360° の剰余は diff（＝文字表示）と一致させる。
-  const [arrowRot, setArrowRot] = useState(0);
+  // 矢印は React の再描画を経由せず、requestAnimationFrame で SVG の transform を
+  // 直接書き換える（受信→描画の経路を最短化）。目標角(diff)へ毎フレーム最短方向に
+  // 少しずつ寄せるので、センサーのノイズやイベント間隔に左右されず滑らかに動く。
+  const arrowRef = useRef<SVGSVGElement>(null);
+  const targetDiffRef = useRef(0); // 目標角（最新の diff）
+  const dispDiffRef = useRef(0);   // 現在表示している角（連続値）
+  useEffect(() => { targetDiffRef.current = diff; }, [diff]);
   useEffect(() => {
-    if (!hasHeading) return;
-    setArrowRot((prev) => prev + angleDiff(diff, ((prev % 360) + 360) % 360));
-  }, [diff, hasHeading]);
+    let raf = 0;
+    const tick = () => {
+      // 表示角 → 目標角 への最短差分 [-180,180]（真後ろでの反転もこれで最短方向に回る）
+      const delta = ((targetDiffRef.current - dispDiffRef.current + 540) % 360) - 180;
+      // 残差が十分小さければスナップして無駄な微小更新を止める
+      dispDiffRef.current += Math.abs(delta) < 0.1 ? delta : delta * 0.25;
+      if (arrowRef.current) {
+        arrowRef.current.style.transform = `rotate(${dispDiffRef.current}deg)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const status: "ok" | "warn" | "ng" = absD <= 20 ? "ok" : absD <= 60 ? "warn" : "ng";
   const label = !hasHeading
     ? "コンパス未取得"
@@ -141,9 +153,9 @@ export const ARNavGuide: React.FC<Props> = ({
         <div className="arnav-overlay">
           {hasHeading ? (
             <svg
+              ref={arrowRef}
               className={`arnav-arrow arnav-${status}`}
               viewBox="0 0 100 100"
-              style={{ transform: `rotate(${arrowRot}deg)` }}
             >
               <polygon points="50,8 80,72 50,56 20,72" />
             </svg>

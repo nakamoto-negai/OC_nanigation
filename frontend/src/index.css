@@ -1090,7 +1090,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .arnav-arrow {
   width: 44%; max-width: 200px;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-  transition: transform 0.15s ease-out;
+  /* 回転は JS(requestAnimationFrame)で毎フレーム直接更新するため、
+     CSS transition は掛けない（掛けると二重に補間されてカクつく）。 */
+  will-change: transform;
 }
 .arnav-arrow.arnav-ok polygon   { fill: #22c55e; }
 .arnav-arrow.arnav-warn polygon { fill: #f59e0b; }
