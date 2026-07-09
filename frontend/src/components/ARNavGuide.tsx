@@ -22,6 +22,9 @@ interface Props {
 
 // 目的ノードまでこの距離(m)以内に近づいたら「到着まで◯m」のカウントダウンを表示する
 const APPROACH_DISPLAY_M = 10;
+// 到着とみなす半径(m)。RouteGuide の ARRIVAL_RADIUS_M と一致させること。
+// 進捗バーはこの半径まで近づいた時点で 100% になる（0m まで詰めない）。
+const ARRIVAL_RADIUS_M = 2;
 
 /**
  * 純コンパス AR 道案内（360 画像を使わない方式）。
@@ -108,7 +111,12 @@ export const ARNavGuide: React.FC<Props> = ({
     progress = 1;
   } else if (distance != null && from.lat != null && from.lng != null && to.lat != null && to.lng != null) {
     const total = gpsDistance(from.lat, from.lng, to.lat, to.lng);
-    progress = total > 0 ? Math.min(1, Math.max(0, (total - distance) / total)) : (distance <= 2 ? 1 : 0);
+    // 到着半径まで近づいた時点で 100% にする。分母を (total - 到着半径) にすることで、
+    // distance が到着半径のとき進捗が 1 になり、到着地点で半分しか進まない問題を解消する。
+    const span = total - ARRIVAL_RADIUS_M;
+    progress = span > 0
+      ? Math.min(1, Math.max(0, (total - distance) / span))
+      : (distance <= ARRIVAL_RADIUS_M ? 1 : 0);
   }
   const progressPct = (progress ?? 0) * 100;
 
