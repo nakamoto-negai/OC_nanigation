@@ -26,6 +26,30 @@ const APPROACH_DISPLAY_M = 10;
 // 進捗バーはこの半径まで近づいた時点で 100% になる（0m まで詰めない）。
 const ARRIVAL_RADIUS_M = 2;
 
+// 標準正規分布の累積分布関数(CDF)。erf 近似(Abramowitz & Stegun 7.1.26)を用いる。
+function normalCdf(x: number): number {
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * ax);
+  const y =
+    1 -
+    (((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+      t *
+      Math.exp(-ax * ax));
+  return 0.5 * (1 + sign * y);
+}
+
+// 進捗バーの非線形マッピング。線形の進捗率 f(0〜1) を、正規分布(平均0.5)の累積分布で
+// マッピングし、中間地点が最速の左右対称なS字カーブ(ease-in-out)にする。
+// 両端が 0/1 になるよう正規化する。SIGMA が小さいほど中央の加速が急になる。
+const PROGRESS_SIGMA = 0.2;
+function easeInOutNormal(f: number): number {
+  const lo = normalCdf((0 - 0.5) / PROGRESS_SIGMA);
+  const hi = normalCdf((1 - 0.5) / PROGRESS_SIGMA);
+  const v = normalCdf((f - 0.5) / PROGRESS_SIGMA);
+  return (v - lo) / (hi - lo);
+}
+
 /**
  * 純コンパス AR 道案内（360 画像を使わない方式）。
  *
@@ -114,9 +138,11 @@ export const ARNavGuide: React.FC<Props> = ({
     // 到着半径まで近づいた時点で 100% にする。分母を (total - 到着半径) にすることで、
     // distance が到着半径のとき進捗が 1 になり、到着地点で半分しか進まない問題を解消する。
     const span = total - ARRIVAL_RADIUS_M;
-    progress = span > 0
+    const linear = span > 0
       ? Math.min(1, Math.max(0, (total - distance) / span))
       : (distance <= ARRIVAL_RADIUS_M ? 1 : 0);
+    // 線形の進捗を「中央が最速」のS字カーブに変換する
+    progress = easeInOutNormal(linear);
   }
   const progressPct = (progress ?? 0) * 100;
 
