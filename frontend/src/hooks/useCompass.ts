@@ -32,14 +32,13 @@ export function useCompass() {
     setHeading((prev) => {
       if (prev === null) return raw!;
       // prev からの最短差分 [-180,180]
-      let diff = ((raw! - prev) + 540) % 360 - 180;
+      const diff = ((raw! - prev) + 540) % 360 - 180;
       const ad = Math.abs(diff);
-      // 微小な揺れ(1°未満)はセンサーノイズとみなして無視する（矢印の「ブルブル震え」を止める）。
-      // 同じ値を返すと React が再描画をスキップするので無駄な更新も減る。
-      if (ad < 1) return prev;
-      // 変化が大きいほど速く追従、小さいほどゆっくり平滑化する。
-      // 実際に端末を回したとき(大きな差)は即応し、静止時の微小ノイズは強く抑える。
-      const alpha = ad > 20 ? 0.5 : 0.12;
+      // 追従度(alpha)を差の大きさに応じて連続的に変える（ハードなデッドゾーンは作らない）。
+      //   静止時の微小ノイズ → alpha が小さく、ほとんど動かない（震えを抑える）
+      //   実際に端末を回した大きな差 → alpha が大きく、素早く追従する
+      // 段差なく変化するので「固まって急に動く」カクつきが起きない。
+      const alpha = Math.min(0.5, Math.max(0.08, ad / 60));
       return (prev + diff * alpha + 360) % 360;
     });
   }, []);
