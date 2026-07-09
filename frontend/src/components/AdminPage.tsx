@@ -5,6 +5,7 @@ import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
 import { ARRecognizer } from "./ARRecognizer";
 import { NodePhotoManager } from "./NodePhotoManager";
+import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
 interface Props {
   nodes: Node[];
@@ -1663,6 +1664,21 @@ function LogsTab() {
 
   const filtered = filter ? logs.filter((l) => l.device_id.includes(filter)) : logs;
 
+  // 表示中（絞り込み後）のログを CSV でダウンロードする
+  const exportCsv = () => {
+    const header = ["日時", "アクション", "デバイスID", "出発", "到着", "ステップ", "総ステップ"];
+    const rows = filtered.map((l) => [
+      new Date(l.created_at).toLocaleString("ja-JP"),
+      ACTION_LABEL[l.action] ?? l.action,
+      l.device_id,
+      l.from_node,
+      l.to_node,
+      l.step > 0 ? l.step : "",
+      l.total_steps > 0 ? l.total_steps : "",
+    ]);
+    downloadCsv(`logs_${csvTimestamp()}.csv`, toCsv([header, ...rows]));
+  };
+
   return (
     <div className="logs-tab">
       <div className="logs-toolbar">
@@ -1673,6 +1689,9 @@ function LogsTab() {
           placeholder="デバイスIDで絞り込み"
         />
         <button className="btn-refresh" onClick={() => load(filter || undefined)}>更新</button>
+        <button className="btn-refresh" onClick={exportCsv} disabled={filtered.length === 0}>
+          CSVエクスポート
+        </button>
         <span className="logs-count">{filtered.length}件</span>
       </div>
       {loading ? (
@@ -1731,6 +1750,38 @@ function SurveyTab() {
 
   const loadResponses = () => {
     api.survey.listResponses().then(setResponses).catch(() => {});
+  };
+
+  // 回答一覧を CSV でダウンロードする。
+  // 質問を列・回答者を行にした横持ち形式。likert は数値、記述はテキストを出力する。
+  const exportResponsesCsv = () => {
+    const qs = [...questions].sort(byOrder);
+    const cols = qs.map((q) => ({ id: q.id, text: q.text }));
+    // 回答に含まれるが質問一覧に無い（削除済みなど）質問も列として拾う
+    const known = new Set(cols.map((c) => c.id));
+    const seen = new Set<number>();
+    responses.forEach((r) => r.answers.forEach((a) => {
+      if (!known.has(a.question_id) && !seen.has(a.question_id)) {
+        seen.add(a.question_id);
+        cols.push({ id: a.question_id, text: a.question_text || `質問#${a.question_id}` });
+      }
+    }));
+
+    const header = ["回答ID", "デバイスID", "回答日時", ...cols.map((c) => c.text)];
+    const rows = responses.map((r) => {
+      const byQ = new Map(r.answers.map((a) => [a.question_id, a]));
+      return [
+        r.id,
+        r.device_id,
+        new Date(r.created_at).toLocaleString("ja-JP"),
+        ...cols.map((c) => {
+          const a = byQ.get(c.id);
+          if (!a) return "";
+          return a.question_type === "likert" ? a.value : a.text;
+        }),
+      ];
+    });
+    downloadCsv(`survey_responses_${csvTimestamp()}.csv`, toCsv([header, ...rows]));
   };
 
   const reset = () => {
@@ -1898,7 +1949,17 @@ function SurveyTab() {
         </div>
       ) : (
         <div className="adm-list-col">
-          <h3>回答一覧 <span className="count-badge">{responses.length}</span></h3>
+          <h3>
+            回答一覧 <span className="count-badge">{responses.length}</span>
+            <button
+              className="btn-refresh"
+              style={{ marginLeft: 12 }}
+              onClick={exportResponsesCsv}
+              disabled={responses.length === 0}
+            >
+              CSVエクスポート
+            </button>
+          </h3>
           {responses.length === 0 ? (
             <p className="adm-empty">まだ回答がありません。</p>
           ) : (

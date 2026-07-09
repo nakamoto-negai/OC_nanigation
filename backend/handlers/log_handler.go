@@ -10,7 +10,7 @@ import (
 
 func ListLogs(c *gin.Context) {
 	var logs []models.UserLog
-	q := database.DB.Order("created_at desc").Limit(500)
+	q := database.DB.Order("created_at desc")
 	if deviceID := c.Query("device_id"); deviceID != "" {
 		q = q.Where("device_id = ?", deviceID)
 	}
