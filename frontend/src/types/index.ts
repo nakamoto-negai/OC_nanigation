@@ -16,6 +16,15 @@ export interface Event {
   updated_at: string;
 }
 
+export interface NodePhoto {
+  id: number;
+  node_id: number;
+  sort_order: number;
+  url: string;
+  caption: string;
+  created_at: string;
+}
+
 export interface Node {
   id: number;
   name: string;
@@ -30,6 +39,7 @@ export interface Node {
   congestion_level: number;
   wait_time: number;
   events?: Event[];
+  photos?: NodePhoto[];
   created_at: string;
   updated_at: string;
 }

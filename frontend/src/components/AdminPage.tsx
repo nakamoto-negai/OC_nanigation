@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
 import { ARRecognizer } from "./ARRecognizer";
+import { NodePhotoManager } from "./NodePhotoManager";
 
 interface Props {
   nodes: Node[];
@@ -382,6 +383,17 @@ function NodeTab({
             />
           </div>
         </div>
+
+        {form.id != null && (
+          <NodePhotoManager
+            nodeId={form.id}
+            initialPhotos={nodes.find((n) => n.id === form.id)?.photos}
+            onChange={(photos) => {
+              const node = nodes.find((n) => n.id === form.id);
+              if (node) onUpdated({ ...node, photos });
+            }}
+          />
+        )}
 
         <div className="adm-actions" style={{ marginTop: 16 }}>
           <button className="btn-primary" onClick={save} disabled={saving}>

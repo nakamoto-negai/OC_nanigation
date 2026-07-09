@@ -783,7 +783,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   text-align: center; padding: 24px 16px; background: #f0fdf4;
   border: 1px solid #bbf7d0; border-radius: 0; margin-top: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  box-sizing: border-box;
+  box-sizing: border-box; overflow-y: auto;
 }
 .rg-goal-icon {
   display: inline-block; background: #166534; color: white;
@@ -791,6 +791,36 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border-radius: 12px; margin-bottom: 8px;
 }
 .rg-goal-name { font-size: 18px; font-weight: 700; color: #166534; margin-bottom: 12px; }
+
+/* ゴールカードの「到着地点の写真」閲覧エリア（登録は管理画面のみ） */
+.goal-photos { width: 100%; max-width: 340px; margin: 0 auto 14px; }
+.goal-photos-title { font-size: 13px; font-weight: 700; color: #166534; margin-bottom: 8px; }
+.goal-photos-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.goal-photo-item { position: relative; aspect-ratio: 1 / 1; }
+.goal-photo-item img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 8px;
+  border: 1px solid #bbf7d0; background: #dcfce7;
+}
+
+/* 管理画面: ノード写真の管理グリッド */
+.node-photo-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 10px;
+}
+.node-photo-item { position: relative; aspect-ratio: 1 / 1; }
+.node-photo-item img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
+  border: 1px solid #e2e8f0; background: #f1f5f9;
+}
+.node-photo-del {
+  position: absolute; top: -6px; right: -6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: none; cursor: pointer;
+  background: rgba(15, 23, 42, 0.8); color: #fff;
+  font-size: 15px; line-height: 22px; text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
 
 .blocked-btn-bar {
   padding: 6px 10px;

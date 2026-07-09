@@ -40,6 +40,8 @@ func main() {
 	api.POST("/admin/login", handlers.AdminLogin)
 	api.GET("/nodes", handlers.ListNodes)
 	api.GET("/nodes/:id", handlers.GetNode)
+	// 到着地点の写真: 閲覧は公開（ユーザーはゴールカードで見るだけ）。登録・削除は管理者専用（下の admin グループ）
+	api.GET("/nodes/:id/photos", handlers.ListNodePhotos)
 	api.GET("/links", handlers.ListLinks)
 	api.GET("/links/:id", handlers.GetLink)
 	api.GET("/settings", handlers.GetSettings)
@@ -67,6 +69,10 @@ func main() {
 		admin.POST("/photos", handlers.UploadPhoto)
 		admin.DELETE("/photos/:id", handlers.DeletePhoto)
 		admin.PUT("/photos/reorder", handlers.ReorderPhotos)
+
+		// 到着地点の写真（ノード）: 登録・削除は管理者のみ
+		admin.POST("/node-photos", handlers.UploadNodePhoto)
+		admin.DELETE("/node-photos/:id", handlers.DeleteNodePhoto)
 
 		admin.PUT("/settings", handlers.UpdateSettings)
 

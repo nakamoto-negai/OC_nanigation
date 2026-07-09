@@ -15,6 +15,7 @@ func ListNodes(c *gin.Context) {
 	database.DB.
 		Preload("Category").
 		Preload("Events", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc").Order("id asc") }).
+		Preload("Photos", func(db *gorm.DB) *gorm.DB { return db.Order("created_at desc").Order("id desc") }).
 		Find(&nodes)
 	c.JSON(http.StatusOK, nodes)
 }
@@ -22,7 +23,10 @@ func ListNodes(c *gin.Context) {
 func GetNode(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var node models.Node
-	if err := database.DB.Preload("Category").First(&node, id).Error; err != nil {
+	if err := database.DB.
+		Preload("Category").
+		Preload("Photos", func(db *gorm.DB) *gorm.DB { return db.Order("created_at desc").Order("id desc") }).
+		First(&node, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
 		return
 	}

@@ -91,6 +91,7 @@ docker compose -f docker-compose.yml -f docker-compose.https.yml up --build
 | `Node` | 地点。名前・説明・マップ座標(x,y)・GPS座標(lat,lng) |
 | `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚 |
 | `Photo` | リンクに紐付く写真。sort_order で順序管理 |
+| `NodePhoto` | 地点（ノード）に紐付く写真。管理者が管理画面で登録し、道案内のゴールカードにユーザー閲覧専用で表示される |
 | `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用） |
 | `MapImage` | マップ背景画像。is_active フラグで1枚を選択 |
 | `User` | ブラウザ初回起動時に自動登録。device_id (UUID) で識別 |
@@ -100,6 +101,9 @@ docker compose -f docker-compose.yml -f docker-compose.https.yml up --build
 ```
 /api/nodes          GET/POST
 /api/nodes/:id      GET/PUT/DELETE
+/api/nodes/:id/photos  GET     — ノードの到着地点写真一覧（公開・閲覧のみ）
+/api/node-photos    POST        — ノードに写真登録（管理者のみ）
+/api/node-photos/:id DELETE     — ノード写真削除（管理者のみ）
 /api/links          GET/POST
 /api/links/:id      GET/PUT/DELETE
 /api/photos         POST
