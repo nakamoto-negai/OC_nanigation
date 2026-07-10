@@ -31,6 +31,7 @@ type IncomingMsg struct {
 	FromNodeID int    `json:"from_node_id"`
 	ToNodeID   int    `json:"to_node_id"`
 	Reason     string `json:"reason"`
+	Action     string `json:"action"`
 }
 
 type Client struct {
@@ -194,6 +195,21 @@ func (c *Client) ReadPump(hub *Hub) {
 				TotalSteps: in.TotalSteps,
 				CreatedAt:  time.Now(),
 			})
+		} else if in.Type == "action" {
+			c.UserID = in.UserID
+			// フロントから送られる汎用アクションログ。想定外の値を弾くためホワイトリストで許可する。
+			allowedActions := map[string]bool{"ar_start": true, "arrival_view": true}
+			if allowedActions[in.Action] {
+				go database.DB.Create(&models.UserLog{
+					DeviceID:   in.UserID,
+					Action:     in.Action,
+					FromNode:   in.FromNode,
+					ToNode:     in.ToNode,
+					Step:       in.Step,
+					TotalSteps: in.TotalSteps,
+					CreatedAt:  time.Now(),
+				})
+			}
 		}
 	}
 }

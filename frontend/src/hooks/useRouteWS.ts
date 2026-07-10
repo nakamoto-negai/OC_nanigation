@@ -70,6 +70,31 @@ export function useRouteWS() {
     } catch {}
   };
 
+  // 汎用アクションログ（AR開始・到着地点確認など）。バックエンドがホワイトリストで許可した action だけ記録する。
+  const sendAction = (
+    action: string,
+    step: number,
+    totalSteps: number,
+    fromNode: string,
+    toNode: string,
+  ) => {
+    try {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: "action",
+          user_id: userID,
+          action,
+          step,
+          total_steps: totalSteps,
+          from_node: fromNode,
+          to_node: toNode,
+        })
+      );
+    } catch {}
+  };
+
   const sendGoalReached = (goalNodeName: string, goalNodeId: number, totalSteps: number) => {
     if (goalSentRef.current) return;
     goalSentRef.current = true;
@@ -86,5 +111,5 @@ export function useRouteWS() {
     );
   };
 
-  return { sendPosition, sendGoalReached, sendReroute, userID };
+  return { sendPosition, sendGoalReached, sendReroute, sendAction, userID };
 }

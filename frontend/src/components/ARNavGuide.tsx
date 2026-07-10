@@ -19,6 +19,8 @@ interface Props {
   arrived?: boolean;
   /** 目的ノードまでの距離(m)。GPS が無ければ null。近づくと「到着まで◯m」を表示する。 */
   distance?: number | null;
+  /** 「到着地点を確認する」ボタンが押されたとき（ログ記録などに使う）。 */
+  onConfirmArrival?: () => void;
 }
 
 // 目的ノードまでこの距離(m)以内に近づいたら「到着まで◯m」のカウントダウンを表示する
@@ -35,7 +37,7 @@ const APPROACH_DISPLAY_M = 10;
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, onNext, arrived = false, distance = null,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, onNext, arrived = false, distance = null, onConfirmArrival,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -174,7 +176,10 @@ export const ARNavGuide: React.FC<Props> = ({
         </div>
 
         {/* 到着地点(終着ノード)の登録写真を確認するボタン */}
-        <button className="arnav-confirm-btn" onClick={() => setShowArrival(true)}>
+        <button
+          className="arnav-confirm-btn"
+          onClick={() => { setShowArrival(true); onConfirmArrival?.(); }}
+        >
           到着地点を確認する
         </button>
 

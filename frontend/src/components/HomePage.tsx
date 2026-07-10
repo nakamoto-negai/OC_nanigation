@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Category, Link, Node, RouteResponse } from "../types";
 import { calcRoute } from "../utils/dijkstra";
+import { SurveyLauncher } from "./SurveyLauncher";
 
 const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -9,6 +10,10 @@ interface Props {
   nodes: Node[];
   links: Link[];
   onRouteReady: (route: RouteResponse, startNode: Node, goalNode: Node) => void;
+  /** アプリ内アンケートの質問が無いときのフォールバック先（設定の外部URL）。 */
+  surveyUrl?: string;
+  /** アプリ内アンケート（/survey）へ遷移する。 */
+  onOpenSurvey: () => void;
 }
 
 type GeoStatus = "pending" | "found" | "denied" | "unavailable";
@@ -34,7 +39,7 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUrl, onOpenSurvey }) => {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
@@ -239,7 +244,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
         </div>
       </div>
 
-      <p className="research-note">アプリの利用ログが研究に使われる場合があります</p>
+      <p className="research-note">アプリの利用ログは個人が分からない形で研究に利用される場合があります。</p>
 
       {error && (
         <div className="home-error" onClick={() => setError("")}>{error} ✕</div>
@@ -273,6 +278,11 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady }) => {
             ))}
           </div>
         )}
+      </div>
+
+      {/* アンケートへの導線（目的地選択画面にも設置） */}
+      <div className="home-survey">
+        <SurveyLauncher fallbackUrl={surveyUrl} onOpen={onOpenSurvey} />
       </div>
     </div>
   );

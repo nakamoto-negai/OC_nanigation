@@ -93,7 +93,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   }, [route.steps, detourMap, expandedDetours, goalDetour]);
 
   const { heading, permission, requestPermission } = useCompass();
-  const { sendPosition, sendGoalReached } = useRouteWS();
+  const { sendPosition, sendGoalReached, sendAction } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [blockedLinkIds] = useState<number[]>([]);
@@ -378,6 +378,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   onNext={() => goToNextCard(ci)}
                   arrived={arrivedCardIndex === ci}
                   distance={distanceToTarget}
+                  onConfirmArrival={() =>
+                    sendAction("arrival_view", s.step_number, route.steps.length, s.from_node.name, s.to_node.name)
+                  }
                 />
               ) : (
                 <>
@@ -393,6 +396,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                         // ボタン押下はユーザー操作なので、ここで iOS のコンパス許可も要求する
                         if (permission === "prompt") requestPermission();
                         setArCardIndex(ci);
+                        sendAction("ar_start", s.step_number, route.steps.length, s.from_node.name, s.to_node.name);
                       }}
                     >
                       ARで案内する

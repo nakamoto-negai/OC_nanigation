@@ -210,7 +210,13 @@ function UserApp() {
       )}
 
       {screen === "home" && (
-        <HomePage nodes={nodes} links={links} onRouteReady={handleRouteReady} />
+        <HomePage
+          nodes={nodes}
+          links={links}
+          onRouteReady={handleRouteReady}
+          surveyUrl={settings.survey_url}
+          onOpenSurvey={openSurvey}
+        />
       )}
 
       {screen === "ar" && <ARView nodes={nodes} />}
