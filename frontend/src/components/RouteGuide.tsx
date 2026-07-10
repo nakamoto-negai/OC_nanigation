@@ -96,7 +96,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   }, [route.steps, detourMap, expandedDetours, goalDetour]);
 
   const { heading, permission, requestPermission } = useCompass();
-  const { sendPosition, sendGoalReached, sendAction } = useRouteWS();
+  const { sendPosition, sendGoalReached, sendAction, ready: wsReady } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [blockedLinkIds] = useState<number[]>([]);
@@ -246,6 +246,21 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     if (target.lat == null || target.lng == null) { setDistanceToTarget(null); return; }
     setDistanceToTarget(gpsDistance(userLat, userLng, target.lat, target.lng));
   }, [userLat, userLng, visibleCardIndex, cards]);
+
+  // ナビ開始の初回位置送信。最初のステップカードは表示されていてもスクロールが起きず、
+  // このまま放置すると 2 枚目にスクロールした時の position が nav_start になってしまう。
+  // WebSocket 接続完了時に最初のステップを 1 回送り、目的地選択＝ナビ開始を確実に記録する。
+  const initialSentRef = useRef(false);
+  useEffect(() => {
+    if (!wsReady || initialSentRef.current) return;
+    const firstStep = cards.find((c) => c.kind === "step") as
+      | Extract<GuideCard, { kind: "step" }>
+      | undefined;
+    if (!firstStep) return;
+    initialSentRef.current = true;
+    const s = firstStep.step;
+    sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id, originName, destName);
+  }, [wsReady, cards, route.steps.length, originName, destName, sendPosition]);
 
   const handleScroll = () => {
     const el = scrollRef.current;

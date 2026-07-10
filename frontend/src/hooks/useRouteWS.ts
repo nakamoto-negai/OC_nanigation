@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDeviceId } from "./useUser";
 
 function getWsBase(): string {
@@ -13,10 +13,14 @@ export function useRouteWS() {
   const lastStepRef = useRef<number>(-1);
   const goalSentRef = useRef(false);
   const userID = getDeviceId();
+  // WebSocket が接続完了（OPEN）したかどうか。ナビ開始直後の初回位置送信の合図に使う。
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const ws = new WebSocket(`${getWsBase()}/ws/user`);
     wsRef.current = ws;
+    ws.onopen = () => setReady(true);
+    ws.onclose = () => setReady(false);
     return () => ws.close();
   }, []);
 
@@ -132,5 +136,5 @@ export function useRouteWS() {
     );
   };
 
-  return { sendPosition, sendGoalReached, sendReroute, sendAction, userID };
+  return { sendPosition, sendGoalReached, sendReroute, sendAction, userID, ready };
 }
