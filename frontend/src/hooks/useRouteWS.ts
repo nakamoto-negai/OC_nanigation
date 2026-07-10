@@ -20,6 +20,8 @@ export function useRouteWS() {
     return () => ws.close();
   }, []);
 
+  // originNode / destNode はナビ全体の出発地・目的地。各ログにこれを載せることで、
+  // 管理画面のログから「どこからどこまで移動したか」が一目で分かるようにする。
   const sendPosition = (
     step: number,
     totalSteps: number,
@@ -27,6 +29,8 @@ export function useRouteWS() {
     toNode: string,
     fromNodeId: number,
     toNodeId: number,
+    originNode: string,
+    destNode: string,
   ) => {
     if (step === lastStepRef.current) return;
     lastStepRef.current = step;
@@ -38,6 +42,8 @@ export function useRouteWS() {
         user_id: userID,
         step,
         total_steps: totalSteps,
+        origin_node: originNode,
+        dest_node: destNode,
         from_node: fromNode,
         to_node: toNode,
         from_node_id: fromNodeId,
@@ -52,6 +58,8 @@ export function useRouteWS() {
     fromNode: string,
     toNode: string,
     reason: string,
+    originNode: string,
+    destNode: string,
   ) => {
     try {
       const ws = wsRef.current;
@@ -62,6 +70,8 @@ export function useRouteWS() {
           user_id: userID,
           step,
           total_steps: totalSteps,
+          origin_node: originNode,
+          dest_node: destNode,
           from_node: fromNode,
           to_node: toNode,
           reason,
@@ -77,6 +87,8 @@ export function useRouteWS() {
     totalSteps: number,
     fromNode: string,
     toNode: string,
+    originNode: string,
+    destNode: string,
   ) => {
     try {
       const ws = wsRef.current;
@@ -88,6 +100,8 @@ export function useRouteWS() {
           action,
           step,
           total_steps: totalSteps,
+          origin_node: originNode,
+          dest_node: destNode,
           from_node: fromNode,
           to_node: toNode,
         })
@@ -95,7 +109,12 @@ export function useRouteWS() {
     } catch {}
   };
 
-  const sendGoalReached = (goalNodeName: string, goalNodeId: number, totalSteps: number) => {
+  const sendGoalReached = (
+    goalNodeName: string,
+    goalNodeId: number,
+    totalSteps: number,
+    originNode: string,
+  ) => {
     if (goalSentRef.current) return;
     goalSentRef.current = true;
     const ws = wsRef.current;
@@ -104,6 +123,8 @@ export function useRouteWS() {
       JSON.stringify({
         type: "goal_reached",
         user_id: userID,
+        origin_node: originNode,
+        dest_node: goalNodeName,
         to_node: goalNodeName,
         to_node_id: goalNodeId,
         total_steps: totalSteps,

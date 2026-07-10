@@ -1670,11 +1670,13 @@ function LogsTab() {
 
   // 表示中（絞り込み後）のログを CSV でダウンロードする
   const exportCsv = () => {
-    const header = ["日時", "アクション", "デバイスID", "出発", "到着", "ステップ", "総ステップ"];
+    const header = ["日時", "アクション", "デバイスID", "出発地", "目的地", "区間出発", "区間到着", "ステップ", "総ステップ"];
     const rows = filtered.map((l) => [
       new Date(l.created_at).toLocaleString("ja-JP"),
       ACTION_LABEL[l.action] ?? l.action,
       l.device_id,
+      l.origin_node,
+      l.dest_node,
       l.from_node,
       l.to_node,
       l.step > 0 ? l.step : "",
@@ -1714,8 +1716,13 @@ function LogsTab() {
               </span>
               <span className="log-time">{fmt(log.created_at)}</span>
               <span className="log-device" title={log.device_id}>{log.device_id.slice(0, 8)}…</span>
-              {log.from_node && (
+              {(log.origin_node || log.dest_node) ? (
+                <span className="log-route">{log.origin_node || "?"} <strong>→</strong> {log.dest_node || "?"}</span>
+              ) : log.from_node ? (
                 <span className="log-route">{log.from_node} → {log.to_node}</span>
+              ) : null}
+              {log.from_node && (log.origin_node || log.dest_node) && (
+                <span className="log-segment">区間: {log.from_node} → {log.to_node}</span>
               )}
               {log.step > 0 && (
                 <span className="log-step">{log.step}/{log.total_steps}</span>

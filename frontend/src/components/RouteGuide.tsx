@@ -40,6 +40,9 @@ interface Props {
 export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey }) => {
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
+  // ナビ全体の出発地・目的地。ログに載せて「どこからどこまで」を記録する。
+  const originName = route.node_path[0]?.name ?? "";
+  const destName = last?.name ?? "";
 
   // node_id → NodeDetour のルックアップマップ（説明・画像も持つ）
   const detourMap = useMemo(() => {
@@ -253,7 +256,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     if (rawIndex >= cards.length) {
       setVisibleCardIndex(cards.length);
       const goal = route.node_path[route.node_path.length - 1];
-      sendGoalReached(goal.name, goal.id, route.steps.length);
+      sendGoalReached(goal.name, goal.id, route.steps.length, originName);
       return;
     }
     if (rawIndex >= 0) {
@@ -262,7 +265,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       // 位置情報の送信はステップカードのときだけ（寄り道カードは現在地を変えない）
       if (card.kind === "step") {
         const s = card.step;
-        sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id);
+        sendPosition(s.step_number, route.steps.length, s.from_node.name, s.to_node.name, s.from_node.id, s.to_node.id, originName, destName);
       }
     }
   };
@@ -379,7 +382,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   arrived={arrivedCardIndex === ci}
                   distance={distanceToTarget}
                   onConfirmArrival={() =>
-                    sendAction("arrival_view", s.step_number, route.steps.length, s.from_node.name, s.to_node.name)
+                    sendAction("arrival_view", s.step_number, route.steps.length, s.from_node.name, s.to_node.name, originName, destName)
                   }
                 />
               ) : (
@@ -396,7 +399,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                         // ボタン押下はユーザー操作なので、ここで iOS のコンパス許可も要求する
                         if (permission === "prompt") requestPermission();
                         setArCardIndex(ci);
-                        sendAction("ar_start", s.step_number, route.steps.length, s.from_node.name, s.to_node.name);
+                        sendAction("ar_start", s.step_number, route.steps.length, s.from_node.name, s.to_node.name, originName, destName);
                       }}
                     >
                       ARで案内する

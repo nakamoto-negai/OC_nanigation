@@ -104,6 +104,8 @@ export interface UserLog {
   id: number;
   device_id: string;
   action: string;
+  origin_node: string;
+  dest_node: string;
   from_node: string;
   to_node: string;
   step: number;

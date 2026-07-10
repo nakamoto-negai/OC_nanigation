@@ -14,6 +14,8 @@ type UserPosition struct {
 	UserID     string    `json:"user_id"`
 	Step       int       `json:"step"`
 	TotalSteps int       `json:"total_steps"`
+	OriginNode string    `json:"origin_node"`
+	DestNode   string    `json:"dest_node"`
 	FromNode   string    `json:"from_node"`
 	ToNode     string    `json:"to_node"`
 	FromNodeID int       `json:"from_node_id"`
@@ -26,6 +28,8 @@ type IncomingMsg struct {
 	UserID     string `json:"user_id"`
 	Step       int    `json:"step"`
 	TotalSteps int    `json:"total_steps"`
+	OriginNode string `json:"origin_node"`
+	DestNode   string `json:"dest_node"`
 	FromNode   string `json:"from_node"`
 	ToNode     string `json:"to_node"`
 	FromNodeID int    `json:"from_node_id"`
@@ -91,6 +95,8 @@ func (h *Hub) Run() {
 			go database.DB.Create(&models.UserLog{
 				DeviceID:   pos.UserID,
 				Action:     action,
+				OriginNode: pos.OriginNode,
+				DestNode:   pos.DestNode,
 				FromNode:   pos.FromNode,
 				ToNode:     pos.ToNode,
 				Step:       pos.Step,
@@ -165,6 +171,8 @@ func (c *Client) ReadPump(hub *Hub) {
 				UserID:     in.UserID,
 				Step:       in.Step,
 				TotalSteps: in.TotalSteps,
+				OriginNode: in.OriginNode,
+				DestNode:   in.DestNode,
 				FromNode:   in.FromNode,
 				ToNode:     in.ToNode,
 				FromNodeID: in.FromNodeID,
@@ -180,6 +188,8 @@ func (c *Client) ReadPump(hub *Hub) {
 			go database.DB.Create(&models.UserLog{
 				DeviceID:   in.UserID,
 				Action:     action,
+				OriginNode: in.OriginNode,
+				DestNode:   in.DestNode,
 				FromNode:   in.FromNode,
 				ToNode:     in.ToNode,
 				Step:       in.Step,
@@ -191,6 +201,8 @@ func (c *Client) ReadPump(hub *Hub) {
 			go database.DB.Create(&models.UserLog{
 				DeviceID:   in.UserID,
 				Action:     "goal_reached",
+				OriginNode: in.OriginNode,
+				DestNode:   in.DestNode,
 				ToNode:     in.ToNode,
 				TotalSteps: in.TotalSteps,
 				CreatedAt:  time.Now(),
@@ -203,6 +215,8 @@ func (c *Client) ReadPump(hub *Hub) {
 				go database.DB.Create(&models.UserLog{
 					DeviceID:   in.UserID,
 					Action:     in.Action,
+					OriginNode: in.OriginNode,
+					DestNode:   in.DestNode,
 					FromNode:   in.FromNode,
 					ToNode:     in.ToNode,
 					Step:       in.Step,
