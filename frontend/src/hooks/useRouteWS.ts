@@ -37,9 +37,11 @@ export function useRouteWS() {
     destNode: string,
   ) => {
     if (step === lastStepRef.current) return;
-    lastStepRef.current = step;
     const ws = wsRef.current;
+    // WS 未接続なら lastStepRef を進めない。ここで進めてしまうと、接続後の初回送信が
+    // 「送信済み」と誤判定されて弾かれ、1 枚目（ナビ開始）のログが記録されなくなる。
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    lastStepRef.current = step;
     ws.send(
       JSON.stringify({
         type: "position",
