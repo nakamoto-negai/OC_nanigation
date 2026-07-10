@@ -278,11 +278,11 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUr
             ))}
           </div>
         )}
-      </div>
 
-      {/* アンケートへの導線（目的地選択画面にも設置） */}
-      <div className="home-survey">
-        <SurveyLauncher fallbackUrl={surveyUrl} onOpen={onOpenSurvey} />
+        {/* アンケートへの導線（目的地リストの直下に設置） */}
+        <div className="home-survey">
+          <SurveyLauncher fallbackUrl={surveyUrl} onOpen={onOpenSurvey} />
+        </div>
       </div>
     </div>
   );
