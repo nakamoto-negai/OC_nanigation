@@ -1649,29 +1649,62 @@ const ACTION_COLOR: Record<string, string> = {
 function LogsTab() {
   const [logs, setLogs] = useState<UserLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
+  // 絞り込み条件
+  const [dateFrom, setDateFrom] = useState("");   // datetime-local（開始）
+  const [dateTo, setDateTo] = useState("");        // datetime-local（終了）
+  const [action, setAction] = useState("");        // 行動ラベル（空=すべて）
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null); // 指定ユーザー
 
-  const load = async (deviceId?: string) => {
+  const load = async () => {
     setLoading(true);
     try {
-      setLogs(await api.logs.list(deviceId || undefined));
+      setLogs(await api.logs.list());
     } catch {}
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
-  const fmt = (iso: string) => {
+  const fmt = (iso: string | number) => {
     const d = new Date(iso);
     return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
   };
 
-  const filtered = filter ? logs.filter((l) => l.device_id.includes(filter)) : logs;
+  const clearFilters = () => {
+    setDateFrom(""); setDateTo(""); setAction(""); setSelectedDevice(null);
+  };
+
+  // 日時レンジ＋行動ラベルで絞り込んだ集合（ユーザー一覧の母集団にもなる）
+  const fromMs = dateFrom ? new Date(dateFrom).getTime() : -Infinity;
+  const toMs = dateTo ? new Date(dateTo).getTime() : Infinity;
+  const inRange = logs.filter((l) => {
+    const t = new Date(l.created_at).getTime();
+    if (t < fromMs || t > toMs) return false;
+    if (action && l.action !== action) return false;
+    return true;
+  });
+
+  // その時間帯（＋行動ラベル）で活動したユーザー一覧。件数と最終時刻つき、最新順。
+  const userMap = new Map<string, { count: number; last: number }>();
+  for (const l of inRange) {
+    const t = new Date(l.created_at).getTime();
+    const e = userMap.get(l.device_id);
+    if (e) { e.count++; if (t > e.last) e.last = t; }
+    else userMap.set(l.device_id, { count: 1, last: t });
+  }
+  const users = [...userMap.entries()]
+    .map(([device, v]) => ({ device, ...v }))
+    .sort((a, b) => b.last - a.last);
+
+  // 右ペインに表示するログ（ユーザー指定があればそのユーザーのみ）
+  const displayed = selectedDevice
+    ? inRange.filter((l) => l.device_id === selectedDevice)
+    : inRange;
 
   // 表示中（絞り込み後）のログを CSV でダウンロードする
   const exportCsv = () => {
     const header = ["日時", "アクション", "デバイスID", "出発地", "目的地", "区間出発", "区間到着", "ステップ", "総ステップ"];
-    const rows = filtered.map((l) => [
+    const rows = displayed.map((l) => [
       new Date(l.created_at).toLocaleString("ja-JP"),
       ACTION_LABEL[l.action] ?? l.action,
       l.device_id,
@@ -1685,50 +1718,105 @@ function LogsTab() {
     downloadCsv(`logs_${csvTimestamp()}.csv`, toCsv([header, ...rows]));
   };
 
+  const hasFilter = dateFrom || dateTo || action || selectedDevice;
+
   return (
     <div className="logs-tab">
       <div className="logs-toolbar">
-        <input
-          className="logs-filter"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="デバイスIDで絞り込み"
-        />
-        <button className="btn-refresh" onClick={() => load(filter || undefined)}>更新</button>
-        <button className="btn-refresh" onClick={exportCsv} disabled={filtered.length === 0}>
+        <label className="logs-field">
+          <span>開始日時</span>
+          <input type="datetime-local" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </label>
+        <label className="logs-field">
+          <span>終了日時</span>
+          <input type="datetime-local" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </label>
+        <label className="logs-field">
+          <span>行動ラベル</span>
+          <select value={action} onChange={(e) => setAction(e.target.value)}>
+            <option value="">すべての行動</option>
+            {Object.entries(ACTION_LABEL).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <button className="btn-refresh" onClick={clearFilters} disabled={!hasFilter}>条件クリア</button>
+        <button className="btn-refresh" onClick={load}>更新</button>
+        <button className="btn-refresh" onClick={exportCsv} disabled={displayed.length === 0}>
           CSVエクスポート
         </button>
-        <span className="logs-count">{filtered.length}件</span>
       </div>
+
       {loading ? (
         <p className="adm-empty">読み込み中...</p>
-      ) : filtered.length === 0 ? (
-        <p className="adm-empty">ログがありません</p>
       ) : (
-        <div className="logs-list">
-          {filtered.map((log) => (
-            <div key={log.id} className="log-entry">
-              <span
-                className="log-action-badge"
-                style={{ background: ACTION_COLOR[log.action] ?? "#6b7280" }}
+        <div className="logs-body">
+          {/* 左: その時間帯のユーザー一覧 */}
+          <div className="logs-users">
+            <h4 className="logs-pane-title">
+              ユーザー一覧 <span className="count-badge">{users.length}</span>
+            </h4>
+            <button
+              className={`logs-user-item${selectedDevice === null ? " active" : ""}`}
+              onClick={() => setSelectedDevice(null)}
+            >
+              <span className="logs-user-id">全ユーザー</span>
+              <span className="logs-user-meta">{inRange.length}件</span>
+            </button>
+            {users.map((u) => (
+              <button
+                key={u.device}
+                className={`logs-user-item${selectedDevice === u.device ? " active" : ""}`}
+                onClick={() => setSelectedDevice(u.device)}
+                title={u.device}
               >
-                {ACTION_LABEL[log.action] ?? log.action}
-              </span>
-              <span className="log-time">{fmt(log.created_at)}</span>
-              <span className="log-device" title={log.device_id}>{log.device_id.slice(0, 8)}…</span>
-              {(log.origin_node || log.dest_node) ? (
-                <span className="log-route">{log.origin_node || "?"} <strong>→</strong> {log.dest_node || "?"}</span>
-              ) : log.from_node ? (
-                <span className="log-route">{log.from_node} → {log.to_node}</span>
-              ) : null}
-              {log.from_node && (log.origin_node || log.dest_node) && (
-                <span className="log-segment">区間: {log.from_node} → {log.to_node}</span>
+                <span className="logs-user-id">{u.device.slice(0, 8)}…</span>
+                <span className="logs-user-meta">{u.count}件 / {fmt(u.last)}</span>
+              </button>
+            ))}
+            {users.length === 0 && <p className="adm-empty">該当ユーザーなし</p>}
+          </div>
+
+          {/* 右: 行動ログ */}
+          <div className="logs-list-col">
+            <h4 className="logs-pane-title">
+              行動ログ <span className="count-badge">{displayed.length}</span>
+              {selectedDevice && (
+                <span className="adm-section-sub" title={selectedDevice}>
+                  ユーザー {selectedDevice.slice(0, 8)}… のみ
+                </span>
               )}
-              {log.step > 0 && (
-                <span className="log-step">{log.step}/{log.total_steps}</span>
-              )}
-            </div>
-          ))}
+            </h4>
+            {displayed.length === 0 ? (
+              <p className="adm-empty">ログがありません</p>
+            ) : (
+              <div className="logs-list">
+                {displayed.map((log) => (
+                  <div key={log.id} className="log-entry">
+                    <span
+                      className="log-action-badge"
+                      style={{ background: ACTION_COLOR[log.action] ?? "#6b7280" }}
+                    >
+                      {ACTION_LABEL[log.action] ?? log.action}
+                    </span>
+                    <span className="log-time">{fmt(log.created_at)}</span>
+                    <span className="log-device" title={log.device_id}>{log.device_id.slice(0, 8)}…</span>
+                    {(log.origin_node || log.dest_node) ? (
+                      <span className="log-route">{log.origin_node || "?"} <strong>→</strong> {log.dest_node || "?"}</span>
+                    ) : log.from_node ? (
+                      <span className="log-route">{log.from_node} → {log.to_node}</span>
+                    ) : null}
+                    {log.from_node && (log.origin_node || log.dest_node) && (
+                      <span className="log-segment">区間: {log.from_node} → {log.to_node}</span>
+                    )}
+                    {log.step > 0 && (
+                      <span className="log-step">{log.step}/{log.total_steps}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
