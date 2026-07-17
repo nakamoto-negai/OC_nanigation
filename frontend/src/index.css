@@ -68,6 +68,14 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   color: #dc2626; padding: 10px 20px; font-size: 13px; cursor: pointer;
 }
 
+/* 目的地バナー（現在地バナーと同じ画面上部に並べる） */
+.dest-banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px; flex-wrap: wrap;
+  background: #f0fdf4; border-bottom: 2px solid #22c55e;
+}
+.dest-banner .loc-icon { color: #16a34a; }
+
 /* 現在地選択の直下に出す、利用ログ利用の注記 */
 .research-note {
   padding: 8px 20px; font-size: 11px; color: #94a3b8;
@@ -110,6 +118,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   box-shadow: 0 4px 12px rgba(59,130,246,0.15); border-color: #93c5fd;
 }
 .dest-card:disabled { opacity: 0.6; cursor: not-allowed; }
+.dest-card.selected { border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.25); }
 .dest-card-inner {
   display: flex; align-items: center; gap: 14px; padding: 16px 18px;
 }
@@ -161,6 +170,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 
 /* ── Route Guide (fullscreen) ── */
 .route-guide.fullscreen { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+/* ホーム埋め込み時: 上部セレクタの下、残りの領域を埋めて内部でスナップスクロールする */
+.route-guide.embedded { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.home-page.guiding { overflow: hidden; }
 .btn-back-home {
   margin-top: 12px; padding: 10px 20px; background: #1e3a5f; color: white;
   border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;

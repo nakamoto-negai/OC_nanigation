@@ -35,9 +35,11 @@ interface Props {
   onReroute: (newRoute: RouteResponse) => void;
   /** 到着カードのアンケートボタンから /survey へ遷移する。 */
   onOpenSurvey: () => void;
+  /** ホーム画面に埋め込むときは true。全画面ではなく残りの領域に収める。 */
+  embedded?: boolean;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey, embedded = false }) => {
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
   // ナビ全体の出発地・目的地。ログに載せて「どこからどこまで」を記録する。
@@ -143,7 +145,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
 
   // 別カードへスクロールしたら AR を閉じてカメラを止める。
   // ただし到着による自動遷移中（autoAdvanceArRef が遷移先と一致）は、遷移先でも AR を開いたままにする。
+  // 埋め込み(embedded)時は下の「初めからAR」効果が制御するのでこの効果は無効化する。
   useEffect(() => {
+    if (embedded) return;
     if (arCardIndex !== null && arCardIndex !== visibleCardIndex) {
       if (autoAdvanceArRef.current === visibleCardIndex) {
         setArCardIndex(visibleCardIndex);
@@ -152,7 +156,17 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
         setArCardIndex(null);
       }
     }
-  }, [visibleCardIndex, arCardIndex]);
+  }, [visibleCardIndex, arCardIndex, embedded]);
+
+  // 埋め込み時は、表示中のステップカードを初めから AR 表示にする（「ARで案内する」を押さなくてよい）。
+  // 依存に arCardIndex を入れないので、ユーザーが「画像案内に戻る」で閉じた場合は
+  // カードを移動する（visibleCardIndex が変わる）までは画像案内のまま維持される。
+  // 表示中の 1 枚だけカメラを起動するため、カメラの多重起動は起きない。
+  useEffect(() => {
+    if (!embedded) return;
+    const card = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
+    setArCardIndex(card && card.kind === "step" ? visibleCardIndex : null);
+  }, [embedded, visibleCardIndex, cards]);
 
   // 現在地（GPS）を監視。到着判定に使う。
   // 権限を永久拒否している場合は watchPosition を呼ぶとコンソールエラーになるため、事前に確認する。
@@ -287,7 +301,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
 
 
   return (
-    <div className="route-guide fullscreen">
+    <div className={`route-guide ${embedded ? "embedded" : "fullscreen"}`}>
       {rerouteError && (
         <div className="reroute-error" onClick={() => setRerouteError(null)}>
           ⚠ {rerouteError}

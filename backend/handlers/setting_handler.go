@@ -26,6 +26,7 @@ func UpdateSettings(c *gin.Context) {
 		ShowCafeteriaCongestion bool    `json:"show_cafeteria_congestion"`
 		ShowARButton            bool    `json:"show_ar_button"`
 		SurveyURL               string  `json:"survey_url"`
+		DefaultDestNodeID       *uint   `json:"default_dest_node_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -43,6 +44,7 @@ func UpdateSettings(c *gin.Context) {
 	s.ShowCafeteriaCongestion = body.ShowCafeteriaCongestion
 	s.ShowARButton = body.ShowARButton
 	s.SurveyURL = body.SurveyURL
+	s.DefaultDestNodeID = body.DefaultDestNodeID
 	database.DB.Save(&s)
 	c.JSON(http.StatusOK, s)
 }

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { Category, Link, Node, RouteResponse } from "../types";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Category, Link, Node, NodeDetour, RouteResponse, Setting } from "../types";
 import { calcRoute } from "../utils/dijkstra";
 import { SurveyLauncher } from "./SurveyLauncher";
+import { RouteGuide } from "./RouteGuide";
 
 const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -9,7 +10,8 @@ const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
 interface Props {
   nodes: Node[];
   links: Link[];
-  onRouteReady: (route: RouteResponse, startNode: Node, goalNode: Node) => void;
+  nodeDetours: NodeDetour[];
+  settings: Setting;
   /** アプリ内アンケートの質問が無いときのフォールバック先（設定の外部URL）。 */
   surveyUrl?: string;
   /** アプリ内アンケート（/survey）へ遷移する。 */
@@ -39,12 +41,14 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUrl, onOpenSurvey }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings, surveyUrl, onOpenSurvey }) => {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [startId, setStartId] = useState<number | null>(null);
   const [manualStart, setManualStart] = useState(false);
+  // 目的地。現在地とともに画面上部で選ぶ。両方揃うとホームに直接 AR 道案内を表示する。
+  const [destId, setDestId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   // 位置情報の取得・監視
@@ -88,25 +92,51 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUr
     if (nearest) setStartId(nearest.id);
   }, [userLat, userLng, nodes, manualStart]);
 
-  const startNode = nodes.find((n) => n.id === startId) ?? null;
+  // 管理画面で設定したデフォルト目的地を、起動時に一度だけ初期選択する。
+  // ユーザーが以降で目的地を変更・解除しても再適用しない。
+  const destInitRef = useRef(false);
+  useEffect(() => {
+    if (destInitRef.current) return;
+    const d = settings.default_dest_node_id;
+    if (d == null) return;
+    const node = nodes.find((n) => n.id === d);
+    if (node && node.is_selectable) {
+      destInitRef.current = true;
+      setDestId(d);
+    }
+  }, [settings.default_dest_node_id, nodes]);
 
-  const goTo = (goal: Node) => {
-    if (!startId) {
-      setError("現在地が特定できません。現在地を手動で選択してください。");
+  const startNode = nodes.find((n) => n.id === startId) ?? null;
+  const destNode = nodes.find((n) => n.id === destId) ?? null;
+
+  // 目的地を選ぶ（上部セレクト・目的地リストの両方から呼ぶ）。現在地が未確定なら促す。
+  const chooseDest = (goalId: number | null) => {
+    setError("");
+    if (goalId == null) { setDestId(null); return; }
+    if (startId == null) {
+      setError("現在地が特定できません。現在地を選択してください。");
       return;
     }
-    if (startId === goal.id) {
+    if (startId === goalId) {
       setError("現在地と目的地が同じです。");
       return;
     }
-    setError("");
-    const result = calcRoute(nodes, links, startId, goal.id);
-    if (!result) {
-      setError("ルートが見つかりませんでした。");
-      return;
-    }
-    onRouteReady(result, startNode!, goal);
+    setDestId(goalId);
   };
+
+  // 現在地と目的地が揃ったらルートを計算し、ホームに埋め込む道案内へ渡す。
+  const inlineRoute = useMemo(() => {
+    if (startId == null || destId == null || startId === destId) return null;
+    return calcRoute(nodes, links, startId, destId);
+  }, [startId, destId, nodes, links]);
+
+  // 埋め込み道案内内での寄り道・迂回で差し替えられたルート。現在地/目的地が変わったらクリアする。
+  const [rerouteOverride, setRerouteOverride] = useState<RouteResponse | null>(null);
+  useEffect(() => { setRerouteOverride(null); }, [startId, destId]);
+  const activeRoute = rerouteOverride ?? inlineRoute;
+
+  // 目的地は選ばれているのにルートが繋がっていない場合の判定。
+  const routeNotFound = startId != null && destId != null && startId !== destId && !inlineRoute;
 
   const destinations = nodes.filter((n) => n.id !== startId && n.is_selectable);
 
@@ -154,7 +184,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUr
   const useAccordion = grouped.length > 1 || (grouped.length === 1 && grouped[0].key !== "__none__");
 
   const DestCard = ({ n }: { n: (typeof destinations)[0] }) => (
-    <button className="dest-card" onClick={() => goTo(n)}>
+    <button className={`dest-card${destId === n.id ? " selected" : ""}`} onClick={() => chooseDest(n.id)}>
       <div className="dest-card-inner">
         <div className="dest-card-icon">▶</div>
         <div className="dest-card-info">
@@ -187,7 +217,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUr
   );
 
   return (
-    <div className="home-page">
+    <div className={`home-page${activeRoute ? " guiding" : ""}`}>
       {/* 現在地バナー */}
       <div className={`location-banner ${geoStatus}`}>
         <span className={`loc-icon${geoStatus === "pending" ? " spin" : ""}`}>
@@ -244,11 +274,52 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUr
         </div>
       </div>
 
-      <p className="research-note">アプリの利用ログは個人が分からない形で研究に利用される場合があります。</p>
+      {/* 目的地バナー（現在地バナーと同じく画面上部で選ぶ） */}
+      <div className="dest-banner">
+        <span className="loc-icon">🎯</span>
+        <div className="loc-text">
+          <span className="loc-label">目的地</span>
+          {destNode && <span className="loc-name">{destNode.name}</span>}
+        </div>
+        <select
+          className="loc-manual-select"
+          value={destId ?? ""}
+          onChange={(e) => chooseDest(Number(e.target.value) || null)}
+        >
+          <option value="">目的地を選択...</option>
+          {nodes
+            .filter((n) => n.is_selectable && n.id !== startId)
+            .map((n) => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+        </select>
+      </div>
 
       {error && (
         <div className="home-error" onClick={() => setError("")}>{error} ✕</div>
       )}
+
+      {routeNotFound && (
+        <div className="home-error">ルートが見つかりませんでした。別の目的地を選んでください。</div>
+      )}
+
+      {/* 現在地＋目的地が揃ったら、ホームに道案内（カードスクロール＋AR）を埋め込む */}
+      {activeRoute ? (
+        <RouteGuide
+          key={`${startId}-${destId}`}
+          route={activeRoute}
+          nodes={nodes}
+          links={links}
+          nodeDetours={nodeDetours}
+          settings={settings}
+          onReroute={(r) => setRerouteOverride(r)}
+          onClose={() => { setDestId(null); setRerouteOverride(null); }}
+          onOpenSurvey={onOpenSurvey}
+          embedded
+        />
+      ) : (
+        <>
+      <p className="research-note">アプリの利用ログは個人が分からない形で研究に利用される場合があります。</p>
 
       {/* 目的地リスト */}
       <div className="dest-section">
@@ -284,6 +355,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, onRouteReady, surveyUr
           <SurveyLauncher fallbackUrl={surveyUrl} onOpen={onOpenSurvey} />
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

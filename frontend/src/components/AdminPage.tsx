@@ -821,6 +821,8 @@ function SettingsTab() {
   const [cafeteriaCongestion, setCafeteriaCongestion] = useState(0);
   const [showCafeteriaCongestion, setShowCafeteriaCongestion] = useState(true);
   const [showArButton, setShowArButton] = useState(true);
+  const [defaultDestId, setDefaultDestId] = useState<number | null>(null);
+  const [nodes, setNodes] = useState<Node[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [mapImages, setMapImages] = useState<MapImage[]>([]);
@@ -833,7 +835,8 @@ function SettingsTab() {
     Promise.all([
       api.settings.get(),
       api.mapImages.list(),
-    ]).then(([s, imgs]) => {
+      api.nodes.list(),
+    ]).then(([s, imgs, ns]) => {
       setOffset(s.map_north_offset);
       setRerouteVisibility(s.reroute_visibility);
       setRerouteIncident(s.reroute_incident);
@@ -844,6 +847,8 @@ function SettingsTab() {
       setCafeteriaCongestion(s.cafeteria_congestion ?? 0);
       setShowCafeteriaCongestion(s.show_cafeteria_congestion ?? true);
       setShowArButton(s.show_ar_button ?? true);
+      setDefaultDestId(s.default_dest_node_id ?? null);
+      setNodes(ns);
       setMapImages(imgs);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -862,6 +867,7 @@ function SettingsTab() {
         show_cafeteria_congestion: showCafeteriaCongestion,
         show_ar_button: showArButton,
         survey_url: surveyUrl.trim(),
+        default_dest_node_id: defaultDestId,
       });
       setMsg({ type: "ok", text: "設定を保存しました" });
     } catch (e: any) {
@@ -995,6 +1001,23 @@ function SettingsTab() {
             onChange={(e) => setSurveyUrl(e.target.value)}
             placeholder="例: https://forms.gle/xxxx"
           />
+        </div>
+
+        <div className="adm-section-label" style={{ marginTop: 24 }}>ホーム画面設定</div>
+        <div className="adm-field">
+          <label>デフォルトの目的地</label>
+          <p className="hint">ホーム画面を開いたとき、最初からこの目的地が選択された状態になります（現在地が特定でき次第、そのまま道案内が始まります）。「選択なし」にすると未選択で開始します。</p>
+          <select
+            value={defaultDestId ?? ""}
+            onChange={(e) => setDefaultDestId(Number(e.target.value) || null)}
+          >
+            <option value="">選択なし</option>
+            {nodes
+              .filter((n) => n.is_selectable)
+              .map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+          </select>
         </div>
 
         <div className="adm-section-label" style={{ marginTop: 24 }}>コンパス設定</div>

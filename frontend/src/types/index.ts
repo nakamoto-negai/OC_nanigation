@@ -92,6 +92,8 @@ export interface Setting {
   show_cafeteria_congestion: boolean;
   show_ar_button: boolean;
   survey_url: string;
+  /** ホーム画面で最初から選択しておく目的地ノードID（未設定なら null）。 */
+  default_dest_node_id: number | null;
 }
 
 export interface User {
