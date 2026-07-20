@@ -218,8 +218,10 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
 
   return (
     <div className={`home-page${activeRoute ? " guiding" : ""}`}>
-      {/* 現在地バナー */}
-      <div className={`location-banner ${geoStatus}`}>
+      {/* 現在地と目的地を横並び（並列）で表示する */}
+      <div className="loc-dest-row">
+        {/* 現在地バナー */}
+        <div className={`location-banner ${geoStatus}`}>
         <span className={`loc-icon${geoStatus === "pending" ? " spin" : ""}`}>
           {geoStatus === "pending" ? "⌛" : geoStatus === "found" ? "📍" : "⚠"}
         </span>
@@ -243,7 +245,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
             <span className="loc-label">現在地を選択してください</span>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+        <div className="loc-select-group">
           <select
             className="loc-manual-select"
             value={startId ?? ""}
@@ -293,6 +295,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
               <option key={n.id} value={n.id}>{n.name}</option>
             ))}
         </select>
+        </div>
       </div>
 
       {error && (

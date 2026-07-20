@@ -76,6 +76,35 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .dest-banner .loc-icon { color: #16a34a; }
 
+/* 現在地と目的地を横並び（並列）に表示する行。
+   半分幅になるので、各バナーの中身は縦積み（アイコン＋ラベル → 名称 → セレクト）に切り替える。 */
+.loc-dest-row { display: flex; align-items: stretch; }
+.loc-dest-row > .location-banner,
+.loc-dest-row > .dest-banner {
+  flex: 1 1 0; min-width: 0;
+  flex-direction: column; align-items: stretch;
+  gap: 6px; padding: 12px 14px;
+}
+.loc-dest-row > .dest-banner { border-left: 1px solid rgba(15, 23, 42, 0.08); }
+.loc-dest-row .loc-icon { font-size: 22px; }
+.loc-dest-row .loc-text { flex: none; }
+.loc-dest-row .loc-name {
+  font-size: 16px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.loc-dest-row .loc-manual-select { min-width: 0; width: 100%; }
+
+/* 現在地バナー内の「セレクト＋自動検出に戻す」をまとめる箱 */
+.loc-select-group { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.loc-dest-row .loc-select-group .loc-auto-btn { text-align: left; }
+
+@media (max-width: 360px) {
+  .loc-dest-row > .location-banner,
+  .loc-dest-row > .dest-banner { padding: 10px; }
+  .loc-dest-row .loc-name { font-size: 14px; }
+  .loc-dest-row .loc-manual-select { font-size: 12px; padding: 6px 8px; }
+}
+
 /* 現在地選択の直下に出す、利用ログ利用の注記 */
 .research-note {
   padding: 8px 20px; font-size: 11px; color: #94a3b8;
