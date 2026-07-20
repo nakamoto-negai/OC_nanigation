@@ -13,6 +13,8 @@ interface Props {
   userLng: number | null;
   mapNorthOffset: number;
   onClose: () => void;
+  /** カメラ左上ボタンの文言。既定は「画像案内に戻る」。ホーム埋め込み時は「案内をやめる」等に差し替える。 */
+  closeLabel?: string;
   /** 「次に進む」: 次のカードへ遷移する。 */
   onNext: () => void;
   /** 位置情報で次のチェックポイントに到達したか。true の間カメラに「到着しました」を表示する。 */
@@ -37,7 +39,7 @@ const APPROACH_DISPLAY_M = 10;
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, onNext, arrived = false, distance = null, onConfirmArrival,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に戻る", onNext, arrived = false, distance = null, onConfirmArrival,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -132,7 +134,7 @@ export const ARNavGuide: React.FC<Props> = ({
 
         {/* カメラ上部の操作バー: 画像案内へ戻る / 次に進む */}
         <div className="arnav-topbar">
-          <button className="arnav-top-btn arnav-top-switch" onClick={onClose}>画像案内に戻る</button>
+          <button className="arnav-top-btn arnav-top-switch" onClick={onClose}>{closeLabel}</button>
           <button className="arnav-top-btn arnav-top-next" onClick={onNext}>次に進む →</button>
         </div>
 

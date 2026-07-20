@@ -101,7 +101,7 @@ function UserApp() {
     reroute_congestion: true, reroute_other: true,
     stamp_url: "", cafeteria_congestion: 0,
     show_cafeteria_congestion: true, show_ar_button: true,
-    survey_url: "",
+    survey_url: "", default_dest_node_id: null,
   });
 
   useEffect(() => {
@@ -213,7 +213,8 @@ function UserApp() {
         <HomePage
           nodes={nodes}
           links={links}
-          onRouteReady={handleRouteReady}
+          nodeDetours={nodeDetours}
+          settings={settings}
           surveyUrl={settings.survey_url}
           onOpenSurvey={openSurvey}
         />

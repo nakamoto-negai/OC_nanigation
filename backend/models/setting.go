@@ -14,4 +14,6 @@ type Setting struct {
 	ShowARButton            bool `json:"show_ar_button" gorm:"not null;default:true"`
 	// 到着カードに表示するアンケートのリンク先（空なら非表示）
 	SurveyURL string `json:"survey_url" gorm:"default:''"`
+	// ホーム画面で最初から選択しておく目的地（ノードID）。未設定(nil)なら選択なし。
+	DefaultDestNodeID *uint `json:"default_dest_node_id"`
 }
