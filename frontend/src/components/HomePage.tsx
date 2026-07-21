@@ -220,81 +220,77 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
     <div className={`home-page${activeRoute ? " guiding" : ""}`}>
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
-        {/* 現在地バナー */}
-        <div className={`location-banner ${geoStatus}`}>
-        <span className={`loc-icon${geoStatus === "pending" ? " spin" : ""}`}>
-          {geoStatus === "pending" ? "⌛" : geoStatus === "found" ? "📍" : "⚠"}
-        </span>
-        <div className="loc-text">
-          {geoStatus === "pending" && (
-            <span className="loc-label">現在地を特定しています...</span>
-          )}
-          {geoStatus === "found" && startNode && (
-            <>
-              <span className="loc-label">現在地（自動検出）</span>
-              <span className="loc-name">{startNode.name}</span>
-            </>
-          )}
-          {geoStatus === "found" && !startNode && (
-            <span className="loc-label">近くに登録地点がありません</span>
-          )}
-          {geoStatus === "denied" && (
-            <span className="loc-label">位置情報の使用が許可されていません</span>
-          )}
-          {geoStatus === "unavailable" && (
-            <span className="loc-label">現在地を選択してください</span>
-          )}
-        </div>
-        <div className="loc-select-group">
+        {/* 目的地バナー（現在地より先に表示する） */}
+        <div className="dest-banner">
+          <div className="loc-text">
+            <span className="loc-label">自分の行きたい目的地を選択してください</span>
+            {destNode && <span className="loc-name">{destNode.name}</span>}
+          </div>
           <select
             className="loc-manual-select"
-            value={startId ?? ""}
-            onChange={(e) => {
-              setStartId(Number(e.target.value) || null);
-              setManualStart(true);
-            }}
+            value={destId ?? ""}
+            onChange={(e) => chooseDest(Number(e.target.value) || null)}
           >
-            <option value="">現在地を選択...</option>
-            {nodes.map((n) => (
-              <option key={n.id} value={n.id}>{n.name}</option>
-            ))}
+            <option value="">目的地を選択...</option>
+            {nodes
+              .filter((n) => n.is_selectable && n.id !== startId)
+              .map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
           </select>
-          {manualStart && geoStatus === "found" && (
-            <button
-              className="loc-auto-btn"
-              onClick={() => {
-                setManualStart(false);
-                if (userLat != null && userLng != null) {
-                  const nearest = nearestNode(nodes, userLat, userLng);
-                  if (nearest) setStartId(nearest.id);
-                }
+        </div>
+
+        {/* 現在地バナー */}
+        <div className={`location-banner ${geoStatus}`}>
+          <div className="loc-text">
+            {geoStatus === "pending" && (
+              <span className="loc-label">現在地を特定しています...</span>
+            )}
+            {geoStatus === "found" && startNode && (
+              <>
+                <span className="loc-label">現在地（自動検出）</span>
+                <span className="loc-name">{startNode.name}</span>
+              </>
+            )}
+            {geoStatus === "found" && !startNode && (
+              <span className="loc-label">近くに登録地点がありません</span>
+            )}
+            {geoStatus === "denied" && (
+              <span className="loc-label">位置情報の使用が許可されていません</span>
+            )}
+            {geoStatus === "unavailable" && (
+              <span className="loc-label">現在地を選択してください</span>
+            )}
+          </div>
+          <div className="loc-select-group">
+            <select
+              className="loc-manual-select"
+              value={startId ?? ""}
+              onChange={(e) => {
+                setStartId(Number(e.target.value) || null);
+                setManualStart(true);
               }}
             >
-              自動検出に戻す
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 目的地バナー（現在地バナーと同じく画面上部で選ぶ） */}
-      <div className="dest-banner">
-        <span className="loc-icon">🎯</span>
-        <div className="loc-text">
-          <span className="loc-label">目的地</span>
-          {destNode && <span className="loc-name">{destNode.name}</span>}
-        </div>
-        <select
-          className="loc-manual-select"
-          value={destId ?? ""}
-          onChange={(e) => chooseDest(Number(e.target.value) || null)}
-        >
-          <option value="">目的地を選択...</option>
-          {nodes
-            .filter((n) => n.is_selectable && n.id !== startId)
-            .map((n) => (
-              <option key={n.id} value={n.id}>{n.name}</option>
-            ))}
-        </select>
+              <option value="">現在地を選択...</option>
+              {nodes.map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
+            {manualStart && geoStatus === "found" && (
+              <button
+                className="loc-auto-btn"
+                onClick={() => {
+                  setManualStart(false);
+                  if (userLat != null && userLng != null) {
+                    const nearest = nearestNode(nodes, userLat, userLng);
+                    if (nearest) setStartId(nearest.id);
+                  }
+                }}
+              >
+                自動検出に戻す
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
