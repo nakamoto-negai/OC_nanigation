@@ -267,12 +267,19 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
 
   return (
     <div className={`home-page${activeRoute ? " guiding" : ""}`}>
+      {/* 行きたい目的地の選択を促す案内。ヘッダー直下に表示する。
+          目的地未選択のとき、またはデフォルト目的地が自動選択されているだけのときは表示を維持し、
+          ユーザーが自分で目的地を選ぶ（デフォルト以外を選ぶ）と非表示になる。 */}
+      {(!activeRoute || destId === settings.default_dest_node_id) && (
+        <p className="home-dest-prompt">自分の行きたい目的地を選択してください</p>
+      )}
+
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
         {/* 目的地バナー（現在地より先に表示する） */}
         <div className="dest-banner">
           <div className="loc-text">
-            <span className="loc-label">自分の行きたい目的地を選択してください</span>
+            <span className="loc-label">目的地を選択</span>
           </div>
           <button
             type="button"

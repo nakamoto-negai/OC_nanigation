@@ -128,16 +128,19 @@ export const ARNavGuide: React.FC<Props> = ({
 
   return (
     <div className="arnav">
-      {/* カメラの上に出す案内文。到着地点を確認してから次のカードへスクロールするよう促す。 */}
-      <p className="arnav-scroll-hint">到着地点を確認してスクロールしてください</p>
       {/* touch-action: pan-y で、カメラ上を縦スワイプしたとき道案内が普通にスクロールできるようにする */}
       <div className="arnav-camera-wrap" style={{ touchAction: "pan-y" }}>
         <video ref={videoRef} className="arnav-video" playsInline muted />
 
-        {/* カメラ上部の操作バー: 画像案内へ戻る / 次に進む */}
+        {/* カメラ上部の操作バー: 画像案内へ戻る / 到着地点を確認する */}
         <div className="arnav-topbar">
           <button className="arnav-top-btn arnav-top-switch" onClick={onClose}>{closeLabel}</button>
-          <button className="arnav-top-btn arnav-top-next" onClick={onNext}>次に進む →</button>
+          <button
+            className="arnav-top-btn arnav-top-confirm"
+            onClick={() => { setShowArrival(true); onConfirmArrival?.(); }}
+          >
+            到着地点を確認する
+          </button>
         </div>
 
         {/* 位置情報で到着したらカメラ全面に「到着しました」を表示 */}
@@ -178,14 +181,6 @@ export const ARNavGuide: React.FC<Props> = ({
           )}
           <div className={`arnav-label arnav-${status}-text`}>{label}</div>
         </div>
-
-        {/* 到着地点(終着ノード)の登録写真を確認するボタン */}
-        <button
-          className="arnav-confirm-btn"
-          onClick={() => { setShowArrival(true); onConfirmArrival?.(); }}
-        >
-          到着地点を確認する
-        </button>
 
         {/* ボタンを押したら、到着地点の登録写真をオーバーレイ表示する */}
         {showArrival && (

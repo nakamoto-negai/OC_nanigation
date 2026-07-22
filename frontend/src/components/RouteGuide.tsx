@@ -378,6 +378,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   <span className="rg-arrow">→</span>
                   <span className="rg-to">{s.to_node.name}</span>
                 </div>
+                {/* AR カード表示中は、経路名の真横に到着確認の案内文を出す */}
+                {arCardIndex === ci && (
+                  <span className="rg-ar-inline-hint">到着地点を確認してスクロール</span>
+                )}
                 {s.link.photos && s.link.photos.length > 0 && (
                   <span className="rg-photo-badge">📷 {s.link.photos.length}</span>
                 )}
