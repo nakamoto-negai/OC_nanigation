@@ -39,7 +39,7 @@ const APPROACH_DISPLAY_M = 10;
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に戻る", onNext, arrived = false, distance = null, onConfirmArrival,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に変更", onNext, arrived = false, distance = null, onConfirmArrival,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -128,6 +128,8 @@ export const ARNavGuide: React.FC<Props> = ({
 
   return (
     <div className="arnav">
+      {/* カメラの上に出す案内文。到着地点を確認してから次のカードへスクロールするよう促す。 */}
+      <p className="arnav-scroll-hint">到着地点を確認してスクロールしてください</p>
       {/* touch-action: pan-y で、カメラ上を縦スワイプしたとき道案内が普通にスクロールできるようにする */}
       <div className="arnav-camera-wrap" style={{ touchAction: "pan-y" }}>
         <video ref={videoRef} className="arnav-video" playsInline muted />

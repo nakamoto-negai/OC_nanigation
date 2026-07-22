@@ -49,6 +49,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
   const [manualStart, setManualStart] = useState(false);
   // 目的地。現在地とともに画面上部で選ぶ。両方揃うとホームに直接 AR 道案内を表示する。
   const [destId, setDestId] = useState<number | null>(null);
+  // 目的地セレクト（プルダウン）を押したときに開く、カテゴリ別リストのオーバーレイ。
+  const [destPickerOpen, setDestPickerOpen] = useState(false);
   const [error, setError] = useState("");
 
   // 位置情報の取得・監視
@@ -109,9 +111,28 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
   const startNode = nodes.find((n) => n.id === startId) ?? null;
   const destNode = nodes.find((n) => n.id === destId) ?? null;
 
+  // 現在地を取り直す（GPS を最新の値で再取得し、自動検出に戻す）。
+  const reloadLocation = () => {
+    if (!navigator.geolocation) { setGeoStatus("unavailable"); return; }
+    setManualStart(false);
+    setGeoStatus("pending");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLat(pos.coords.latitude);
+        setUserLng(pos.coords.longitude);
+        setGeoStatus("found");
+      },
+      (err) => {
+        setGeoStatus(err.code === err.PERMISSION_DENIED ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    );
+  };
+
   // 目的地を選ぶ（上部セレクト・目的地リストの両方から呼ぶ）。現在地が未確定なら促す。
   const chooseDest = (goalId: number | null) => {
     setError("");
+    setDestPickerOpen(false);
     if (goalId == null) { setDestId(null); return; }
     if (startId == null) {
       setError("現在地が特定できません。現在地を選択してください。");
@@ -216,6 +237,34 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
     </button>
   );
 
+  // カテゴリ別の目的地リスト本体。インライン表示とプルダウンのオーバーレイの両方で使い回す。
+  const destListBody =
+    nodes.length === 0 ? (
+      <p className="dest-empty">管理画面でノードを登録してください</p>
+    ) : destinations.length === 0 ? (
+      <p className="dest-empty">他の目的地がありません</p>
+    ) : !useAccordion ? (
+      <div className="dest-list">
+        {grouped[0]?.items.map((n) => <DestCard key={n.id} n={n} />)}
+      </div>
+    ) : (
+      <div className="dest-groups">
+        {grouped.map(({ key, label, items }) => (
+          <div key={key} className="dest-group">
+            <button className="dest-group-heading" onClick={() => toggleGroup(key)}>
+              <span>{label}</span>
+              <span className="dest-group-arrow">{isOpen(key) ? "▲" : "▼"}</span>
+            </button>
+            {isOpen(key) && (
+              <div className="dest-list">
+                {items.map((n) => <DestCard key={n.id} n={n} />)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+
   return (
     <div className={`home-page${activeRoute ? " guiding" : ""}`}>
       {/* 現在地と目的地を横並び（並列）で表示する */}
@@ -226,40 +275,43 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
             <span className="loc-label">自分の行きたい目的地を選択してください</span>
             {destNode && <span className="loc-name">{destNode.name}</span>}
           </div>
-          <select
-            className="loc-manual-select"
-            value={destId ?? ""}
-            onChange={(e) => chooseDest(Number(e.target.value) || null)}
+          <button
+            type="button"
+            className="loc-manual-select dest-picker-btn"
+            onClick={() => setDestPickerOpen(true)}
           >
-            <option value="">目的地を選択...</option>
-            {nodes
-              .filter((n) => n.is_selectable && n.id !== startId)
-              .map((n) => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
-          </select>
+            <span>{destNode ? destNode.name : "目的地を選択..."}</span>
+            <span className="dest-picker-caret">▼</span>
+          </button>
         </div>
 
         {/* 現在地バナー */}
         <div className={`location-banner ${geoStatus}`}>
           <div className="loc-text">
-            {geoStatus === "pending" && (
-              <span className="loc-label">現在地を特定しています...</span>
-            )}
+            <div className="loc-label-row">
+              <span className="loc-label">
+                {geoStatus === "pending"
+                  ? "現在地を特定しています..."
+                  : geoStatus === "found"
+                  ? (startNode ? "現在地（自動検出）" : "近くに登録地点がありません")
+                  : geoStatus === "denied"
+                  ? "位置情報の使用が許可されていません"
+                  : "現在地を選択してください"}
+              </span>
+              <button
+                type="button"
+                className="loc-reload-btn"
+                onClick={reloadLocation}
+                disabled={geoStatus === "pending"}
+                aria-label="現在地を再読み込み"
+                title="現在地を再読み込み"
+              >
+                <span className="loc-reload-icon">↻</span>
+                <span className="loc-reload-text">再読み込み</span>
+              </button>
+            </div>
             {geoStatus === "found" && startNode && (
-              <>
-                <span className="loc-label">現在地（自動検出）</span>
-                <span className="loc-name">{startNode.name}</span>
-              </>
-            )}
-            {geoStatus === "found" && !startNode && (
-              <span className="loc-label">近くに登録地点がありません</span>
-            )}
-            {geoStatus === "denied" && (
-              <span className="loc-label">位置情報の使用が許可されていません</span>
-            )}
-            {geoStatus === "unavailable" && (
-              <span className="loc-label">現在地を選択してください</span>
+              <span className="loc-name">{startNode.name}</span>
             )}
           </div>
           <div className="loc-select-group">
@@ -323,31 +375,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
       {/* 目的地リスト */}
       <div className="dest-section">
         <h2 className="dest-heading">目的地を選んでください</h2>
-        {nodes.length === 0 ? (
-          <p className="dest-empty">管理画面でノードを登録してください</p>
-        ) : destinations.length === 0 ? (
-          <p className="dest-empty">他の目的地がありません</p>
-        ) : !useAccordion ? (
-          <div className="dest-list">
-            {grouped[0]?.items.map((n) => <DestCard key={n.id} n={n} />)}
-          </div>
-        ) : (
-          <div className="dest-groups">
-            {grouped.map(({ key, label, items }) => (
-              <div key={key} className="dest-group">
-                <button className="dest-group-heading" onClick={() => toggleGroup(key)}>
-                  <span>{label}</span>
-                  <span className="dest-group-arrow">{isOpen(key) ? "▲" : "▼"}</span>
-                </button>
-                {isOpen(key) && (
-                  <div className="dest-list">
-                    {items.map((n) => <DestCard key={n.id} n={n} />)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        {destListBody}
 
         {/* アンケートへの導線（目的地リストの直下に設置） */}
         <div className="home-survey">
@@ -355,6 +383,25 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
         </div>
       </div>
         </>
+      )}
+
+      {/* 目的地プルダウンを押したときのオーバーレイ（目的地選択画面と同じリスト） */}
+      {destPickerOpen && (
+        <div className="dest-modal-overlay" onClick={() => setDestPickerOpen(false)}>
+          <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dest-modal-head">
+              <h2 className="dest-heading">目的地を選んでください</h2>
+              <button
+                className="dest-modal-close"
+                onClick={() => setDestPickerOpen(false)}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <div className="dest-modal-body">{destListBody}</div>
+          </div>
+        </div>
       )}
     </div>
   );
