@@ -273,7 +273,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
         <div className="dest-banner">
           <div className="loc-text">
             <span className="loc-label">自分の行きたい目的地を選択してください</span>
-            {destNode && <span className="loc-name">{destNode.name}</span>}
           </div>
           <button
             type="button"
@@ -310,9 +309,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
                 <span className="loc-reload-text">再読み込み</span>
               </button>
             </div>
-            {geoStatus === "found" && startNode && (
-              <span className="loc-name">{startNode.name}</span>
-            )}
           </div>
           <div className="loc-select-group">
             <select
