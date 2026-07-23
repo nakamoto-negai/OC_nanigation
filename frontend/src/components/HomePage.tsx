@@ -3,6 +3,7 @@ import { Category, Link, Node, NodeDetour, RouteResponse, Setting } from "../typ
 import { calcRoute } from "../utils/dijkstra";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
+import { useCompass } from "../hooks/useCompass";
 
 const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -52,6 +53,10 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
   // 目的地セレクト（プルダウン）を押したときに開く、カテゴリ別リストのオーバーレイ。
   const [destPickerOpen, setDestPickerOpen] = useState(false);
   const [error, setError] = useState("");
+
+  // コンパス（方位）許可。ホーム画面で先に取得しておき、埋め込み道案内へ共有する。
+  // iOS は許可要求にユーザー操作（タップ）が必要なため、ホームで「有効にする」ボタンを出して促す。
+  const compass = useCompass();
 
   // 位置情報の取得・監視
   useEffect(() => {
@@ -274,6 +279,14 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
         <p className="home-dest-prompt">自分の行きたい目的地を選択してください</p>
       )}
 
+      {/* コンパス（方位）許可の案内。まだ許可していない間だけ表示し、タップで許可要求する。
+          ここで許可しておくと、道案内カメラでコンパスを再度有効にする必要がなくなる。 */}
+      {compass.permission === "prompt" && (
+        <button className="home-compass-enable" onClick={compass.requestPermission}>
+          コンパス（方位）を有効にすると、より正確に道案内できます → 有効にする
+        </button>
+      )}
+
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
         {/* 目的地バナー（現在地より先に表示する） */}
@@ -369,6 +382,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
           onReroute={(r) => setRerouteOverride(r)}
           onClose={() => { setDestId(null); setRerouteOverride(null); }}
           onOpenSurvey={onOpenSurvey}
+          compass={compass}
           embedded
         />
       ) : (

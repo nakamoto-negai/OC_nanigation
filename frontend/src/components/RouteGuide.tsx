@@ -37,9 +37,12 @@ interface Props {
   onOpenSurvey: () => void;
   /** ホーム画面に埋め込むときは true。全画面ではなく残りの領域に収める。 */
   embedded?: boolean;
+  /** 親から共有するコンパス。渡された場合はこれを使い、無ければ内部で useCompass する。
+      ホーム画面で一度コンパス許可を取れば、埋め込み道案内でも再度聞かれないようにするため。 */
+  compass?: ReturnType<typeof useCompass>;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey, embedded = false }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey, embedded = false, compass }) => {
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
   // ナビ全体の出発地・目的地。ログに載せて「どこからどこまで」を記録する。
@@ -97,7 +100,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     return list;
   }, [route.steps, detourMap, expandedDetours, goalDetour]);
 
-  const { heading, permission, requestPermission } = useCompass();
+  // 親からコンパスを渡されればそれを共有し、無ければ自前で用意する。
+  // （フックは常に呼ぶ必要があるため ownCompass は常に生成し、使うかどうかだけ切り替える）
+  const ownCompass = useCompass();
+  const { heading, permission, requestPermission } = compass ?? ownCompass;
   const { sendPosition, sendGoalReached, sendAction, ready: wsReady } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
