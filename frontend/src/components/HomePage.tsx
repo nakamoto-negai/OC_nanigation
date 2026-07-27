@@ -3,7 +3,7 @@ import { Category, Link, Node, NodeDetour, RouteResponse, Setting } from "../typ
 import { calcRoute } from "../utils/dijkstra";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
-import { useCompass } from "../hooks/useCompass";
+import { useCompassPermission } from "../hooks/useCompass";
 
 const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -56,7 +56,9 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
 
   // コンパス（方位）許可。ホーム画面で先に取得しておき、埋め込み道案内へ共有する。
   // iOS は許可要求にユーザー操作（タップ）が必要なため、ホームで「有効にする」ボタンを出して促す。
-  const compass = useCompass();
+  // 許可状態だけを購読する（heading の 60fps 更新で HomePage を再レンダリングしない）。
+  // heading は埋め込み道案内(RouteGuide)側が useCompass で購読する。
+  const compass = useCompassPermission();
 
   // 位置情報の取得・監視
   useEffect(() => {
@@ -382,7 +384,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
           onReroute={(r) => setRerouteOverride(r)}
           onClose={() => { setDestId(null); setRerouteOverride(null); }}
           onOpenSurvey={onOpenSurvey}
-          compass={compass}
           embedded
         />
       ) : (

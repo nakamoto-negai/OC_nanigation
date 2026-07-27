@@ -208,6 +208,11 @@ export const ARNavGuide: React.FC<Props> = ({
         {!cameraOn && !err && <div className="arnav-placeholder">カメラ起動中…</div>}
         {err && <div className="arnav-error">{err}</div>}
         <div className="arnav-method">{method}基準</div>
+
+        {/* カメラ道案内中は常に、利用ログの研究利用に関する注記を表示する */}
+        <div className="arnav-research-note">
+          アプリの利用ログは個人が分からない形で研究に利用される場合があります。
+        </div>
       </div>
     </div>
   );

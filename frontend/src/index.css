@@ -1262,9 +1262,18 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .arnav-need-compass { pointer-events: auto; text-align: center; }
 .arnav-need-compass span { color: #e2e8f0; font-size: 14px; }
 .arnav-method {
-  position: absolute; bottom: 8px; right: 10px;
+  position: absolute; bottom: 30px; right: 10px;
   font-size: 11px; color: #cbd5e1; background: rgba(15, 23, 42, 0.6);
   padding: 2px 8px; border-radius: 10px;
+}
+
+/* カメラ道案内中に常時表示する、利用ログの研究利用に関する注記（下部の帯） */
+.arnav-research-note {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  padding: 4px 10px; text-align: center;
+  font-size: 10px; line-height: 1.35; color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.66);
+  pointer-events: none;
 }
 .arnav-placeholder { color: #94a3b8; font-size: 14px; text-align: center; padding: 0 16px; }
 .arnav-error { color: #fca5a5; font-size: 14px; text-align: center; padding: 0 16px; }
