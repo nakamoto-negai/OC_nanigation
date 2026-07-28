@@ -42,8 +42,15 @@ services:
       # ホスト側のHTTPポートは FRONTEND_HTTP_PORT で変更可（既定3000）。
       # 3000 が他アプリと衝突する場合に逃がせる。コンテナ内は常に3000。
       - "${FRONTEND_HTTP_PORT:-3000}:3000"
+      # HTTPS(443) をベースに統合。override 無し・素の `docker compose up` でも常に有効。
+      # 443 が使えない/権限不足なら FRONTEND_HTTPS_PORT=8443 等に逃がして https://<IP>:8443 で開く。
+      - "${FRONTEND_HTTPS_PORT:-443}:443"
+    volumes:
+      # 証明書。gen-local-cert.ps1 で作った LAN IP 入り証明書があればそれを使う。
+      # 無ければコンテナ起動時に自己署名証明書を自動生成する（docker-ensure-cert.sh）。
+      - ./certs:/etc/nginx/certs
     # 注: VITE_API_URL は設定しない。未設定だとフロントは相対パス（/api, /ws, /uploads）と
-    # window.location.host を使うため、nginx(:3000) の同一オリジンプロキシ経由で動作する。
+    # window.location.host を使うため、nginx の同一オリジンプロキシ経由で動作する。
     # これにより localhost でも LAN でも ngrok でも、URL を問わずそのまま機能する。
     depends_on:
       - backend

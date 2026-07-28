@@ -23,6 +23,9 @@ interface Props {
   distance?: number | null;
   /** 「到着地点を確認する」ボタンが押されたとき（ログ記録などに使う）。 */
   onConfirmArrival?: () => void;
+  /** デモ用: 指定するとカメラを起動せず、この画像を背景（カメラの代わり）に表示する。
+      道案内ARと全く同じレイアウトで、カメラ部分だけを画像に差し替えるために使う。 */
+  demoImageUrl?: string;
 }
 
 // 目的ノードまでこの距離(m)以内に近づいたら「到着まで◯m」のカウントダウンを表示する
@@ -39,7 +42,7 @@ const APPROACH_DISPLAY_M = 10;
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に変更", onNext, arrived = false, distance = null, onConfirmArrival,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に変更", onNext, arrived = false, distance = null, onConfirmArrival, demoImageUrl,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,7 +65,9 @@ export const ARNavGuide: React.FC<Props> = ({
   })();
 
   // 背面カメラ起動（マウント時）。アンマウントで必ず停止する。
+  // デモモード（demoImageUrl 指定）ではカメラを使わないので起動しない。
   useEffect(() => {
+    if (demoImageUrl) return;
     let cancelled = false;
     (async () => {
       try {
@@ -130,7 +135,11 @@ export const ARNavGuide: React.FC<Props> = ({
     <div className="arnav">
       {/* touch-action: pan-y で、カメラ上を縦スワイプしたとき道案内が普通にスクロールできるようにする */}
       <div className="arnav-camera-wrap" style={{ touchAction: "pan-y" }}>
-        <video ref={videoRef} className="arnav-video" playsInline muted />
+        {demoImageUrl ? (
+          <img className="arnav-video" src={demoImageUrl} alt="" draggable={false} />
+        ) : (
+          <video ref={videoRef} className="arnav-video" playsInline muted />
+        )}
 
         {/* カメラ上部の操作バー: 画像案内へ戻る / 到着地点を確認する */}
         <div className="arnav-topbar">
@@ -205,7 +214,7 @@ export const ARNavGuide: React.FC<Props> = ({
           </div>
         )}
 
-        {!cameraOn && !err && <div className="arnav-placeholder">カメラ起動中…</div>}
+        {!demoImageUrl && !cameraOn && !err && <div className="arnav-placeholder">カメラ起動中…</div>}
         {err && <div className="arnav-error">{err}</div>}
         <div className="arnav-method">{method}基準</div>
 

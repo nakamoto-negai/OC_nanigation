@@ -152,7 +152,11 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   flex-direction: column; align-items: stretch;
   gap: 6px; padding: 12px 14px;
 }
-.loc-dest-row > .dest-banner { border-left: 1px solid rgba(15, 23, 42, 0.08); }
+/* 現在地 → 目的地 の矢印（2つのバナーの間に挟む） */
+.loc-dest-arrow {
+  flex: none; align-self: center; padding: 0 4px;
+  font-size: 22px; font-weight: 800; color: #64748b; line-height: 1;
+}
 .loc-dest-row .loc-icon { font-size: 22px; }
 .loc-dest-row .loc-text { flex: none; }
 .loc-dest-row .loc-name {
@@ -1364,6 +1368,46 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   width: 80px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #0f172a;
 }
 .ar-feature-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+
+/* 全画面デモ：ホームの道案内AR画面を丸ごと再現し、画面全体に広げる。
+   中の .app / .home-page / .arnav-* は本番と同じCSSがそのまま効くので、
+   ヘッダー・選択バナー・AR の配置は本番と一致する。 */
+.demo-fullscreen {
+  position: fixed; inset: 0; z-index: 2000; background: #fff; overflow: hidden;
+}
+.demo-fullscreen .app { height: 100%; background: #fff; }
+
+/* ── ARデモ（管理画面限定：カメラ全面オーバーレイ） ── */
+.demo-upload-preview {
+  display: block; margin-top: 8px; max-width: 100%; max-height: 160px;
+  border-radius: 8px; border: 1px solid #e2e8f0; background: #0f172a;
+}
+.demo-overlay-img {
+  position: absolute; left: 50%; top: 50%;
+  max-width: 100%; max-height: 100%;
+  transform-origin: center; touch-action: none; cursor: move; user-select: none;
+  -webkit-user-drag: none;
+}
+.ar-demo-error {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 5;
+  background: rgba(220, 38, 38, 0.9); color: #fff; font-size: 12px;
+  padding: 6px 10px; border-radius: 8px;
+}
+.demo-overlay-list { display: flex; flex-direction: column; gap: 8px; }
+.demo-overlay-item {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px; background: #fff;
+}
+.demo-overlay-item.selected { border-color: #3b82f6; background: #eff6ff; }
+.demo-overlay-pick {
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  background: none; border: none; cursor: pointer; text-align: left; padding: 0;
+}
+.demo-overlay-thumb {
+  width: 56px; height: 42px; object-fit: cover; border-radius: 6px;
+  background: #0f172a; flex-shrink: 0;
+}
+.demo-overlay-name { font-size: 13px; font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 登録フォームの複数画像プレビュー（サムネイル横並び） */
 .ar-thumb-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }

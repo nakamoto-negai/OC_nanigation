@@ -58,23 +58,26 @@ docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up --build
 
 ## LAN 内 HTTPS で実機テスト（ngrok 不要）
 
-同じ WiFi のスマホから HTTPS でアクセスし、インターネット無しで AR を試す方法。自己署名証明書で nginx を 443 配信する。
+同じ WiFi のスマホから HTTPS でアクセスし、インターネット無しで AR を試す方法。**HTTPS(443) はベースの `docker-compose.yml` に統合済み**なので、素の `docker compose up` だけで常に 443 が有効になる（override 指定は不要）。
 
 ```bash
-# 1. 自己署名証明書を生成（PC の LAN IP を SAN に自動で含める。openssl 不要・Docker 使用）
+# 1. （推奨）LAN IP を SAN に含む証明書を生成しておく。openssl 不要・Docker 使用。
+#    スマホの証明書警告を軽くするため。省略しても起動時に自己署名証明書を自動生成する。
 powershell -ExecutionPolicy Bypass -File scripts/gen-local-cert.ps1
-#   → certs/server.crt, certs/server.key が生成される（certs/ は .gitignore 済み）
+#   → certs/server.crt, certs/server.key（certs/ は .gitignore 済み）
 
-# 2. HTTPS override で起動
-docker compose -f docker-compose.yml -f docker-compose.https.yml up --build
+# 2. 起動（override 不要。443 と 3000 の両方で配信される）
+docker compose up -d --build
 
 # 3. スマホ（同じ WiFi）で https://<PCのLAN IP> を開く
 ```
 
+- 仕組み: frontend の Dockerfile が `nginx.local-https.conf`（3000+443 配信）を焼き込み、起動時に `docker-ensure-cert.sh` が証明書を確認（無ければ自己署名を自動生成）。`certs/` があればそれを優先。
 - 自己署名のため初回は証明書警告 → 「詳細」→「アクセスする」で続行（HTTPS 扱いになりカメラ/コンパスが有効）。
-- 443 が使えない場合は `docker-compose.https.yml` の `"443:443"` を `"8443:443"` にして `https://<IP>:8443`。
-- スマホから繋がらない時は Windows ファイアウォールの受信許可（443/3000）を確認。
-- 証明書は LAN IP を SAN に含む必要があるため、IP が変わったら `gen-local-cert.ps1` を再実行。
+- 443 が使えない場合は `FRONTEND_HTTPS_PORT=8443 docker compose up -d` として `https://<IP>:8443`。
+- スマホから繋がらない時は Windows ファイアウォールの受信許可（443/3000）を確認（パブリックネットワークだと既定でブロックされる）。
+- 証明書は LAN IP を SAN に含む必要があるため、IP が変わったら `gen-local-cert.ps1` を再実行して `docker compose up -d`（フロント再作成で新証明書を読む）。
+- `docker-compose.https.yml` は後方互換のための空 override（何も上書きしない）。付けても外しても同じ。
 
 ## バックエンド構成
 

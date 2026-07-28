@@ -1,4 +1,4 @@
-import { ARFeature, ARObject, Category, Event, Link, MapImage, Node, NodeDetour, NodePhoto, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { ARFeature, ARObject, Category, DemoOverlay, Event, Link, MapImage, Node, NodeDetour, NodePhoto, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -189,6 +189,20 @@ export const api = {
       adminReq<void>(`/api/survey/questions/${id}`, { method: "DELETE" }),
     // 管理: 回答一覧
     listResponses: () => adminReq<SurveyResponse[]>("/api/survey/responses"),
+  },
+  // 道案内ARデモ用の重ね画像（すべて管理者トークン必須＝管理画面からのみ利用可能）
+  demoOverlays: {
+    list: () => adminReq<DemoOverlay[]>("/api/demo-overlays"),
+    upload: (form: FormData) =>
+      adminFetch("/api/demo-overlays", { method: "POST", body: form }).then(async (r) => {
+        if (!r.ok) {
+          let detail = await r.text();
+          try { detail = JSON.parse(detail).error ?? detail; } catch { /* プレーンテキスト */ }
+          throw new Error(detail || "アップロードに失敗しました");
+        }
+        return r.json() as Promise<DemoOverlay>;
+      }),
+    delete: (id: number) => adminReq<void>(`/api/demo-overlays/${id}`, { method: "DELETE" }),
   },
   admin: {
     login: (password: string) =>

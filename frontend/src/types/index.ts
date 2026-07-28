@@ -156,6 +156,14 @@ export interface ARFeature {
   created_at: string;
 }
 
+// 道案内ARデモ用の重ね画像（管理画面限定）
+export interface DemoOverlay {
+  id: number;
+  name: string;
+  image_url: string;
+  created_at: string;
+}
+
 export type SurveyQuestionType = "likert" | "text";
 
 export interface SurveyQuestion {

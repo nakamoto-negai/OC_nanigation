@@ -291,22 +291,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
 
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
-        {/* 目的地バナー（現在地より先に表示する） */}
-        <div className="dest-banner">
-          <div className="loc-text">
-            <span className="loc-label">目的地を選択</span>
-          </div>
-          <button
-            type="button"
-            className="loc-manual-select dest-picker-btn"
-            onClick={() => setDestPickerOpen(true)}
-          >
-            <span>{destNode ? destNode.name : "目的地を選択..."}</span>
-            <span className="dest-picker-caret">▼</span>
-          </button>
-        </div>
-
-        {/* 現在地バナー */}
+        {/* 現在地バナー（先に表示する） */}
         <div className={`location-banner ${geoStatus}`}>
           <div className="loc-text">
             <div className="loc-label-row">
@@ -361,6 +346,24 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
               </button>
             )}
           </div>
+        </div>
+
+        {/* 現在地 → 目的地 の矢印 */}
+        <div className="loc-dest-arrow" aria-hidden="true">→</div>
+
+        {/* 目的地バナー */}
+        <div className="dest-banner">
+          <div className="loc-text">
+            <span className="loc-label">目的地を選択</span>
+          </div>
+          <button
+            type="button"
+            className="loc-manual-select dest-picker-btn"
+            onClick={() => setDestPickerOpen(true)}
+          >
+            <span>{destNode ? destNode.name : "目的地を選択..."}</span>
+            <span className="dest-picker-caret">▼</span>
+          </button>
         </div>
       </div>
 

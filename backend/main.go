@@ -92,6 +92,11 @@ func main() {
 		admin.POST("/ar-features", handlers.CreateARFeature)
 		admin.DELETE("/ar-features/:id", handlers.DeleteARFeature)
 
+		// 道案内ARデモ用の重ね画像（管理画面からのみ利用）
+		admin.GET("/demo-overlays", handlers.ListDemoOverlays)
+		admin.POST("/demo-overlays", handlers.UploadDemoOverlay)
+		admin.DELETE("/demo-overlays/:id", handlers.DeleteDemoOverlay)
+
 		admin.POST("/ar-objects", handlers.CreateARObject)
 		admin.PUT("/ar-objects/:id", handlers.UpdateARObject)
 		admin.DELETE("/ar-objects/:id", handlers.DeleteARObject)
