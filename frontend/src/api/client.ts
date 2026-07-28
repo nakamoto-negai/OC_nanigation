@@ -156,7 +156,8 @@ export const api = {
           try { detail = JSON.parse(body).error ?? body; } catch { /* プレーンテキスト */ }
           throw new Error(detail || "登録に失敗しました");
         }
-        return r.json() as Promise<ARFeature>;
+        // 複数画像に対応：{ created: ARFeature[], skipped: number } を返す
+        return r.json() as Promise<{ created: ARFeature[]; skipped: number }>;
       }),
     delete: (id: number) => adminReq<void>(`/api/ar-features/${id}`, { method: "DELETE" }),
   },

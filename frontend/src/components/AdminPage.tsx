@@ -2120,8 +2120,9 @@ const byOrder = (a: SurveyQuestion, b: SurveyQuestion) =>
 function ARFeatureTab({ nodes }: { nodes: Node[] }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>("");
+  // 1つの物体を複数枚の画像から覚えさせられるよう、画像は複数選択できる
+  const [files, setFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [maxFeatures, setMaxFeatures] = useState(500);
 
   // モード（登録 / 認識テスト / 物体マスタ）
@@ -2180,17 +2181,18 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
     }
   };
 
-  // 画像を選択 → プレビュー用 URL を作成（特徴点抽出はサーバー側で行う）
-  const onPickFile = (f: File | null) => {
-    setFile(f);
+  // 画像を選択 → プレビュー用 URL を作成（特徴点抽出はサーバー側で行う）。複数選択可。
+  const onPickFiles = (list: FileList | null) => {
+    const arr = list ? Array.from(list) : [];
     setMsg(null);
-    setPreviewUrl(f ? URL.createObjectURL(f) : "");
+    setPreviewUrls((prev) => { prev.forEach((u) => URL.revokeObjectURL(u)); return arr.map((f) => URL.createObjectURL(f)); });
+    setFiles(arr);
   };
 
-  // プレビュー URL は差し替え・アンマウント時に解放してメモリリークを防ぐ
+  // プレビュー URL はアンマウント時に解放してメモリリークを防ぐ
   useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
+    previewUrls.forEach((u) => URL.revokeObjectURL(u));
+  }, [previewUrls]);
 
   const enterRecognize = () => {
     setMode("recognize");
@@ -2201,9 +2203,9 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
     setMode("register");
   };
 
-  // 画像をアップロードし、サーバー（gocv）で ORB 抽出して登録する
+  // 選択した複数画像をまとめてアップロードし、各画像からサーバー（gocv）で ORB 抽出して登録する
   const submit = async () => {
-    if (!file) {
+    if (files.length === 0) {
       setMsg({ type: "err", text: "画像を選択してください" });
       return;
     }
@@ -2211,19 +2213,24 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
     setMsg(null);
     try {
       const form = new FormData();
-      form.append("image", file, file.name || "arfeature.jpg");
+      files.forEach((f, i) => form.append("image", f, f.name || `arfeature_${i}.jpg`));
       form.append("name", name.trim() || `特徴点 ${new Date().toLocaleString("ja-JP")}`);
       if (buildingNodeId !== "") form.append("node_id", String(buildingNodeId));
       if (arObjectId !== "") form.append("ar_object_id", String(arObjectId));
       form.append("max_features", String(maxFeatures));
 
-      const created = await api.arFeatures.create(form);
-      setFeatures((p) => [created, ...p]);
+      const res = await api.arFeatures.create(form);
+      setFeatures((p) => [...res.created, ...p]);
+      const totalKp = res.created.reduce((s, f) => s + f.keypoint_count, 0);
       setName("");
       setArObjectId("");
-      onPickFile(null);
+      onPickFiles(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setMsg({ type: "ok", text: `${created.keypoint_count}個の特徴点を登録しました` });
+      setMsg({
+        type: "ok",
+        text: `${res.created.length}枚の画像から合計${totalKp}個の特徴点を登録しました`
+          + (res.skipped > 0 ? `（${res.skipped}枚は特徴点が検出できずスキップ）` : ""),
+      });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
     } finally {
@@ -2259,7 +2266,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
 
         <p className="hint" style={{ marginBottom: 12 }}>
           {mode === "register"
-            ? "建物・看板などの画像をアップロードすると、サーバーが ORB 特徴点（コーナー）を抽出して登録します。模様や凹凸のある対象ほど多く検出されます。"
+            ? "建物・看板などの画像をアップロードすると、サーバーが ORB 特徴点（コーナー）を抽出して登録します。1つの物体を複数の角度・距離で撮った画像を一度に選ぶと、それぞれから特徴点を抽出して同じ物体に登録するため、見る向きが変わっても認識しやすくなります。"
             : mode === "recognize"
             ? "登録済みの対象とカメラ映像を特徴点マッチングし、認識した名前と簡易詳細を表示します。"
             : "建物に紐づかない物体（展示物・看板・設備など）の詳細情報を登録します。登録モードで認識データに紐づけると、認識時にこの詳細が表示されます。"}
@@ -2318,20 +2325,29 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
         ) : mode === "register" ? (
           <>
             <div className="ar-camera-wrap">
-              {previewUrl ? (
-                <img src={previewUrl} alt="プレビュー" className="ar-camera-video" style={{ objectFit: "contain" }} />
+              {previewUrls.length > 0 ? (
+                <img src={previewUrls[0]} alt="プレビュー" className="ar-camera-video" style={{ objectFit: "contain" }} />
               ) : (
-                <div className="ar-camera-placeholder">画像を選択してください</div>
+                <div className="ar-camera-placeholder">画像を選択してください（複数選択可）</div>
               )}
             </div>
+
+            {previewUrls.length > 0 && (
+              <div className="ar-thumb-row">
+                {previewUrls.map((u, i) => (
+                  <img key={i} src={u} alt={`選択画像 ${i + 1}`} className="ar-thumb" />
+                ))}
+                <span className="ar-thumb-count">{previewUrls.length}枚選択中</span>
+              </div>
+            )}
 
             <div className="adm-actions" style={{ marginTop: 12 }}>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
-                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+                multiple
+                onChange={(e) => onPickFiles(e.target.files)}
               />
             </div>
 
@@ -2365,8 +2381,8 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
             </div>
 
             <div className="adm-actions">
-              <button className="btn-primary" onClick={submit} disabled={!file || saving}>
-                {saving ? "登録中..." : "アップロードして登録"}
+              <button className="btn-primary" onClick={submit} disabled={files.length === 0 || saving}>
+                {saving ? "登録中..." : `アップロードして登録${files.length > 1 ? `（${files.length}枚）` : ""}`}
               </button>
             </div>
           </>
