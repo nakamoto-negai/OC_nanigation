@@ -17,7 +17,15 @@ let listening = false;
 let gotAbsolute = false;
 // iOS で最初の画面タッチ時に許可要求を一度だけ自動発火させたか
 let autoRequested = false;
+// 自動許可要求を許可してよいか。お知らせ(POP)を先に見せたいので、既定は false。
+// POP を閉じた後（POP が無ければ即）に armCompassAutoRequest() で true にする。
+let autoRequestArmed = false;
 let inited = false;
+
+// お知らせPOPの後にコンパス許可要求を解禁する。UserApp から呼ぶ。
+export function armCompassAutoRequest() {
+  autoRequestArmed = true;
+}
 
 const permSubs = new Set<(p: CompassPermission) => void>();
 const headSubs = new Set<(h: number | null) => void>();
@@ -100,6 +108,8 @@ function ensureInit() {
     window.removeEventListener("click", onGesture);
   };
   const onGesture = () => {
+    // お知らせPOPを閉じるまで（未 arm の間）は許可要求しない
+    if (!autoRequestArmed) return;
     if (autoRequested) return;
     autoRequested = true;
     remove();

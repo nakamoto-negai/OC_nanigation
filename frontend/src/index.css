@@ -1369,6 +1369,47 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 }
 .ar-feature-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 
+/* ── お知らせPOP（アプリ起動時・許可要求より前に表示） ── */
+.announce-pop-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; box-sizing: border-box;
+}
+.announce-pop {
+  position: relative; background: #fff; border-radius: 16px;
+  max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  display: flex; flex-direction: column;
+}
+.announce-pop-close {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+  width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(15, 23, 42, 0.55); color: #fff; font-size: 20px; line-height: 1;
+}
+.announce-pop-img { width: 100%; display: block; border-radius: 16px 16px 0 0; }
+.announce-pop-text { padding: 14px 18px 4px; }
+.announce-pop-title { font-size: 18px; font-weight: 800; color: #1e293b; margin: 0 0 6px; }
+.announce-pop-body { font-size: 14px; color: #475569; margin: 0; white-space: pre-wrap; line-height: 1.5; }
+.announce-pop-actions {
+  display: flex; gap: 10px; padding: 14px 18px 18px; margin-top: auto;
+}
+.announce-pop-link {
+  flex: 1; text-align: center; padding: 12px; border-radius: 10px;
+  background: #3b82f6; color: #fff; font-weight: 700; text-decoration: none;
+}
+.announce-pop-ok {
+  flex: 1; padding: 12px; border-radius: 10px; cursor: pointer;
+  background: #16a34a; color: #fff; border: none; font-size: 15px; font-weight: 700;
+}
+
+/* 管理: お知らせ一覧 */
+.ar-feature-card.announce-active { border-color: #16a34a; background: #f0fdf4; }
+.announce-badge-on {
+  align-self: flex-start; margin-top: 2px; padding: 1px 8px; border-radius: 6px;
+  background: #16a34a; color: #fff; font-size: 11px; font-weight: 700;
+}
+
 /* 全画面デモ：ホームの道案内AR画面を丸ごと再現し、画面全体に広げる。
    中の .app / .home-page / .arnav-* は本番と同じCSSがそのまま効くので、
    ヘッダー・選択バナー・AR の配置は本番と一致する。 */

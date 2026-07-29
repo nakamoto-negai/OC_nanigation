@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DemoOverlay, Node, RouteStepDetail } from "../types";
 import { api } from "../api/client";
 import { ARNavGuide } from "./ARNavGuide";
-import { useCompass } from "../hooks/useCompass";
+import { useCompass, armCompassAutoRequest } from "../hooks/useCompass";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -57,6 +57,8 @@ export function ARDemoTab({ nodes }: { nodes: Node[] }) {
   const destNode = nodes.find((n) => n.id === demoDestId) ?? null;
   const destName = destNode?.name ?? "目的地";
 
+  // 管理画面にはお知らせPOPが無いので、デモの矢印用にコンパス自動許可を解禁しておく
+  useEffect(() => { armCompassAutoRequest(); }, []);
   useEffect(() => { api.demoOverlays.list().then(setOverlays).catch(() => {}); }, []);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 

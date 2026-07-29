@@ -6,8 +6,10 @@ import { ARView } from "./components/ARView";
 import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { SurveyForm } from "./components/SurveyForm";
+import { AnnouncementPop } from "./components/AnnouncementPop";
 import { useUser } from "./hooks/useUser";
-import { Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
+import { armCompassAutoRequest } from "./hooks/useCompass";
+import { Announcement, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import "./index.css";
 
 // /admin パスかどうかで表示を切り替える
@@ -92,6 +94,9 @@ function UserApp() {
     return s === "route" ? "home" : s;
   });
   const [route, setRoute] = useState<RouteResponse | null>(null);
+  // お知らせPOP（アプリを開いた最初に、カメラ/コンパス許可より前に表示）
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [popDismissed, setPopDismissed] = useState(false);
   // アンケートをアプリ内操作で開いたか（true のとき閉じるは履歴を戻す）
   const openedSurveyInApp = useRef(false);
   const [loadError, setLoadError] = useState("");
@@ -113,6 +118,23 @@ function UserApp() {
   useEffect(() => {
     api.settings.get().then(setSettings).catch(() => {});
   }, []);
+
+  // お知らせPOPを取得。無ければ（あるいは取得失敗なら）その場でコンパス許可の自動要求を解禁する。
+  // ある場合は POP を閉じたときに解禁する（POP をカメラ/コンパス許可より前に見せるため）。
+  useEffect(() => {
+    api.announcements.getActive()
+      .then((a: Announcement | null) => {
+        if (a) setAnnouncement(a);
+        else armCompassAutoRequest();
+      })
+      .catch(() => armCompassAutoRequest());
+  }, []);
+
+  const dismissPop = () => {
+    setPopDismissed(true);
+    // このタップ自体では許可要求させず、次の操作から解禁する（POPを閉じる操作で許可が出るのを防ぐ）
+    setTimeout(() => armCompassAutoRequest(), 0);
+  };
 
   // 初期表示が URL と食い違う場合は URL 側を画面に合わせる（例: コールドロードの /route → home）
   useEffect(() => {
@@ -168,6 +190,11 @@ function UserApp() {
 
   return (
     <div className="app">
+      {/* お知らせPOP（最初に表示。カメラ/コンパス許可より前） */}
+      {announcement && !popDismissed && (
+        <AnnouncementPop announcement={announcement} onClose={dismissPop} />
+      )}
+
       <header className="app-header">
         {/* タイトルは非表示。ホームへ戻る導線は「← 戻る」「AR」ボタンで担保。
             space-between の右寄せレイアウトを保つため空のスペーサーを置く。 */}

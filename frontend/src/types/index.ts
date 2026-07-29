@@ -156,6 +156,18 @@ export interface ARFeature {
   created_at: string;
 }
 
+// お知らせ（アプリを開いたとき最初に表示する POP 画像）
+export interface Announcement {
+  id: number;
+  title: string;
+  body: string;
+  image_url: string;
+  link_url: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // 道案内ARデモ用の重ね画像（管理画面限定）
 export interface DemoOverlay {
   id: number;

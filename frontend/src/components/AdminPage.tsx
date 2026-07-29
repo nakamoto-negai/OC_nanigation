@@ -5,6 +5,7 @@ import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
 import { ARRecognizer } from "./ARRecognizer";
 import { ARDemoTab } from "./ARDemoTab";
+import { AnnouncementTab } from "./AnnouncementTab";
 import { NodePhotoManager } from "./NodePhotoManager";
 import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
@@ -22,7 +23,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo";
+type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -2470,6 +2471,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "logs", label: "ログ" },
     { key: "ar", label: "AR特徴点" },
     { key: "demo", label: "ARデモ" },
+    { key: "announce", label: "お知らせ" },
     { key: "survey", label: "アンケート" },
   ];
 
@@ -2545,6 +2547,7 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "logs" && <LogsTab />}
         {tab === "ar" && <ARFeatureTab nodes={nodes} />}
         {tab === "demo" && <ARDemoTab nodes={nodes} />}
+        {tab === "announce" && <AnnouncementTab />}
         {tab === "survey" && <SurveyTab />}
       </div>
     </div>

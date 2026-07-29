@@ -53,6 +53,7 @@ func main() {
 	api.GET("/ar-objects", handlers.ListARObjects)
 	api.GET("/survey", handlers.GetSurvey)
 	api.POST("/survey/responses", handlers.SubmitSurveyResponse)
+	api.GET("/announcement/active", handlers.GetActiveAnnouncement)
 	api.GET("/events", handlers.ListEvents)
 
 	// 管理者専用エンドポイント（トークン必須）
@@ -96,6 +97,13 @@ func main() {
 		admin.GET("/demo-overlays", handlers.ListDemoOverlays)
 		admin.POST("/demo-overlays", handlers.UploadDemoOverlay)
 		admin.DELETE("/demo-overlays/:id", handlers.DeleteDemoOverlay)
+
+		// お知らせ（POP画像）
+		admin.GET("/announcements", handlers.ListAnnouncements)
+		admin.POST("/announcements", handlers.CreateAnnouncement)
+		admin.PUT("/announcements/:id/activate", handlers.ActivateAnnouncement)
+		admin.PUT("/announcements/:id/deactivate", handlers.DeactivateAnnouncement)
+		admin.DELETE("/announcements/:id", handlers.DeleteAnnouncement)
 
 		admin.POST("/ar-objects", handlers.CreateARObject)
 		admin.PUT("/ar-objects/:id", handlers.UpdateARObject)
