@@ -1,9 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Category, Link, Node, NodeDetour, RouteResponse, Setting } from "../types";
-import { calcRoute } from "../utils/dijkstra";
+import { Category, Destination, Link, Node, NodeDetour, RouteResponse, Setting } from "../types";
+import { calcRouteToNodes } from "../utils/dijkstra";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
 import { useCompassPermission } from "../hooks/useCompass";
+
+// 目的地の所属ノードID一覧。
+function destNodeIds(d: Destination): number[] {
+  return (d.nodes ?? []).map((n) => n.id);
+}
+// 目的地カードの説明・混雑度に使う代表ノード（所属ノードの先頭）。
+// 最小型モデルでは説明・混雑度がノード側にあるため、代表ノードの値を表示する。
+function representativeNode(d: Destination): Node | null {
+  return d.nodes && d.nodes.length > 0 ? d.nodes[0] : null;
+}
 
 const CONGESTION_LABELS = ["", "空き", "普通", "混雑"] as const;
 const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
@@ -11,6 +21,7 @@ const CONGESTION_COLORS = ["", "#22c55e", "#f59e0b", "#ef4444"] as const;
 interface Props {
   nodes: Node[];
   links: Link[];
+  destinations: Destination[];
   nodeDetours: NodeDetour[];
   settings: Setting;
   /** アプリ内アンケートの質問が無いときのフォールバック先（設定の外部URL）。 */
@@ -42,13 +53,14 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings, surveyUrl, onOpenSurvey }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, settings, surveyUrl, onOpenSurvey }) => {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [startId, setStartId] = useState<number | null>(null);
   const [manualStart, setManualStart] = useState(false);
-  // 目的地。現在地とともに画面上部で選ぶ。両方揃うとホームに直接 AR 道案内を表示する。
+  // 選択中の目的地ID（Destination.id）。現在地とともに画面上部で選ぶ。
+  // 両方揃うとホームに直接 AR 道案内を表示する。
   const [destId, setDestId] = useState<number | null>(null);
   // 目的地セレクト（プルダウン）を押したときに開く、カテゴリ別リストのオーバーレイ。
   const [destPickerOpen, setDestPickerOpen] = useState(false);
@@ -106,17 +118,17 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
   const destInitRef = useRef(false);
   useEffect(() => {
     if (destInitRef.current) return;
-    const d = settings.default_dest_node_id;
+    const d = settings.default_destination_id;
     if (d == null) return;
-    const node = nodes.find((n) => n.id === d);
-    if (node && node.is_selectable) {
+    const dest = destinations.find((x) => x.id === d);
+    if (dest) {
       destInitRef.current = true;
       setDestId(d);
     }
-  }, [settings.default_dest_node_id, nodes]);
+  }, [settings.default_destination_id, destinations]);
 
   const startNode = nodes.find((n) => n.id === startId) ?? null;
-  const destNode = nodes.find((n) => n.id === destId) ?? null;
+  const destDestination = destinations.find((d) => d.id === destId) ?? null;
 
   // 現在地を取り直す（GPS を最新の値で再取得し、自動検出に戻す）。
   const reloadLocation = () => {
@@ -137,26 +149,32 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
   };
 
   // 目的地を選ぶ（上部セレクト・目的地リストの両方から呼ぶ）。現在地が未確定なら促す。
-  const chooseDest = (goalId: number | null) => {
+  const chooseDest = (id: number | null) => {
     setError("");
     setDestPickerOpen(false);
-    if (goalId == null) { setDestId(null); return; }
+    if (id == null) { setDestId(null); return; }
     if (startId == null) {
       setError("現在地が特定できません。現在地を選択してください。");
       return;
     }
-    if (startId === goalId) {
+    const dest = destinations.find((d) => d.id === id);
+    if (dest && destNodeIds(dest).includes(startId)) {
       setError("現在地と目的地が同じです。");
       return;
     }
-    setDestId(goalId);
+    setDestId(id);
   };
 
   // 現在地と目的地が揃ったらルートを計算し、ホームに埋め込む道案内へ渡す。
+  // 目的地に属する複数ノードのうち、現在地から最も近いノードへの経路を求める。
   const inlineRoute = useMemo(() => {
-    if (startId == null || destId == null || startId === destId) return null;
-    return calcRoute(nodes, links, startId, destId);
-  }, [startId, destId, nodes, links]);
+    if (startId == null || destId == null) return null;
+    const dest = destinations.find((d) => d.id === destId);
+    if (!dest) return null;
+    const goalIds = destNodeIds(dest);
+    if (goalIds.length === 0 || goalIds.includes(startId)) return null;
+    return calcRouteToNodes(nodes, links, startId, goalIds);
+  }, [startId, destId, nodes, links, destinations]);
 
   // 埋め込み道案内内での寄り道・迂回で差し替えられたルート。現在地/目的地が変わったらクリアする。
   const [rerouteOverride, setRerouteOverride] = useState<RouteResponse | null>(null);
@@ -164,29 +182,43 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
   const activeRoute = rerouteOverride ?? inlineRoute;
 
   // 目的地は選ばれているのにルートが繋がっていない場合の判定。
-  const routeNotFound = startId != null && destId != null && startId !== destId && !inlineRoute;
+  const routeNotFound = startId != null && destId != null && !inlineRoute && (() => {
+    const dest = destinations.find((d) => d.id === destId);
+    if (!dest) return false;
+    const goalIds = destNodeIds(dest);
+    return goalIds.length > 0 && !goalIds.includes(startId);
+  })();
 
-  const destinations = nodes.filter((n) => n.id !== startId && n.is_selectable);
+  // 一覧に出す目的地。ノードが無い目的地や、現在地しか含まない目的地は除外する。
+  const visibleDestinations = destinations.filter((d) => {
+    const ids = destNodeIds(d);
+    return ids.length > 0 && !ids.every((nid) => nid === startId);
+  });
 
   // カテゴリ別グループ（Category オブジェクト使用、sort_order 昇順、未設定は末尾）
-  type Group = { key: string; label: string; cat: Category | null; items: Node[] };
+  type Group = { key: string; label: string; cat: Category | null; items: Destination[] };
   const grouped: Group[] = [];
   const seenIds = new Set<number>();
-  const sorted = [...destinations].sort((a, b) => {
+  const sorted = [...visibleDestinations].sort((a, b) => {
     const ao = a.category?.sort_order ?? Infinity;
     const bo = b.category?.sort_order ?? Infinity;
     if (ao !== bo) return ao - bo;
-    return (a.category?.id ?? Infinity) - (b.category?.id ?? Infinity);
+    const ac = a.category?.id ?? Infinity;
+    const bc = b.category?.id ?? Infinity;
+    if (ac !== bc) return ac - bc;
+    // 同カテゴリ内は目的地の sort_order → id 順
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.id - b.id;
   });
-  for (const n of sorted) {
-    const cat = n.category ?? null;
+  for (const d of sorted) {
+    const cat = d.category ?? null;
     const key = cat ? String(cat.id) : "__none__";
     if (!grouped.find((g) => g.key === key)) {
       if (cat && seenIds.has(cat.id)) continue;
       if (cat) seenIds.add(cat.id);
       grouped.push({ key, label: cat?.name ?? "その他", cat, items: [] });
     }
-    grouped.find((g) => g.key === key)!.items.push(n);
+    grouped.find((g) => g.key === key)!.items.push(d);
   }
 
   // アコーディオン開閉状態（初期値は is_open_default、未設定グループは open）
@@ -202,7 +234,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
       return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destinations.length]);
+  }, [visibleDestinations.length]);
 
   const toggleGroup = (key: string) =>
     setOpenKeys((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -211,48 +243,52 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
 
   const useAccordion = grouped.length > 1 || (grouped.length === 1 && grouped[0].key !== "__none__");
 
-  const DestCard = ({ n }: { n: (typeof destinations)[0] }) => (
-    <button className={`dest-card${destId === n.id ? " selected" : ""}`} onClick={() => chooseDest(n.id)}>
-      <div className="dest-card-inner">
-        <div className="dest-card-icon">▶</div>
-        <div className="dest-card-info">
-          <div className="dest-card-name-row">
-            <span className="dest-card-name">{n.name}</span>
-            {n.congestion_level > 0 && (
-              <span className="dest-congestion-badge" style={{ background: CONGESTION_COLORS[n.congestion_level] }}>
-                {CONGESTION_LABELS[n.congestion_level]}
-              </span>
+  const DestCard = ({ d }: { d: Destination }) => {
+    // 説明・混雑度は最小型モデルではノード側にあるため、代表ノード（先頭）の値を表示する。
+    const rep = representativeNode(d);
+    return (
+      <button className={`dest-card${destId === d.id ? " selected" : ""}`} onClick={() => chooseDest(d.id)}>
+        <div className="dest-card-inner">
+          <div className="dest-card-icon">▶</div>
+          <div className="dest-card-info">
+            <div className="dest-card-name-row">
+              <span className="dest-card-name">{d.name}</span>
+              {rep && rep.congestion_level > 0 && (
+                <span className="dest-congestion-badge" style={{ background: CONGESTION_COLORS[rep.congestion_level] }}>
+                  {CONGESTION_LABELS[rep.congestion_level]}
+                </span>
+              )}
+            </div>
+            {rep?.description && <span className="dest-card-desc">{rep.description}</span>}
+            {d.events && d.events.length > 0 && (
+              <div className="dest-event-marquee" aria-label="開催イベント">
+                <div className="dest-event-track">
+                  {d.events.map((e) => (
+                    <span key={e.id} className="dest-event-item">{e.name}</span>
+                  ))}
+                  {/* シームレスにループさせるため同じ内容をもう一組並べる */}
+                  {d.events.map((e) => (
+                    <span key={`dup-${e.id}`} className="dest-event-item" aria-hidden="true">{e.name}</span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-          {n.description && <span className="dest-card-desc">{n.description}</span>}
-          {n.events && n.events.length > 0 && (
-            <div className="dest-event-marquee" aria-label="開催イベント">
-              <div className="dest-event-track">
-                {n.events.map((e) => (
-                  <span key={e.id} className="dest-event-item">{e.name}</span>
-                ))}
-                {/* シームレスにループさせるため同じ内容をもう一組並べる */}
-                {n.events.map((e) => (
-                  <span key={`dup-${e.id}`} className="dest-event-item" aria-hidden="true">{e.name}</span>
-                ))}
-              </div>
-            </div>
-          )}
+          <span className="dest-card-arrow">→</span>
         </div>
-        <span className="dest-card-arrow">→</span>
-      </div>
-    </button>
-  );
+      </button>
+    );
+  };
 
   // カテゴリ別の目的地リスト本体。インライン表示とプルダウンのオーバーレイの両方で使い回す。
   const destListBody =
-    nodes.length === 0 ? (
-      <p className="dest-empty">管理画面でノードを登録してください</p>
-    ) : destinations.length === 0 ? (
+    destinations.length === 0 ? (
+      <p className="dest-empty">管理画面で目的地を登録してください</p>
+    ) : visibleDestinations.length === 0 ? (
       <p className="dest-empty">他の目的地がありません</p>
     ) : !useAccordion ? (
       <div className="dest-list">
-        {grouped[0]?.items.map((n) => <DestCard key={n.id} n={n} />)}
+        {grouped[0]?.items.map((d) => <DestCard key={d.id} d={d} />)}
       </div>
     ) : (
       <div className="dest-groups">
@@ -264,7 +300,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
             </button>
             {isOpen(key) && (
               <div className="dest-list">
-                {items.map((n) => <DestCard key={n.id} n={n} />)}
+                {items.map((d) => <DestCard key={d.id} d={d} />)}
               </div>
             )}
           </div>
@@ -277,7 +313,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
       {/* 行きたい目的地の選択を促す案内。ヘッダー直下に表示する。
           目的地未選択のとき、またはデフォルト目的地が自動選択されているだけのときは表示を維持し、
           ユーザーが自分で目的地を選ぶ（デフォルト以外を選ぶ）と非表示になる。 */}
-      {(!activeRoute || destId === settings.default_dest_node_id) && (
+      {(!activeRoute || destId === settings.default_destination_id) && (
         <p className="home-dest-prompt">自分の行きたい目的地を選択してください</p>
       )}
 
@@ -361,7 +397,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, nodeDetours, settings,
             className="loc-manual-select dest-picker-btn"
             onClick={() => setDestPickerOpen(true)}
           >
-            <span>{destNode ? destNode.name : "目的地を選択..."}</span>
+            <span>{destDestination ? destDestination.name : "目的地を選択..."}</span>
             <span className="dest-picker-caret">▼</span>
           </button>
         </div>

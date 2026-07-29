@@ -505,6 +505,19 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .adm-inline-cat-form button:first-of-type:disabled { opacity: 0.6; cursor: default; }
 .adm-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1e293b; cursor: pointer; }
 .adm-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+/* 目的地タブ: 所属ノードのチェックボックス一覧（スクロール可能） */
+.adm-node-checklist {
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid #e2e8f0; border-radius: 7px; background: white;
+  padding: 4px; margin-top: 6px;
+}
+.adm-check-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 14px; color: #1e293b;
+}
+.adm-check-item:hover { background: #f1f5f9; }
+.adm-check-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 .req { color: #ef4444; }
 .adm-field-row { display: flex; gap: 10px; align-items: flex-end; }
 .adm-field-row .adm-field { flex: 1; margin-bottom: 0; }

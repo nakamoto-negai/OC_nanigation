@@ -9,9 +9,24 @@ export interface Category {
 
 export interface Event {
   id: number;
-  node_id: number;
+  destination_id: number;
   name: string;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 目的地。1つの目的地に複数のノード（地点）を多対多で登録でき、
+// 経路案内では現在地から最も近い所属ノードが自動選択される。
+// カテゴリ・イベントは目的地に紐づく。説明・混雑度・到着写真はノード側が持つ。
+export interface Destination {
+  id: number;
+  name: string;
+  category_id: number | null;
+  category?: Category;
+  sort_order: number;
+  nodes?: Node[];
+  events?: Event[];
   created_at: string;
   updated_at: string;
 }
@@ -33,12 +48,8 @@ export interface Node {
   y: number;
   lat: number | null;
   lng: number | null;
-  category_id: number | null;
-  category?: Category;
-  is_selectable: boolean;
   congestion_level: number;
   wait_time: number;
-  events?: Event[];
   photos?: NodePhoto[];
   created_at: string;
   updated_at: string;
@@ -92,8 +103,8 @@ export interface Setting {
   show_cafeteria_congestion: boolean;
   show_ar_button: boolean;
   survey_url: string;
-  /** ホーム画面で最初から選択しておく目的地ノードID（未設定なら null）。 */
-  default_dest_node_id: number | null;
+  /** ホーム画面で最初から選択しておく目的地ID（未設定なら null）。 */
+  default_destination_id: number | null;
 }
 
 export interface User {

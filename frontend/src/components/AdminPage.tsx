@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, ARObject, Category, Event, Link, MapImage, Node, NodeDetour, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Destination, Event, Link, MapImage, Node, NodeDetour, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -23,7 +23,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
+type Tab = "node" | "destination" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -111,63 +111,34 @@ interface NodeFormState {
   id: number | null;
   name: string;
   description: string;
-  categoryId: number | "";
   x: string;
   y: string;
   lat: string;
   lng: string;
-  isSelectable: boolean;
   congestionLevel: number;
   waitTime: string;
 }
 
 const emptyNode = (): NodeFormState => ({
-  id: null, name: "", description: "", categoryId: "", x: "", y: "", lat: "", lng: "", isSelectable: true, congestionLevel: 0, waitTime: "0",
+  id: null, name: "", description: "", x: "", y: "", lat: "", lng: "", congestionLevel: 0, waitTime: "0",
 });
 
 function NodeTab({
   nodes,
-  categories: categoriesProp,
   onCreated,
   onUpdated,
   onDeleted,
-  onCategoryCreated,
 }: {
   nodes: Node[];
-  categories: Category[];
   onCreated: (n: Node) => void;
   onUpdated: (n: Node) => void;
   onDeleted: (id: number) => void;
-  onCategoryCreated?: (cat: Category) => void;
 }) {
   const [form, setForm] = useState<NodeFormState>(emptyNode());
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [fillGeo, setFillGeo] = useState(false);
   const [mapImage, setMapImage] = useState<MapImage | null>(null);
-  const [categories, setCategories] = useState<Category[]>(categoriesProp);
-  const [newCatName, setNewCatName] = useState("");
-  const [showNewCat, setShowNewCat] = useState(false);
-  const [addingCat, setAddingCat] = useState(false);
-
-  useEffect(() => { setCategories(categoriesProp); }, [categoriesProp]);
-
-  const addCategory = async () => {
-    if (!newCatName.trim()) return;
-    setAddingCat(true);
-    try {
-      const cat = await api.categories.create({ name: newCatName.trim(), sort_order: 0, is_open_default: true });
-      setCategories((p) => [...p, cat]);
-      setForm((f) => ({ ...f, categoryId: cat.id }));
-      setNewCatName("");
-      setShowNewCat(false);
-      onCategoryCreated?.(cat);
-    } catch (e: any) {
-      setMsg({ type: "err", text: e.message });
-    } finally {
-      setAddingCat(false);
-    }
-  };
 
   useEffect(() => {
     api.mapImages.getActive().then(setMapImage).catch(() => setMapImage(null));
@@ -213,12 +184,10 @@ function NodeTab({
       const data: Partial<Node> = {
         name: form.name.trim(),
         description: form.description.trim(),
-        category_id: form.categoryId !== "" ? Number(form.categoryId) : null,
         x: Number(form.x),
         y: Number(form.y),
         lat: form.lat !== "" ? Number(form.lat) : null,
         lng: form.lng !== "" ? Number(form.lng) : null,
-        is_selectable: form.isSelectable,
         congestion_level: form.congestionLevel,
         wait_time: Number(form.waitTime) || 0,
       };
@@ -241,11 +210,10 @@ function NodeTab({
 
   const startEdit = (n: Node) => {
     setForm({
-      id: n.id, name: n.name, description: n.description, categoryId: n.category_id ?? "",
+      id: n.id, name: n.name, description: n.description,
       x: String(n.x), y: String(n.y),
       lat: n.lat != null ? String(n.lat) : "",
       lng: n.lng != null ? String(n.lng) : "",
-      isSelectable: n.is_selectable,
       congestionLevel: n.congestion_level,
       waitTime: String(n.wait_time),
     });
@@ -278,42 +246,9 @@ function NodeTab({
           <input value={form.name} onChange={set("name")} placeholder="例: 入口" />
         </div>
         <div className="adm-field">
-          <label>カテゴリ</label>
-          <div className="adm-cat-row">
-            <select
-              value={form.categoryId}
-              onChange={(e) => setForm((f) => ({ ...f, categoryId: Number(e.target.value) || "" }))}
-            >
-              <option value="">未設定</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <button type="button" className="btn-add-cat" onClick={() => setShowNewCat((v) => !v)}>
-              ＋
-            </button>
-          </div>
-          {showNewCat && (
-            <div className="adm-inline-cat-form">
-              <input
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                placeholder="カテゴリ名を入力"
-                onKeyDown={(e) => { if (e.key === "Enter") addCategory(); }}
-                autoFocus
-              />
-              <button type="button" onClick={addCategory} disabled={addingCat || !newCatName.trim()}>
-                {addingCat ? "追加中..." : "追加"}
-              </button>
-              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(""); }}>
-                キャンセル
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="adm-field">
           <label>説明</label>
           <textarea value={form.description} onChange={set("description")} placeholder="場所の説明など" rows={2} />
+          <p className="hint">説明・混雑度は、この地点が目的地の到達地点になったときにゴールカードや目的地カードに表示されます。カテゴリ・イベント・目的地としての表示は「目的地」タブで管理します。</p>
         </div>
 
         <div className="adm-section-label">
@@ -349,19 +284,7 @@ function NodeTab({
           {fillGeo ? "取得中..." : "現在地の座標を入力"}
         </button>
 
-        <div className="adm-field" style={{ marginTop: 12 }}>
-          <label className="adm-checkbox-label">
-            <input
-              type="checkbox"
-              checked={form.isSelectable}
-              onChange={(e) => setForm((f) => ({ ...f, isSelectable: e.target.checked }))}
-            />
-            目的地として表示する
-          </label>
-          <p className="hint">オフにすると目的地選択リストに表示されません（中継地点などに使用）</p>
-        </div>
-
-        <div className="adm-field-row">
+        <div className="adm-field-row" style={{ marginTop: 12 }}>
           <div className="adm-field">
             <label>混雑度</label>
             <select
@@ -432,10 +355,9 @@ function NodeTab({
           <table className="adm-table">
             <thead>
               <tr>
-                <th>名前</th><th>カテゴリ</th><th>説明</th>
+                <th>名前</th><th>説明</th>
                 <th>X</th><th>Y</th>
                 <th>緯度</th><th>経度</th>
-                <th>目的地</th>
                 <th>混雑度</th>
                 <th>待ち時間</th>
                 <th></th>
@@ -445,13 +367,11 @@ function NodeTab({
               {nodes.map((n) => (
                 <tr key={n.id} className={form.id === n.id ? "editing" : ""}>
                   <td><strong>{n.name}</strong></td>
-                  <td>{n.category?.name ?? <span className="text-muted">—</span>}</td>
                   <td className="text-muted">{n.description || "—"}</td>
                   <td className="num">{Math.round(n.x)}</td>
                   <td className="num">{Math.round(n.y)}</td>
                   <td className="num">{n.lat != null ? n.lat.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="num">{n.lng != null ? n.lng.toFixed(5) : <span className="text-muted">—</span>}</td>
-                  <td className="center">{n.is_selectable ? "✓" : <span className="text-muted">—</span>}</td>
                   <td className="center"><CongestionBadge level={n.congestion_level} /></td>
                   <td className="num">{n.wait_time > 0 ? `${n.wait_time}分` : <span className="text-muted">—</span>}</td>
                   <td className="adm-row-actions">
@@ -824,7 +744,7 @@ function SettingsTab() {
   const [showCafeteriaCongestion, setShowCafeteriaCongestion] = useState(true);
   const [showArButton, setShowArButton] = useState(true);
   const [defaultDestId, setDefaultDestId] = useState<number | null>(null);
-  const [nodes, setNodes] = useState<Node[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [mapImages, setMapImages] = useState<MapImage[]>([]);
@@ -837,8 +757,8 @@ function SettingsTab() {
     Promise.all([
       api.settings.get(),
       api.mapImages.list(),
-      api.nodes.list(),
-    ]).then(([s, imgs, ns]) => {
+      api.destinations.list(),
+    ]).then(([s, imgs, dests]) => {
       setOffset(s.map_north_offset);
       setRerouteVisibility(s.reroute_visibility);
       setRerouteIncident(s.reroute_incident);
@@ -849,8 +769,8 @@ function SettingsTab() {
       setCafeteriaCongestion(s.cafeteria_congestion ?? 0);
       setShowCafeteriaCongestion(s.show_cafeteria_congestion ?? true);
       setShowArButton(s.show_ar_button ?? true);
-      setDefaultDestId(s.default_dest_node_id ?? null);
-      setNodes(ns);
+      setDefaultDestId(s.default_destination_id ?? null);
+      setDestinations(dests);
       setMapImages(imgs);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -869,7 +789,7 @@ function SettingsTab() {
         show_cafeteria_congestion: showCafeteriaCongestion,
         show_ar_button: showArButton,
         survey_url: surveyUrl.trim(),
-        default_dest_node_id: defaultDestId,
+        default_destination_id: defaultDestId,
       });
       setMsg({ type: "ok", text: "設定を保存しました" });
     } catch (e: any) {
@@ -1014,11 +934,9 @@ function SettingsTab() {
             onChange={(e) => setDefaultDestId(Number(e.target.value) || null)}
           >
             <option value="">選択なし</option>
-            {nodes
-              .filter((n) => n.is_selectable)
-              .map((n) => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
+            {destinations.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
           </select>
         </div>
 
@@ -1493,7 +1411,7 @@ function CategoryTab() {
   };
 
   const del = async (id: number, name: string) => {
-    if (!window.confirm(`「${name}」を削除しますか？\n紐づくノードのカテゴリは未設定になります。`)) return;
+    if (!window.confirm(`「${name}」を削除しますか？\n紐づく目的地のカテゴリは未設定になります。`)) return;
     try {
       await api.categories.delete(id);
       setCategories((p) => p.filter((c) => c.id !== id));
@@ -1557,9 +1475,200 @@ function CategoryTab() {
 
 // ── Event Tab ────────────────────────────────────────────────────────────────
 
-function EventTab({ nodes }: { nodes: Node[] }) {
+function DestinationTab({
+  nodes,
+  categories: categoriesProp,
+  destinations,
+  onChange,
+  onCategoryCreated,
+}: {
+  nodes: Node[];
+  categories: Category[];
+  destinations: Destination[];
+  onChange: (destinations: Destination[]) => void;
+  onCategoryCreated?: (cat: Category) => void;
+}) {
+  const [categories, setCategories] = useState<Category[]>(categoriesProp);
+  useEffect(() => { setCategories(categoriesProp); }, [categoriesProp]);
+
+  const [id, setId] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [sortOrder, setSortOrder] = useState("0");
+  const [selectedNodeIds, setSelectedNodeIds] = useState<number[]>([]);
+  const [nodeFilter, setNodeFilter] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // カテゴリのインライン追加（ノードタブから目的地タブへ移設）
+  const [newCatName, setNewCatName] = useState("");
+  const [showNewCat, setShowNewCat] = useState(false);
+  const [addingCat, setAddingCat] = useState(false);
+
+  const reset = () => {
+    setId(null); setName(""); setCategoryId(""); setSortOrder("0");
+    setSelectedNodeIds([]); setNodeFilter("");
+  };
+
+  const addCategory = async () => {
+    if (!newCatName.trim()) return;
+    setAddingCat(true);
+    try {
+      const cat = await api.categories.create({ name: newCatName.trim(), sort_order: 0, is_open_default: true });
+      setCategories((p) => [...p, cat]);
+      setCategoryId(cat.id);
+      setNewCatName(""); setShowNewCat(false);
+      onCategoryCreated?.(cat);
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+    finally { setAddingCat(false); }
+  };
+
+  const toggleNode = (nid: number) =>
+    setSelectedNodeIds((prev) => prev.includes(nid) ? prev.filter((x) => x !== nid) : [...prev, nid]);
+
+  const startEdit = (d: Destination) => {
+    setId(d.id); setName(d.name);
+    setCategoryId(d.category_id ?? "");
+    setSortOrder(String(d.sort_order));
+    setSelectedNodeIds((d.nodes ?? []).map((n) => n.id));
+    setNodeFilter("");
+    setMsg(null);
+  };
+
+  const save = async () => {
+    if (!name.trim()) { setMsg({ type: "err", text: "名前は必須です" }); return; }
+    if (selectedNodeIds.length === 0) { setMsg({ type: "err", text: "所属ノードを1つ以上選択してください" }); return; }
+    setSaving(true);
+    try {
+      const data = {
+        name: name.trim(),
+        category_id: categoryId !== "" ? Number(categoryId) : null,
+        sort_order: Number(sortOrder) || 0,
+        node_ids: selectedNodeIds,
+      };
+      if (id) {
+        const updated = await api.destinations.update(id, data);
+        onChange(destinations.map((d) => d.id === id ? updated : d));
+        setMsg({ type: "ok", text: `「${updated.name}」を更新しました` });
+      } else {
+        const created = await api.destinations.create(data);
+        onChange([...destinations, created]);
+        setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
+      }
+      reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+    finally { setSaving(false); }
+  };
+
+  const del = async (destId: number, nm: string) => {
+    if (!window.confirm(`「${nm}」を削除しますか？`)) return;
+    try {
+      await api.destinations.delete(destId);
+      onChange(destinations.filter((d) => d.id !== destId));
+      if (id === destId) reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const nodeName = (nid: number) => nodes.find((n) => n.id === nid)?.name ?? `#${nid}`;
+  const filteredNodes = nodes.filter((n) => n.name.toLowerCase().includes(nodeFilter.toLowerCase()));
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>{id ? "目的地を編集" : "目的地を追加"}</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <p className="hint" style={{ marginBottom: 12 }}>
+          目的地は「行き先」の単位です。1つの目的地に複数のノードを登録でき、道案内では現在地から最も近いノードへ案内します。
+        </p>
+        <div className="adm-field">
+          <label>名前 <span className="req">*</span></label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 入口" />
+        </div>
+        <div className="adm-field">
+          <label>カテゴリ</label>
+          <div className="adm-cat-row">
+            <select value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value) || "")}>
+              <option value="">未設定</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button type="button" className="btn-add-cat" onClick={() => setShowNewCat((v) => !v)}>＋</button>
+          </div>
+          {showNewCat && (
+            <div className="adm-inline-cat-form">
+              <input value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="カテゴリ名を入力"
+                onKeyDown={(e) => { if (e.key === "Enter") addCategory(); }} autoFocus />
+              <button type="button" onClick={addCategory} disabled={addingCat || !newCatName.trim()}>
+                {addingCat ? "追加中..." : "追加"}
+              </button>
+              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(""); }}>キャンセル</button>
+            </div>
+          )}
+        </div>
+        <div className="adm-field">
+          <label>並び順（小さいほど先）</label>
+          <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="0" />
+        </div>
+        <div className="adm-field">
+          <label>所属ノード <span className="req">*</span></label>
+          <p className="hint">この目的地に含める地点（ノード）を選びます。複数選ぶと、現在地から最も近いノードが案内先になります。</p>
+          <input value={nodeFilter} onChange={(e) => setNodeFilter(e.target.value)} placeholder="ノード名で絞り込み" />
+          <div className="adm-node-checklist">
+            {nodes.length === 0 ? (
+              <p className="adm-empty">先に「ノード」タブで地点を登録してください</p>
+            ) : filteredNodes.length === 0 ? (
+              <p className="adm-empty">該当するノードがありません</p>
+            ) : (
+              filteredNodes.map((n) => (
+                <label key={n.id} className="adm-check-item">
+                  <input type="checkbox" checked={selectedNodeIds.includes(n.id)} onChange={() => toggleNode(n.id)} />
+                  <span>{n.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+          {selectedNodeIds.length > 0 && (
+            <p className="hint">選択中: {selectedNodeIds.map(nodeName).join("、")}</p>
+          )}
+        </div>
+        <div className="adm-actions" style={{ marginTop: 16 }}>
+          <button className="btn-primary" onClick={save} disabled={saving}>
+            {saving ? "保存中..." : id ? "更新" : "追加"}
+          </button>
+          {id && <button className="btn-secondary" onClick={() => { reset(); setMsg(null); }}>キャンセル</button>}
+        </div>
+      </div>
+
+      <div className="adm-list-col">
+        <h3>目的地一覧 <span className="count-badge">{destinations.length}</span></h3>
+        {destinations.length === 0 ? (
+          <p className="adm-empty">目的地がまだありません</p>
+        ) : (
+          <table className="adm-table">
+            <thead><tr><th>名前</th><th>カテゴリ</th><th>所属ノード</th><th>並び順</th><th></th></tr></thead>
+            <tbody>
+              {destinations.map((d) => (
+                <tr key={d.id} className={id === d.id ? "editing" : ""}>
+                  <td><strong>{d.name}</strong></td>
+                  <td>{d.category?.name ?? <span className="text-muted">—</span>}</td>
+                  <td>{d.nodes && d.nodes.length > 0 ? d.nodes.map((n) => n.name).join("、") : <span className="text-muted">—</span>}</td>
+                  <td className="num">{d.sort_order}</td>
+                  <td className="adm-row-actions">
+                    <button className="btn-edit" onClick={() => startEdit(d)}>編集</button>
+                    <button className="btn-del" onClick={() => del(d.id, d.name)}>削除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EventTab({ destinations }: { destinations: Destination[] }) {
   const [events, setEvents] = useState<Event[]>([]);
-  const [nodeId, setNodeId] = useState<number | "">("");
+  const [destinationId, setDestinationId] = useState<number | "">("");
   const [name, setName] = useState("");
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -1567,13 +1676,13 @@ function EventTab({ nodes }: { nodes: Node[] }) {
     api.events.list().then(setEvents).catch(() => {});
   }, []);
 
-  const nodeName = (id: number) => nodes.find((n) => n.id === id)?.name ?? `#${id}`;
+  const destName = (id: number) => destinations.find((d) => d.id === id)?.name ?? `#${id}`;
 
   const add = async () => {
-    if (nodeId === "") { setMsg({ type: "err", text: "地点を選択してください" }); return; }
+    if (destinationId === "") { setMsg({ type: "err", text: "目的地を選択してください" }); return; }
     if (!name.trim()) { setMsg({ type: "err", text: "イベント名は必須です" }); return; }
     try {
-      const created = await api.events.create({ node_id: Number(nodeId), name: name.trim() });
+      const created = await api.events.create({ destination_id: Number(destinationId), name: name.trim() });
       setEvents((p) => [...p, created]);
       setName("");
       setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
@@ -1594,13 +1703,13 @@ function EventTab({ nodes }: { nodes: Node[] }) {
         <h3>イベントを追加</h3>
         {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
         <p className="hint" style={{ marginBottom: 12 }}>
-          地点で開催されるイベント名を登録すると、目的地選択画面のその地点カードにオレンジ色で流れて表示されます。
+          目的地で開催されるイベント名を登録すると、目的地選択画面のその目的地カードにオレンジ色で流れて表示されます。
         </p>
         <div className="adm-field">
-          <label>地点（目的地ノード） <span className="req">*</span></label>
-          <select value={nodeId} onChange={(e) => setNodeId(Number(e.target.value) || "")}>
+          <label>目的地 <span className="req">*</span></label>
+          <select value={destinationId} onChange={(e) => setDestinationId(Number(e.target.value) || "")}>
             <option value="">選択してください</option>
-            {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+            {destinations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div className="adm-field">
@@ -1623,11 +1732,11 @@ function EventTab({ nodes }: { nodes: Node[] }) {
           <p className="adm-empty">イベントがまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>地点</th><th>イベント名</th><th></th></tr></thead>
+            <thead><tr><th>目的地</th><th>イベント名</th><th></th></tr></thead>
             <tbody>
               {events.map((ev) => (
                 <tr key={ev.id}>
-                  <td>{nodeName(ev.node_id)}</td>
+                  <td>{ev.destination_id != null ? destName(ev.destination_id) : <span className="text-muted">—</span>}</td>
                   <td><strong>{ev.name}</strong></td>
                   <td className="adm-row-actions">
                     <button className="btn-del" onClick={() => del(ev.id, ev.name)}>削除</button>
@@ -2453,14 +2562,17 @@ export const AdminPage: React.FC<Props> = ({
 }) => {
   const [tab, setTab] = useState<Tab>("node");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch(() => {});
+    api.destinations.list().then(setDestinations).catch(() => {});
   }, []);
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: "node", label: "ノード", badge: nodes.length },
+    { key: "destination", label: "目的地", badge: destinations.length },
     { key: "link", label: "リンク", badge: links.length },
     { key: "detour", label: "寄り道" },
     { key: "photo", label: "写真" },
@@ -2515,11 +2627,9 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "node" && (
           <NodeTab
             nodes={nodes}
-            categories={categories}
             onCreated={onNodeCreated}
             onUpdated={onNodeUpdated}
             onDeleted={onNodeDeleted}
-            onCategoryCreated={(cat) => setCategories((p) => [...p, cat])}
           />
         )}
         {tab === "link" && (
@@ -2540,9 +2650,18 @@ export const AdminPage: React.FC<Props> = ({
             onReordered={onPhotoReordered}
           />
         )}
+        {tab === "destination" && (
+          <DestinationTab
+            nodes={nodes}
+            categories={categories}
+            destinations={destinations}
+            onChange={setDestinations}
+            onCategoryCreated={(cat) => setCategories((p) => [...p, cat])}
+          />
+        )}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
-        {tab === "event" && <EventTab nodes={nodes} />}
+        {tab === "event" && <EventTab destinations={destinations} />}
         {tab === "users" && <UsersTab nodes={nodes} />}
         {tab === "logs" && <LogsTab />}
         {tab === "ar" && <ARFeatureTab nodes={nodes} />}

@@ -13,8 +13,6 @@ import (
 func ListNodes(c *gin.Context) {
 	var nodes []models.Node
 	database.DB.
-		Preload("Category").
-		Preload("Events", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc").Order("id asc") }).
 		Preload("Photos", func(db *gorm.DB) *gorm.DB { return db.Order("created_at desc").Order("id desc") }).
 		Find(&nodes)
 	c.JSON(http.StatusOK, nodes)
@@ -24,7 +22,6 @@ func GetNode(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var node models.Node
 	if err := database.DB.
-		Preload("Category").
 		Preload("Photos", func(db *gorm.DB) *gorm.DB { return db.Order("created_at desc").Order("id desc") }).
 		First(&node, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
@@ -85,8 +82,8 @@ func DeleteNode(c *gin.Context) {
 		if err := tx.Model(&models.ARFeature{}).Where("viewpoint_node_id = ?", nid).Update("viewpoint_node_id", nil).Error; err != nil {
 			return err
 		}
-		// この地点のイベント
-		if err := tx.Where("node_id = ?", nid).Delete(&models.Event{}).Error; err != nil {
+		// 目的地への所属（多対多）を解除。目的地レコード自体は残す。
+		if err := tx.Exec("DELETE FROM destination_nodes WHERE node_id = ?", nid).Error; err != nil {
 			return err
 		}
 		// ノード本体

@@ -9,7 +9,7 @@ import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
 import { useUser } from "./hooks/useUser";
 import { armCompassAutoRequest } from "./hooks/useCompass";
-import { Announcement, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
+import { Announcement, Destination, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import "./index.css";
 
 // /admin パスかどうかで表示を切り替える
@@ -86,6 +86,7 @@ function UserApp() {
   useUser();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [nodeDetours, setNodeDetours] = useState<NodeDetour[]>([]);
   // 初期画面は URL から決める。ただし route はルートデータが無いと表示できないため、
   // コールドロードで /route を開いた場合は home にフォールバックする。
@@ -106,12 +107,12 @@ function UserApp() {
     reroute_congestion: true, reroute_other: true,
     stamp_url: "", cafeteria_congestion: 0,
     show_cafeteria_congestion: true, show_ar_button: true,
-    survey_url: "", default_dest_node_id: null,
+    survey_url: "", default_destination_id: null,
   });
 
   useEffect(() => {
-    Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list()])
-      .then(([n, l, d]) => { setNodes(n); setLinks(l); setNodeDetours(d); })
+    Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list(), api.destinations.list()])
+      .then(([n, l, d, dest]) => { setNodes(n); setLinks(l); setNodeDetours(d); setDestinations(dest); })
       .catch((e) => setLoadError(e.message));
   }, []);
 
@@ -240,6 +241,7 @@ function UserApp() {
         <HomePage
           nodes={nodes}
           links={links}
+          destinations={destinations}
           nodeDetours={nodeDetours}
           settings={settings}
           surveyUrl={settings.survey_url}

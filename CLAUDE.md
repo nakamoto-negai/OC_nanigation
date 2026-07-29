@@ -91,13 +91,20 @@ docker compose up -d --build
 
 | モデル | 内容 |
 |---|---|
-| `Node` | 地点。名前・説明・マップ座標(x,y)・GPS座標(lat,lng) |
+| `Node` | 地点。名前・説明・マップ座標(x,y)・GPS座標(lat,lng)・混雑度・待ち時間。中継地点も含む純粋な地図上の点 |
+| `Destination` | 目的地。ユーザーが選ぶ「行き先」の単位。1つの目的地に複数ノードを多対多(`destination_nodes`)で登録でき、経路案内では現在地から最も近い所属ノードへ案内する。カテゴリ・イベントは目的地に紐づく |
+| `Category` | 目的地のカテゴリ。目的地選択画面のグループ見出しに使う |
+| `Event` | 目的地で開催されるイベント。`destination_id` で目的地に紐づく |
 | `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚 |
 | `Photo` | リンクに紐付く写真。sort_order で順序管理 |
 | `NodePhoto` | 地点（ノード）に紐付く写真。管理者が管理画面で登録し、道案内のゴールカードにユーザー閲覧専用で表示される |
-| `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用） |
+| `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用）・default_destination_id（初期目的地）・destinations_migrated（移行フラグ） |
 | `MapImage` | マップ背景画像。is_active フラグで1枚を選択 |
 | `User` | ブラウザ初回起動時に自動登録。device_id (UUID) で識別 |
+
+**目的地モデルへの移行**: 旧スキーマでは `Node.is_selectable` で目的地を管理し、カテゴリ・イベントもノードに紐づいていた。`backend/database/db.go` の `migrateToDestinations` が起動時に一度だけ、`is_selectable=true` の各ノードを「1ノードだけを持つ目的地」に変換し、カテゴリ・イベント・デフォルト目的地設定を引き継ぐ（`Setting.destinations_migrated` で冪等化）。移行後は旧カラム（`nodes.is_selectable`/`nodes.category_id`/`events.node_id`/`settings.default_dest_node_id`）を削除する。
+
+**経路計算**: バックエンドに経路APIは無く、フロントの `frontend/src/utils/dijkstra.ts` がクライアント側で計算する。`calcRouteToNodes(nodes, links, start, goalIds[])` は複数のゴール候補（目的地の所属ノード）のうち最寄りへの経路を返す（`calcRoute` は単一ゴールの後方互換ラッパー）。
 
 ### ルーティング（`backend/main.go`）
 
@@ -112,7 +119,9 @@ docker compose up -d --build
 /api/photos         POST
 /api/photos/:id     DELETE
 /api/photos/reorder PUT
-/api/route          POST  — Dijkstra最短経路計算
+/api/destinations       GET          — 目的地一覧（公開）
+/api/destinations       POST         — 目的地登録（管理者のみ。node_ids で所属ノードを指定）
+/api/destinations/:id   PUT/DELETE   — 目的地更新・削除（管理者のみ）
 /api/settings       GET/PUT
 /api/users/register POST
 /api/users          GET

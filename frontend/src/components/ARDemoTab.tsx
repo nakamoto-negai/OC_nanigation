@@ -44,8 +44,9 @@ export function ARDemoTab({ nodes }: { nodes: Node[] }) {
   // 道案内ARと同じ矢印を出すためのコンパス（許可・heading は共有シングルトン）
   const compass = useCompass();
 
-  // デモ画面の「現在地／目的地」選択の見た目用（実際の経路計算はしない）
-  const selectable = useMemo(() => nodes.filter((n) => n.is_selectable), [nodes]);
+  // デモ画面の「現在地／目的地」選択の見た目用（実際の経路計算はしない）。
+  // 目的地モデル化に伴い is_selectable は廃止したため、ここでは全ノードを候補にする。
+  const selectable = useMemo(() => nodes, [nodes]);
   const [demoStartId, setDemoStartId] = useState<number | "">("");
   const [demoDestId, setDemoDestId] = useState<number | "">("");
   useEffect(() => {

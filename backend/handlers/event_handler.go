@@ -9,12 +9,12 @@ import (
 	"github.com/oc-navigation/backend/models"
 )
 
-// ListEvents はイベント一覧を返す。?node_id=N でそのノードのイベントだけに絞り込む。
+// ListEvents はイベント一覧を返す。?destination_id=N でその目的地のイベントだけに絞り込む。
 func ListEvents(c *gin.Context) {
 	q := database.DB.Order("sort_order asc").Order("id asc")
-	if nid := c.Query("node_id"); nid != "" {
-		if v, err := strconv.Atoi(nid); err == nil && v > 0 {
-			q = q.Where("node_id = ?", v)
+	if did := c.Query("destination_id"); did != "" {
+		if v, err := strconv.Atoi(did); err == nil && v > 0 {
+			q = q.Where("destination_id = ?", v)
 		}
 	}
 	var events []models.Event
@@ -28,8 +28,8 @@ func CreateEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if event.NodeID == 0 || event.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "node_id と name は必須です"})
+	if event.DestinationID == nil || *event.DestinationID == 0 || event.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "destination_id と name は必須です"})
 		return
 	}
 	if err := database.DB.Create(&event).Error; err != nil {

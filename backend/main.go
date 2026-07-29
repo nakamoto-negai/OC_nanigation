@@ -49,6 +49,7 @@ func main() {
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 	api.GET("/node-detours", handlers.ListNodeDetours)
 	api.GET("/categories", handlers.ListCategories)
+	api.GET("/destinations", handlers.ListDestinations)
 	api.GET("/ar-features/matchset", handlers.ListARFeaturesForMatch)
 	api.GET("/ar-objects", handlers.ListARObjects)
 	api.GET("/survey", handlers.GetSurvey)
@@ -112,6 +113,10 @@ func main() {
 		admin.POST("/categories", handlers.CreateCategory)
 		admin.PUT("/categories/:id", handlers.UpdateCategory)
 		admin.DELETE("/categories/:id", handlers.DeleteCategory)
+
+		admin.POST("/destinations", handlers.CreateDestination)
+		admin.PUT("/destinations/:id", handlers.UpdateDestination)
+		admin.DELETE("/destinations/:id", handlers.DeleteDestination)
 
 		admin.POST("/events", handlers.CreateEvent)
 		admin.PUT("/events/:id", handlers.UpdateEvent)

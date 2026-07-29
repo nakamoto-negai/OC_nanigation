@@ -1,4 +1,4 @@
-import { Announcement, ARFeature, ARObject, Category, DemoOverlay, Event, Link, MapImage, Node, NodeDetour, NodePhoto, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ARFeature, ARObject, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, NodePhoto, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -108,14 +108,23 @@ export const api = {
       adminReq<void>(`/api/categories/${id}`, { method: "DELETE" }),
   },
   events: {
-    list: (nodeId?: number) =>
-      req<Event[]>(`/api/events${nodeId ? `?node_id=${nodeId}` : ""}`),
-    create: (data: { node_id: number; name: string; sort_order?: number }) =>
+    list: (destinationId?: number) =>
+      req<Event[]>(`/api/events${destinationId ? `?destination_id=${destinationId}` : ""}`),
+    create: (data: { destination_id: number; name: string; sort_order?: number }) =>
       adminReq<Event>("/api/events", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<Event>) =>
       adminReq<Event>(`/api/events/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/events/${id}`, { method: "DELETE" }),
+  },
+  destinations: {
+    list: () => req<Destination[]>("/api/destinations"),
+    create: (data: { name: string; category_id?: number | null; sort_order?: number; node_ids?: number[] }) =>
+      adminReq<Destination>("/api/destinations", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { name: string; category_id?: number | null; sort_order?: number; node_ids?: number[] }) =>
+      adminReq<Destination>(`/api/destinations/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      adminReq<void>(`/api/destinations/${id}`, { method: "DELETE" }),
   },
   nodeDetours: {
     list: () => req<NodeDetour[]>("/api/node-detours"),
