@@ -18,10 +18,8 @@ type Node struct {
 	Lng             *float64 `json:"lng"`
 	CongestionLevel int      `json:"congestion_level" gorm:"not null;default:0"`
 	WaitTime        int      `json:"wait_time" gorm:"not null;default:0"`
-	// この地点に紐づく写真（ゴールカードで到着者が登録する到着記念写真）
-	Photos    []NodePhoto `json:"photos" gorm:"foreignKey:NodeID;constraint:OnDelete:CASCADE"`
-	CreatedAt time.Time   `json:"created_at"`
-	UpdatedAt time.Time   `json:"updated_at"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // NodeDetour はノード同士の寄り道提案ペアリングを管理する中間テーブル。

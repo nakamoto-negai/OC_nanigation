@@ -1,42 +1,43 @@
 import React, { useEffect, useRef, useState } from "react";
-import { NodePhoto } from "../types";
+import { ArrivalPhoto } from "../types";
 import { api } from "../api/client";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 interface Props {
-  /** 対象ノードID */
-  nodeId: number;
+  /** 対象リンクID */
+  linkId: number;
   /** 親が持っている写真（あれば初期表示に使う） */
-  initialPhotos?: NodePhoto[];
-  /** 写真一覧が変わったとき親のノード状態を同期するためのコールバック */
-  onChange?: (photos: NodePhoto[]) => void;
+  initialPhotos?: ArrivalPhoto[];
+  /** 写真一覧が変わったとき親のリンク状態を同期するためのコールバック */
+  onChange?: (photos: ArrivalPhoto[]) => void;
 }
 
 /**
- * 管理画面のノード編集で、その地点(ノード)の写真を登録・削除する。
- * ここで登録した写真は、ユーザーの道案内ゴールカードに閲覧専用で表示される。
+ * 管理画面のリンク（写真タブ）で、そのリンクの「到着地点の写真」を登録・削除する。
+ * ここで登録した写真は、道案内の「到着地点を確認する」でユーザーに閲覧専用で表示される。
+ * リンクの道中スライダー写真（Photo）とは別系統。
  */
-export const NodePhotoManager: React.FC<Props> = ({ nodeId, initialPhotos, onChange }) => {
-  const [photos, setPhotos] = useState<NodePhoto[]>(initialPhotos ?? []);
+export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, onChange }) => {
+  const [photos, setPhotos] = useState<ArrivalPhoto[]>(initialPhotos ?? []);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // 編集対象ノードが切り替わったら、そのノードの写真を読み直す
+  // 対象リンクが切り替わったら、そのリンクの写真を読み直す
   useEffect(() => {
     let cancelled = false;
     setPhotos(initialPhotos ?? []);
-    api.nodePhotos
-      .list(nodeId)
+    api.arrivalPhotos
+      .list(linkId)
       .then((ps) => { if (!cancelled) { setPhotos(ps); onChange?.(ps); } })
       .catch(() => { /* 取得失敗時は初期値のまま */ });
     return () => { cancelled = true; };
-    // nodeId が変わったときだけ読み直す（initialPhotos は初回のみ）
+    // linkId が変わったときだけ読み直す（initialPhotos は初回のみ）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeId]);
+  }, [linkId]);
 
-  const apply = (next: NodePhoto[]) => {
+  const apply = (next: ArrivalPhoto[]) => {
     setPhotos(next);
     onChange?.(next);
   };
@@ -47,14 +48,14 @@ export const NodePhotoManager: React.FC<Props> = ({ nodeId, initialPhotos, onCha
     setUploading(true);
     setMsg(null);
     try {
-      const added: NodePhoto[] = [];
+      const added: ArrivalPhoto[] = [];
       for (const file of files) {
         const form = new FormData();
-        form.append("photo", file, file.name || "node.jpg");
-        form.append("node_id", String(nodeId));
-        added.push(await api.nodePhotos.upload(form));
+        form.append("photo", file, file.name || "arrival.jpg");
+        form.append("link_id", String(linkId));
+        added.push(await api.arrivalPhotos.upload(form));
       }
-      apply([...added, ...photos]);
+      apply([...photos, ...added]);
       setMsg({ type: "ok", text: `${added.length}枚アップロードしました` });
     } catch {
       setMsg({ type: "err", text: "アップロードに失敗しました" });
@@ -67,7 +68,7 @@ export const NodePhotoManager: React.FC<Props> = ({ nodeId, initialPhotos, onCha
   const del = async (id: number) => {
     if (!window.confirm("この写真を削除しますか？")) return;
     try {
-      await api.nodePhotos.delete(id);
+      await api.arrivalPhotos.delete(id);
       apply(photos.filter((p) => p.id !== id));
     } catch {
       setMsg({ type: "err", text: "削除に失敗しました" });
@@ -75,10 +76,10 @@ export const NodePhotoManager: React.FC<Props> = ({ nodeId, initialPhotos, onCha
   };
 
   return (
-    <div className="adm-field" style={{ marginTop: 12 }}>
+    <div className="adm-field" style={{ marginTop: 20 }}>
       <div className="adm-section-label">
         到着地点の写真
-        <span className="adm-section-sub">道案内のゴールカードに表示されます</span>
+        <span className="adm-section-sub">「到着地点を確認する」で表示されます</span>
       </div>
 
       {msg && (
@@ -119,7 +120,7 @@ export const NodePhotoManager: React.FC<Props> = ({ nodeId, initialPhotos, onCha
         disabled={uploading}
         onClick={() => fileRef.current?.click()}
       >
-        {uploading ? "アップロード中..." : "写真を追加"}
+        {uploading ? "アップロード中..." : "到着地点の写真を追加"}
       </button>
     </div>
   );

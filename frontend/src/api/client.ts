@@ -1,4 +1,4 @@
-import { Announcement, ARFeature, ARObject, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, NodePhoto, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ArrivalPhoto, ARFeature, ARObject, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -62,16 +62,16 @@ export const api = {
         body: JSON.stringify({ orders }),
       }),
   },
-  // 到着地点の写真（ノードに紐づく写真）。閲覧は公開、登録・削除は管理者のみ。
-  nodePhotos: {
-    list: (nodeId: number) => req<NodePhoto[]>(`/api/nodes/${nodeId}/photos`),
+  // 到着地点の写真（リンクに紐づく写真）。閲覧は公開、登録・削除は管理者のみ。
+  arrivalPhotos: {
+    list: (linkId: number) => req<ArrivalPhoto[]>(`/api/links/${linkId}/arrival-photos`),
     upload: (form: FormData) =>
-      adminFetch("/api/node-photos", { method: "POST", body: form }).then((r) => {
+      adminFetch("/api/arrival-photos", { method: "POST", body: form }).then((r) => {
         if (!r.ok) throw new Error("upload failed");
-        return r.json() as Promise<NodePhoto>;
+        return r.json() as Promise<ArrivalPhoto>;
       }),
     delete: (id: number) =>
-      adminReq<void>(`/api/node-photos/${id}`, { method: "DELETE" }),
+      adminReq<void>(`/api/arrival-photos/${id}`, { method: "DELETE" }),
   },
   settings: {
     get: () => req<Setting>("/api/settings"),

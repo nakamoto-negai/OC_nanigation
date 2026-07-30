@@ -12,6 +12,8 @@ type Link struct {
 	ToNode        *Node     `json:"to_node,omitempty" gorm:"foreignKey:ToNodeID"`
 	Distance      float64   `json:"distance" gorm:"not null;default:1"`
 	Photos        []Photo   `json:"photos" gorm:"foreignKey:LinkID;constraint:OnDelete:CASCADE"`
+	// 到着地点の写真（「到着地点を確認する」で表示。道中スライダーの Photos とは別系統）
+	ArrivalPhotos []ArrivalPhoto `json:"arrival_photos" gorm:"foreignKey:LinkID;constraint:OnDelete:CASCADE"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

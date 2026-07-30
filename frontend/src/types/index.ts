@@ -18,7 +18,7 @@ export interface Event {
 
 // 目的地。1つの目的地に複数のノード（地点）を多対多で登録でき、
 // 経路案内では現在地から最も近い所属ノードが自動選択される。
-// カテゴリ・イベントは目的地に紐づく。説明・混雑度・到着写真はノード側が持つ。
+// カテゴリ・イベントは目的地に紐づく。説明・混雑度はノード側が持つ。
 export interface Destination {
   id: number;
   name: string;
@@ -31,15 +31,6 @@ export interface Destination {
   updated_at: string;
 }
 
-export interface NodePhoto {
-  id: number;
-  node_id: number;
-  sort_order: number;
-  url: string;
-  caption: string;
-  created_at: string;
-}
-
 export interface Node {
   id: number;
   name: string;
@@ -50,12 +41,21 @@ export interface Node {
   lng: number | null;
   congestion_level: number;
   wait_time: number;
-  photos?: NodePhoto[];
   created_at: string;
   updated_at: string;
 }
 
 export interface Photo {
+  id: number;
+  link_id: number;
+  sort_order: number;
+  url: string;
+  caption: string;
+  created_at: string;
+}
+
+// リンクに紐づく到着地点の写真（「到着地点を確認する」で表示）。道中スライダーの Photo とは別系統。
+export interface ArrivalPhoto {
   id: number;
   link_id: number;
   sort_order: number;
@@ -74,6 +74,7 @@ export interface Link {
   to_node?: Node;
   distance: number;
   photos: Photo[];
+  arrival_photos?: ArrivalPhoto[];
   created_at: string;
   updated_at: string;
 }

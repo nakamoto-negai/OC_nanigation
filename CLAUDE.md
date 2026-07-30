@@ -96,8 +96,8 @@ docker compose up -d --build
 | `Category` | 目的地のカテゴリ。目的地選択画面のグループ見出しに使う |
 | `Event` | 目的地で開催されるイベント。`destination_id` で目的地に紐づく |
 | `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚 |
-| `Photo` | リンクに紐付く写真。sort_order で順序管理 |
-| `NodePhoto` | 地点（ノード）に紐付く写真。管理者が管理画面で登録し、道案内のゴールカードにユーザー閲覧専用で表示される |
+| `Photo` | リンクに紐付く道中写真。道案内中のスライダー表示に使う。sort_order で順序管理 |
+| `ArrivalPhoto` | リンクに紐付く「到着地点の写真」。管理者が写真タブでリンクごとに登録し、道案内の「到着地点を確認する」でユーザー閲覧専用に表示される（道中の Photo とは別系統） |
 | `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用）・default_destination_id（初期目的地）・destinations_migrated（移行フラグ） |
 | `MapImage` | マップ背景画像。is_active フラグで1枚を選択 |
 | `User` | ブラウザ初回起動時に自動登録。device_id (UUID) で識別 |
@@ -111,11 +111,11 @@ docker compose up -d --build
 ```
 /api/nodes          GET/POST
 /api/nodes/:id      GET/PUT/DELETE
-/api/nodes/:id/photos  GET     — ノードの到着地点写真一覧（公開・閲覧のみ）
-/api/node-photos    POST        — ノードに写真登録（管理者のみ）
-/api/node-photos/:id DELETE     — ノード写真削除（管理者のみ）
 /api/links          GET/POST
 /api/links/:id      GET/PUT/DELETE
+/api/links/:id/arrival-photos  GET   — リンクの到着地点写真一覧（公開・閲覧のみ）
+/api/arrival-photos       POST       — リンクに到着地点写真を登録（管理者のみ）
+/api/arrival-photos/:id   DELETE     — 到着地点写真を削除（管理者のみ）
 /api/photos         POST
 /api/photos/:id     DELETE
 /api/photos/reorder PUT

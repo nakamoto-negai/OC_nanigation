@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { RouteStepDetail } from "../types";
 import { CompassPermission } from "../hooks/useCompass";
 import { gpsBearing, mapBearing, angleDiff } from "../utils/bearing";
-import { GoalPhotoGallery } from "./GoalPhotoGallery";
+import { ArrivalPhotoGallery } from "./ArrivalPhotoGallery";
 
 interface Props {
   step: RouteStepDetail;
@@ -205,10 +205,10 @@ export const ARNavGuide: React.FC<Props> = ({
               </button>
             </div>
             <div className="arnav-arrival-scroll">
-              <GoalPhotoGallery
-                nodeId={step.to_node.id}
-                initialPhotos={step.to_node.photos}
-                emptyText="この地点の写真はまだ登録されていません"
+              <ArrivalPhotoGallery
+                linkId={step.link.id}
+                initialPhotos={step.link.arrival_photos}
+                emptyText="このリンクの到着地点写真はまだ登録されていません"
               />
             </div>
           </div>

@@ -14,9 +14,14 @@ func photosOrdered(db *gorm.DB) *gorm.DB {
 	return db.Order("sort_order asc")
 }
 
+func arrivalPhotosOrdered(db *gorm.DB) *gorm.DB {
+	return db.Order("sort_order asc")
+}
+
 func ListLinks(c *gin.Context) {
 	var links []models.Link
 	database.DB.Preload("Photos", photosOrdered).
+		Preload("ArrivalPhotos", arrivalPhotosOrdered).
 		Preload("FromNode").Preload("ToNode").
 		Find(&links)
 	c.JSON(http.StatusOK, links)
@@ -26,6 +31,7 @@ func GetLink(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var link models.Link
 	if err := database.DB.Preload("Photos", photosOrdered).
+		Preload("ArrivalPhotos", arrivalPhotosOrdered).
 		Preload("FromNode").Preload("ToNode").
 		First(&link, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})

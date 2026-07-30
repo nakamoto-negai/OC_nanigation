@@ -6,7 +6,7 @@ import { getDeviceId } from "../hooks/useUser";
 import { ARRecognizer } from "./ARRecognizer";
 import { ARDemoTab } from "./ARDemoTab";
 import { AnnouncementTab } from "./AnnouncementTab";
-import { NodePhotoManager } from "./NodePhotoManager";
+import { ArrivalPhotoManager } from "./ArrivalPhotoManager";
 import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
 interface Props {
@@ -309,17 +309,6 @@ function NodeTab({
             />
           </div>
         </div>
-
-        {form.id != null && (
-          <NodePhotoManager
-            nodeId={form.id}
-            initialPhotos={nodes.find((n) => n.id === form.id)?.photos}
-            onChange={(photos) => {
-              const node = nodes.find((n) => n.id === form.id);
-              if (node) onUpdated({ ...node, photos });
-            }}
-          />
-        )}
 
         <div className="adm-actions" style={{ marginTop: 16 }}>
           <button className="btn-primary" onClick={save} disabled={saving}>
@@ -696,6 +685,11 @@ function PhotoTab({
             {uploading ? "アップロード中..." : "アップロード"}
           </button>
         </div>
+
+        {/* 到着地点の写真（このリンクに紐づく。「到着地点を確認する」で表示） */}
+        {selectedLink && (
+          <ArrivalPhotoManager linkId={selectedLink.id} initialPhotos={selectedLink.arrival_photos} />
+        )}
       </div>
 
       <div className="adm-list-col">
