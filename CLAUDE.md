@@ -90,7 +90,7 @@ docker compose up -d --build
 ### 認証・ロール（`backend/middleware/auth.go`）
 パスワードから HMAC トークンを作る方式。ログイン（`POST /api/admin/login`）は `{token, role}` を返す。2ロール:
 - **admin**（`ADMIN_PASSWORD`、既定 "admin"）… 全機能。`middleware.AdminAuth()` で保護。
-- **cafeteria**（`CAFETERIA_PASSWORD`、既定 "cafeteria"）… 食堂の混雑度だけ編集可。`middleware.CafeteriaAuth()`（admin トークンも許可）で保護された `PUT /api/cafeteria-congestion` のみ使える。
+- **cafeteria**（`CAFETERIA_PASSWORD`、既定 "cafeteria"）… 食堂の混雑度だけ編集可。`middleware.CafeteriaAuth()`（admin トークンも許可）で保護された `PUT /api/cafeterias/:id/congestion` のみ使える（食堂の追加・削除・改名は不可＝管理者専用）。
 
 フロントは `localStorage["admin_role"]` を見て、cafeteria なら食堂混雑度専用画面（`CafeteriaPage`）、admin なら通常の `AdminPage` を表示する（`App.tsx` の `AdminApp`）。
 
@@ -106,7 +106,8 @@ docker compose up -d --build
 | `Photo` | リンクに紐付く道中写真。道案内中のスライダー表示に使う。sort_order で順序管理 |
 | `ArrivalPhoto` | リンクに紐付く「到着地点の写真」。管理者が写真タブでリンクごとに登録し、道案内の「到着地点を確認する」でユーザー閲覧専用に表示される（道中の Photo とは別系統）。合成エディタで合成後は同レコードを上書き（PUT で URL 差し替え） |
 | `OverlayImage` | 到着写真に重ねる「合成用写真」（ステッカー等）。管理画面「合成素材」タブで事前登録し、写真タブの各到着写真の「合成」ボタンからブラウザ側 canvas で合成→1枚に平坦化して上書き保存する |
-| `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用）・default_destination_id（初期目的地）・destinations_migrated（移行フラグ） |
+| `Cafeteria` | 食堂。管理画面「食堂」タブから複数登録でき、それぞれ名前・混雑度(0〜4)・並び順を持つ。ヘッダーに名前＋混雑度バッジで表示。混雑度は食堂編集用アカウント(/cafeteria)からも更新できる |
+| `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用）・default_destination_id（初期目的地）・show_cafeteria_congestion（食堂表示ON/OFF）・destinations_migrated / cafeterias_migrated（移行フラグ）。※旧 cafeteria_congestion（単一値）は Cafeteria へ移行し削除済み |
 | `MapImage` | マップ背景画像。is_active フラグで1枚を選択 |
 | `User` | ブラウザ初回起動時に自動登録。device_id (UUID) で識別 |
 
@@ -134,7 +135,10 @@ docker compose up -d --build
 /api/destinations       POST         — 目的地登録（管理者のみ。node_ids で所属ノードを指定）
 /api/destinations/:id   PUT/DELETE   — 目的地更新・削除（管理者のみ）
 /api/settings       GET/PUT
-/api/cafeteria-congestion  PUT   — 食堂の混雑度だけを更新（食堂編集用アカウント or 管理者）
+/api/cafeterias                 GET          — 食堂一覧（公開・ヘッダー表示用）
+/api/cafeterias                 POST         — 食堂登録（管理者のみ）
+/api/cafeterias/:id             PUT/DELETE   — 食堂の更新・削除（管理者のみ）
+/api/cafeterias/:id/congestion  PUT          — 食堂の混雑度だけを更新（食堂編集用アカウント or 管理者）
 /api/users/register POST
 /api/users          GET
 /api/map-images     GET/POST

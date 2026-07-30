@@ -45,8 +45,10 @@ func main() {
 	api.GET("/links/:id/arrival-photos", handlers.ListArrivalPhotos)
 	api.GET("/links/:id", handlers.GetLink)
 	api.GET("/settings", handlers.GetSettings)
+	// 食堂一覧（ヘッダー表示のため公開）
+	api.GET("/cafeterias", handlers.ListCafeterias)
 	// 食堂の混雑度だけを更新する限定エンドポイント（食堂編集用アカウント or 管理者）
-	api.PUT("/cafeteria-congestion", middleware.CafeteriaAuth(), handlers.UpdateCafeteriaCongestion)
+	api.PUT("/cafeterias/:id/congestion", middleware.CafeteriaAuth(), handlers.UpdateCafeteriaCongestion)
 	api.POST("/users/register", handlers.RegisterUser)
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 	api.GET("/node-detours", handlers.ListNodeDetours)
@@ -121,6 +123,11 @@ func main() {
 		admin.POST("/categories", handlers.CreateCategory)
 		admin.PUT("/categories/:id", handlers.UpdateCategory)
 		admin.DELETE("/categories/:id", handlers.DeleteCategory)
+
+		// 食堂の登録・編集・削除（管理者のみ）。混雑度だけの更新は上の限定エンドポイント。
+		admin.POST("/cafeterias", handlers.CreateCafeteria)
+		admin.PUT("/cafeterias/:id", handlers.UpdateCafeteria)
+		admin.DELETE("/cafeterias/:id", handlers.DeleteCafeteria)
 
 		admin.POST("/destinations", handlers.CreateDestination)
 		admin.PUT("/destinations/:id", handlers.UpdateDestination)

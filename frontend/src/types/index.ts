@@ -100,6 +100,17 @@ export interface RouteResponse {
   total_distance: number;
 }
 
+// 食堂。管理画面から複数登録でき、それぞれ混雑度を持つ。
+// congestion_level: 0=不明, 1=空き, 2=普通, 3=混雑, 4=大混雑
+export interface Cafeteria {
+  id: number;
+  name: string;
+  congestion_level: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Setting {
   id: number;
   map_north_offset: number;
@@ -108,7 +119,6 @@ export interface Setting {
   reroute_congestion: boolean;
   reroute_other: boolean;
   stamp_url: string;
-  cafeteria_congestion: number;
   show_cafeteria_congestion: boolean;
   show_ar_button: boolean;
   survey_url: string;

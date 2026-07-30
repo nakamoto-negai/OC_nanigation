@@ -1,4 +1,4 @@
-import { Announcement, ArrivalPhoto, ARFeature, ARObject, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -257,12 +257,20 @@ export const api = {
     login: (password: string) =>
       req<{ token: string; role: string }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) }),
   },
-  // 食堂の混雑度だけを更新する限定API（食堂編集用アカウント or 管理者トークンで利用）。
-  cafeteria: {
-    updateCongestion: (level: number) =>
-      adminReq<{ cafeteria_congestion: number }>("/api/cafeteria-congestion", {
+  // 食堂。一覧は公開、登録・編集・削除は管理者のみ、混雑度だけの更新は食堂編集用アカウント or 管理者。
+  cafeterias: {
+    list: () => req<Cafeteria[]>("/api/cafeterias"),
+    create: (data: { name: string; congestion_level?: number; sort_order?: number }) =>
+      adminReq<Cafeteria>("/api/cafeterias", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { name: string; congestion_level: number; sort_order?: number }) =>
+      adminReq<Cafeteria>(`/api/cafeterias/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      adminReq<void>(`/api/cafeterias/${id}`, { method: "DELETE" }),
+    // 混雑度だけを更新（食堂編集用アカウントが利用）。
+    updateCongestion: (id: number, level: number) =>
+      adminReq<Cafeteria>(`/api/cafeterias/${id}/congestion`, {
         method: "PUT",
-        body: JSON.stringify({ cafeteria_congestion: level }),
+        body: JSON.stringify({ congestion_level: level }),
       }),
   },
 };

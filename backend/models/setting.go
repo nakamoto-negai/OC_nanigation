@@ -8,8 +8,7 @@ type Setting struct {
 	ReroteCongestion    bool    `json:"reroute_congestion" gorm:"not null;default:true"`
 	RerouteOther        bool    `json:"reroute_other" gorm:"not null;default:true"`
 	StampURL            string  `json:"stamp_url" gorm:"default:''"`
-	CafeteriaCongestion int     `json:"cafeteria_congestion" gorm:"not null;default:0"`
-	// ヘッダーの食堂混雑度表示・AR ボタンの表示ON/OFF
+	// ヘッダーの食堂混雑度表示・AR ボタンの表示ON/OFF（食堂の値は Cafeteria モデルへ移動）
 	ShowCafeteriaCongestion bool `json:"show_cafeteria_congestion" gorm:"not null;default:true"`
 	ShowARButton            bool `json:"show_ar_button" gorm:"not null;default:true"`
 	// 到着カードに表示するアンケートのリンク先（空なら非表示）
@@ -18,4 +17,6 @@ type Setting struct {
 	DefaultDestinationID *uint `json:"default_destination_id"`
 	// is_selectable ノード → 目的地 への一度きりのデータ移行が完了したか。
 	DestinationsMigrated bool `json:"destinations_migrated" gorm:"not null;default:false"`
+	// 旧 settings.cafeteria_congestion（単一値）→ Cafeteria（複数）への一度きりの移行が完了したか。
+	CafeteriasMigrated bool `json:"cafeterias_migrated" gorm:"not null;default:false"`
 }

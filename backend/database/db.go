@@ -26,7 +26,7 @@ func Connect() error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&models.Category{}, &models.Node{}, &models.Destination{}, &models.Link{}, &models.Photo{}, &models.ArrivalPhoto{}, &models.Setting{}, &models.MapImage{}, &models.User{}, &models.UserLog{}, &models.NodeDetour{}, &models.ARObject{}, &models.ARFeature{}, &models.SurveyQuestion{}, &models.SurveyResponse{}, &models.SurveyAnswer{}, &models.Event{}, &models.DemoOverlay{}, &models.Announcement{}, &models.OverlayImage{}); err != nil {
+	if err := db.AutoMigrate(&models.Category{}, &models.Node{}, &models.Destination{}, &models.Link{}, &models.Photo{}, &models.ArrivalPhoto{}, &models.Setting{}, &models.MapImage{}, &models.User{}, &models.UserLog{}, &models.NodeDetour{}, &models.ARObject{}, &models.ARFeature{}, &models.SurveyQuestion{}, &models.SurveyResponse{}, &models.SurveyAnswer{}, &models.Event{}, &models.DemoOverlay{}, &models.Announcement{}, &models.OverlayImage{}, &models.Cafeteria{}); err != nil {
 		return fmt.Errorf("failed to migrate: %w", err)
 	}
 
@@ -34,8 +34,44 @@ func Connect() error {
 		return fmt.Errorf("failed to migrate destinations: %w", err)
 	}
 
+	if err := migrateCafeterias(db); err != nil {
+		return fmt.Errorf("failed to migrate cafeterias: %w", err)
+	}
+
 	DB = db
 	return nil
+}
+
+// migrateCafeterias は旧 settings.cafeteria_congestion（単一値）を Cafeteria（複数）へ
+// 一度だけ移行する。旧値を持つ既存DBでは「食堂」1件を作ってヘッダー表示を維持し、
+// 旧カラムを削除する。Setting.CafeteriasMigrated で冪等化。
+func migrateCafeterias(db *gorm.DB) error {
+	var setting models.Setting
+	if err := db.FirstOrCreate(&setting, models.Setting{ID: 1}).Error; err != nil {
+		return err
+	}
+	if setting.CafeteriasMigrated {
+		return nil
+	}
+
+	// 旧カラムがある既存DBのみ、その値で「食堂」を1件シードする。
+	if db.Migrator().HasColumn(&models.Setting{}, "cafeteria_congestion") {
+		var row struct{ CafeteriaCongestion int }
+		if err := db.Table("settings").
+			Select("cafeteria_congestion").
+			Where("id = ?", 1).
+			Scan(&row).Error; err == nil {
+			if err := db.Create(&models.Cafeteria{Name: "食堂", CongestionLevel: row.CafeteriaCongestion}).Error; err != nil {
+				return err
+			}
+		}
+		if err := db.Migrator().DropColumn(&models.Setting{}, "cafeteria_congestion"); err != nil {
+			return err
+		}
+	}
+
+	setting.CafeteriasMigrated = true
+	return db.Save(&setting).Error
 }
 
 // migrateToDestinations は、旧スキーマ（Node.is_selectable / Event.node_id /

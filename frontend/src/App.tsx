@@ -10,7 +10,8 @@ import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
 import { useUser } from "./hooks/useUser";
 import { armCompassAutoRequest } from "./hooks/useCompass";
-import { Announcement, Destination, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
+import { Announcement, Cafeteria, Destination, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
+import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
 
 // パスで表示アプリを切り替える（/admin=管理者, /cafeteria=食堂編集, それ以外=ユーザー）
@@ -106,15 +107,13 @@ function pathToScreen(path: string): Screen {
   return "home";
 }
 
-const CONGESTION_LABELS = ["不明", "空き", "普通", "混雑"] as const;
-const CONGESTION_COLORS = ["#94a3b8", "#22c55e", "#f59e0b", "#ef4444"] as const;
-
 function UserApp() {
   useUser();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [nodeDetours, setNodeDetours] = useState<NodeDetour[]>([]);
+  const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   // 初期画面は URL から決める。ただし route はルートデータが無いと表示できないため、
   // コールドロードで /route を開いた場合は home にフォールバックする。
   const [screen, setScreen] = useState<Screen>(() => {
@@ -132,7 +131,7 @@ function UserApp() {
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
     reroute_congestion: true, reroute_other: true,
-    stamp_url: "", cafeteria_congestion: 0,
+    stamp_url: "",
     show_cafeteria_congestion: true, show_ar_button: true,
     survey_url: "", default_destination_id: null,
   });
@@ -145,6 +144,7 @@ function UserApp() {
 
   useEffect(() => {
     api.settings.get().then(setSettings).catch(() => {});
+    api.cafeterias.list().then(setCafeterias).catch(() => {});
   }, []);
 
   // お知らせPOPを取得。無ければ（あるいは取得失敗なら）その場でコンパス許可の自動要求を解禁する。
@@ -228,17 +228,17 @@ function UserApp() {
             space-between の右寄せレイアウトを保つため空のスペーサーを置く。 */}
         <span className="header-spacer" onClick={() => navigate("home")} />
         <div className="header-actions">
-          {settings.show_cafeteria_congestion && (
-            <span className="cafeteria-congestion" title="食堂の混雑度">
-              <span className="cafeteria-congestion-label">食堂</span>
+          {settings.show_cafeteria_congestion && cafeterias.map((cafe) => (
+            <span key={cafe.id} className="cafeteria-congestion" title={`${cafe.name}の混雑度`}>
+              <span className="cafeteria-congestion-label">{cafe.name}</span>
               <span
                 className="cafeteria-congestion-badge"
-                style={{ background: CONGESTION_COLORS[settings.cafeteria_congestion] ?? CONGESTION_COLORS[0] }}
+                style={{ background: CAFETERIA_CONGESTION_COLORS[cafe.congestion_level] ?? CAFETERIA_CONGESTION_COLORS[0] }}
               >
-                {CONGESTION_LABELS[settings.cafeteria_congestion] ?? "不明"}
+                {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "不明"}
               </span>
             </span>
-          )}
+          ))}
           {settings.stamp_url && (
             <a
               className="stamp-button"

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, ARObject, Category, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ARFeature, ARObject, Cafeteria, Category, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
+import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "../utils/congestion";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
 import { ARRecognizer } from "./ARRecognizer";
@@ -23,7 +24,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "destination" | "link" | "detour" | "photo" | "overlay" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
+type Tab = "node" | "destination" | "link" | "detour" | "photo" | "overlay" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -734,7 +735,6 @@ function SettingsTab() {
   const [rerouteOther, setRerouteOther] = useState(true);
   const [stampUrl, setStampUrl] = useState("");
   const [surveyUrl, setSurveyUrl] = useState("");
-  const [cafeteriaCongestion, setCafeteriaCongestion] = useState(0);
   const [showCafeteriaCongestion, setShowCafeteriaCongestion] = useState(true);
   const [showArButton, setShowArButton] = useState(true);
   const [defaultDestId, setDefaultDestId] = useState<number | null>(null);
@@ -760,7 +760,6 @@ function SettingsTab() {
       setRerouteOther(s.reroute_other);
       setStampUrl(s.stamp_url ?? "");
       setSurveyUrl(s.survey_url ?? "");
-      setCafeteriaCongestion(s.cafeteria_congestion ?? 0);
       setShowCafeteriaCongestion(s.show_cafeteria_congestion ?? true);
       setShowArButton(s.show_ar_button ?? true);
       setDefaultDestId(s.default_destination_id ?? null);
@@ -779,7 +778,6 @@ function SettingsTab() {
         reroute_congestion: reroteCongestion,
         reroute_other: rerouteOther,
         stamp_url: stampUrl.trim(),
-        cafeteria_congestion: cafeteriaCongestion,
         show_cafeteria_congestion: showCafeteriaCongestion,
         show_ar_button: showArButton,
         survey_url: surveyUrl.trim(),
@@ -881,20 +879,7 @@ function SettingsTab() {
             />
             食堂の混雑度をヘッダーに表示する
           </label>
-        </div>
-        <div className="adm-field">
-          <label>食堂の混雑度</label>
-          <p className="hint">「表示する」がONのとき、ヘッダーにこの混雑度が出ます。</p>
-          <select
-            value={cafeteriaCongestion}
-            onChange={(e) => setCafeteriaCongestion(Number(e.target.value))}
-            disabled={!showCafeteriaCongestion}
-          >
-            <option value={0}>不明</option>
-            <option value={1}>空き</option>
-            <option value={2}>普通</option>
-            <option value={3}>混雑</option>
-          </select>
+          <p className="hint">個々の食堂の登録・混雑度は「食堂」タブで管理します。</p>
         </div>
         <div className="adm-field">
           <label className="adm-checkbox-label">
@@ -1468,6 +1453,107 @@ function CategoryTab() {
 }
 
 // ── Event Tab ────────────────────────────────────────────────────────────────
+
+// 食堂の管理タブ。食堂を複数登録し、名前・混雑度・並び順を編集できる。
+function CafeteriaTab() {
+  const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [congestion, setCongestion] = useState(0);
+  const [sortOrder, setSortOrder] = useState("0");
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => { api.cafeterias.list().then(setCafeterias).catch(() => {}); }, []);
+
+  const reset = () => { setEditingId(null); setName(""); setCongestion(0); setSortOrder("0"); };
+
+  const save = async () => {
+    if (!name.trim()) { setMsg({ type: "err", text: "名前は必須です" }); return; }
+    try {
+      const data = { name: name.trim(), congestion_level: congestion, sort_order: Number(sortOrder) || 0 };
+      if (editingId) {
+        const u = await api.cafeterias.update(editingId, data);
+        setCafeterias((p) => p.map((c) => (c.id === editingId ? u : c)));
+        setMsg({ type: "ok", text: "更新しました" });
+      } else {
+        const created = await api.cafeterias.create(data);
+        setCafeterias((p) => [...p, created]);
+        setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
+      }
+      reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const startEdit = (c: Cafeteria) => {
+    setEditingId(c.id); setName(c.name); setCongestion(c.congestion_level); setSortOrder(String(c.sort_order)); setMsg(null);
+  };
+
+  const del = async (id: number, nm: string) => {
+    if (!window.confirm(`「${nm}」を削除しますか？`)) return;
+    try {
+      await api.cafeterias.delete(id);
+      setCafeterias((p) => p.filter((c) => c.id !== id));
+      if (editingId === id) reset();
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>{editingId ? "食堂を編集" : "食堂を追加"}</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <p className="hint" style={{ marginBottom: 12 }}>
+          登録した食堂は、ユーザーアプリのヘッダーに名前＋混雑度で表示されます（「設定」タブの表示ONが必要）。混雑度は食堂編集用アカウント（/cafeteria）からも更新できます。
+        </p>
+        <div className="adm-field">
+          <label>名前 <span className="req">*</span></label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 学生食堂" />
+        </div>
+        <div className="adm-field">
+          <label>混雑度</label>
+          <select value={congestion} onChange={(e) => setCongestion(Number(e.target.value))}>
+            {CAFETERIA_CONGESTION_LABELS.map((lab, i) => <option key={i} value={i}>{lab}</option>)}
+          </select>
+        </div>
+        <div className="adm-field">
+          <label>並び順（小さいほど先）</label>
+          <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="0" />
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={save}>{editingId ? "更新" : "追加"}</button>
+          {editingId && <button className="btn-secondary" onClick={() => { reset(); setMsg(null); }}>キャンセル</button>}
+        </div>
+      </div>
+      <div className="adm-list-col">
+        <h3>食堂一覧 <span className="count-badge">{cafeterias.length}</span></h3>
+        {cafeterias.length === 0 ? (
+          <p className="adm-empty">食堂がまだありません</p>
+        ) : (
+          <table className="adm-table">
+            <thead><tr><th>名前</th><th>混雑度</th><th>並び順</th><th></th></tr></thead>
+            <tbody>
+              {cafeterias.map((c) => (
+                <tr key={c.id} className={editingId === c.id ? "editing" : ""}>
+                  <td><strong>{c.name}</strong></td>
+                  <td>
+                    <span className="dest-congestion-badge" style={{ background: CAFETERIA_CONGESTION_COLORS[c.congestion_level] }}>
+                      {CAFETERIA_CONGESTION_LABELS[c.congestion_level]}
+                    </span>
+                  </td>
+                  <td className="num">{c.sort_order}</td>
+                  <td className="adm-row-actions">
+                    <button className="btn-edit" onClick={() => startEdit(c)}>編集</button>
+                    <button className="btn-del" onClick={() => del(c.id, c.name)}>削除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // 合成素材（到着写真に重ねる「合成用写真」）の管理タブ。
 function OverlayImageTab() {
@@ -2650,6 +2736,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "overlay", label: "合成素材" },
     { key: "settings", label: "設定" },
     { key: "category", label: "カテゴリ", badge: categories.length },
+    { key: "cafeteria", label: "食堂" },
     { key: "event", label: "イベント" },
     { key: "users", label: "利用者" },
     { key: "logs", label: "ログ" },
@@ -2732,6 +2819,7 @@ export const AdminPage: React.FC<Props> = ({
           />
         )}
         {tab === "overlay" && <OverlayImageTab />}
+        {tab === "cafeteria" && <CafeteriaTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
         {tab === "event" && <EventTab destinations={destinations} />}
