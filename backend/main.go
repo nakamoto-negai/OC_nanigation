@@ -45,6 +45,8 @@ func main() {
 	api.GET("/links/:id/arrival-photos", handlers.ListArrivalPhotos)
 	api.GET("/links/:id", handlers.GetLink)
 	api.GET("/settings", handlers.GetSettings)
+	// 食堂の混雑度だけを更新する限定エンドポイント（食堂編集用アカウント or 管理者）
+	api.PUT("/cafeteria-congestion", middleware.CafeteriaAuth(), handlers.UpdateCafeteriaCongestion)
 	api.POST("/users/register", handlers.RegisterUser)
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 	api.GET("/node-detours", handlers.ListNodeDetours)

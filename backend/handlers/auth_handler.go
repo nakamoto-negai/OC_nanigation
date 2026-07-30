@@ -1,25 +1,15 @@
 package handlers
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oc-navigation/backend/middleware"
 )
 
-func computeAdminToken(password string) string {
-	secret := os.Getenv("ADMIN_SECRET")
-	if secret == "" {
-		secret = "default-secret-change-in-production"
-	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(password))
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
+// AdminLogin はパスワードからロールを判定し、トークンとロールを返す。
+//   ADMIN_PASSWORD     に一致 → role="admin"（全機能）
+//   CAFETERIA_PASSWORD に一致 → role="cafeteria"（食堂の混雑度のみ）
 func AdminLogin(c *gin.Context) {
 	var body struct {
 		Password string `json:"password" binding:"required"`
@@ -28,13 +18,19 @@ func AdminLogin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "パスワードを入力してください"})
 		return
 	}
-	expected := os.Getenv("ADMIN_PASSWORD")
-	if expected == "" {
-		expected = "admin"
-	}
-	if body.Password != expected {
+
+	switch body.Password {
+	case middleware.AdminPassword():
+		c.JSON(http.StatusOK, gin.H{
+			"token": middleware.ComputeToken(body.Password),
+			"role":  middleware.RoleAdmin,
+		})
+	case middleware.CafeteriaPassword():
+		c.JSON(http.StatusOK, gin.H{
+			"token": middleware.ComputeToken(body.Password),
+			"role":  middleware.RoleCafeteria,
+		})
+	default:
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "パスワードが違います"})
-		return
 	}
-	c.JSON(http.StatusOK, gin.H{"token": computeAdminToken(body.Password)})
 }

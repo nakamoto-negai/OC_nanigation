@@ -255,6 +255,14 @@ export const api = {
   },
   admin: {
     login: (password: string) =>
-      req<{ token: string }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) }),
+      req<{ token: string; role: string }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) }),
+  },
+  // 食堂の混雑度だけを更新する限定API（食堂編集用アカウント or 管理者トークンで利用）。
+  cafeteria: {
+    updateCongestion: (level: number) =>
+      adminReq<{ cafeteria_congestion: number }>("/api/cafeteria-congestion", {
+        method: "PUT",
+        body: JSON.stringify({ cafeteria_congestion: level }),
+      }),
   },
 };

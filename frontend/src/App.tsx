@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api/client";
 import { AdminLogin } from "./components/AdminLogin";
 import { AdminPage } from "./components/AdminPage";
+import { CafeteriaPage } from "./components/CafeteriaPage";
 import { ARView } from "./components/ARView";
 import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
@@ -12,30 +13,38 @@ import { armCompassAutoRequest } from "./hooks/useCompass";
 import { Announcement, Destination, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import "./index.css";
 
-// /admin パスかどうかで表示を切り替える
+// パスで表示アプリを切り替える（/admin=管理者, /cafeteria=食堂編集, それ以外=ユーザー）
 const isAdminPath = window.location.pathname.startsWith("/admin");
+const isCafeteriaPath = window.location.pathname.startsWith("/cafeteria");
 
 // ── 管理者アプリ ──────────────────────────────────────────────
 function AdminApp() {
   const [token, setToken] = useState(() => localStorage.getItem("admin_token") ?? "");
+  const [role, setRole] = useState(() => localStorage.getItem("admin_role") ?? "");
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
 
   useEffect(() => {
-    if (!token) return;
+    // 食堂編集用アカウントはノード/リンクを使わないので取得しない
+    if (!token || role === "cafeteria") return;
     Promise.all([api.nodes.list(), api.links.list()])
       .then(([n, l]) => { setNodes(n); setLinks(l); })
       .catch(() => {});
-  }, [token]);
+  }, [token, role]);
 
-  const handleLogin = (t: string) => setToken(t);
+  const handleLogin = (t: string, r: string) => { setToken(t); setRole(r); };
 
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_role");
     setToken("");
+    setRole("");
   };
 
   if (!token) return <AdminLogin onLogin={handleLogin} />;
+
+  // 食堂編集用アカウントは食堂の混雑度だけを編集できる専用画面を表示する
+  if (role === "cafeteria") return <CafeteriaPage onLogout={handleLogout} />;
 
   return (
     <div className="app">
@@ -63,6 +72,24 @@ function AdminApp() {
       />
     </div>
   );
+}
+
+// ── 食堂編集アプリ（独立URL /cafeteria）──────────────────────────
+// 食堂編集用アカウントでログインし、食堂の混雑度だけを編集する専用画面。
+// 管理者パスワードでもログインできる（admin トークンも食堂APIを使えるため）。
+function CafeteriaApp() {
+  const [token, setToken] = useState(() => localStorage.getItem("admin_token") ?? "");
+
+  const handleLogin = (t: string) => setToken(t);
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_role");
+    setToken("");
+  };
+
+  if (!token) return <AdminLogin onLogin={handleLogin} />;
+  return <CafeteriaPage onLogout={handleLogout} />;
 }
 
 // ── ユーザーアプリ ────────────────────────────────────────────
@@ -274,5 +301,7 @@ function UserApp() {
 
 // ── ルートエントリ ────────────────────────────────────────────
 export default function App() {
-  return isAdminPath ? <AdminApp /> : <UserApp />;
+  if (isAdminPath) return <AdminApp />;
+  if (isCafeteriaPath) return <CafeteriaApp />;
+  return <UserApp />;
 }

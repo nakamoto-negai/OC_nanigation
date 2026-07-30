@@ -48,3 +48,24 @@ func UpdateSettings(c *gin.Context) {
 	database.DB.Save(&s)
 	c.JSON(http.StatusOK, s)
 }
+
+// UpdateCafeteriaCongestion は食堂の混雑度だけを更新する限定エンドポイント。
+// 食堂編集用アカウント（および管理者）が使う。他の設定項目は変更しない。
+func UpdateCafeteriaCongestion(c *gin.Context) {
+	var body struct {
+		CafeteriaCongestion int `json:"cafeteria_congestion"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if body.CafeteriaCongestion < 0 || body.CafeteriaCongestion > 3 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "混雑度は 0〜3 で指定してください"})
+		return
+	}
+	var s models.Setting
+	database.DB.FirstOrCreate(&s, models.Setting{ID: 1})
+	s.CafeteriaCongestion = body.CafeteriaCongestion
+	database.DB.Save(&s)
+	c.JSON(http.StatusOK, gin.H{"cafeteria_congestion": s.CafeteriaCongestion})
+}

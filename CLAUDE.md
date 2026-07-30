@@ -87,6 +87,13 @@ docker compose up -d --build
 - **gorilla/websocket** — WebSocket
 - **gin-contrib/cors** — 全オリジン許可（開発・本番共通）
 
+### 認証・ロール（`backend/middleware/auth.go`）
+パスワードから HMAC トークンを作る方式。ログイン（`POST /api/admin/login`）は `{token, role}` を返す。2ロール:
+- **admin**（`ADMIN_PASSWORD`、既定 "admin"）… 全機能。`middleware.AdminAuth()` で保護。
+- **cafeteria**（`CAFETERIA_PASSWORD`、既定 "cafeteria"）… 食堂の混雑度だけ編集可。`middleware.CafeteriaAuth()`（admin トークンも許可）で保護された `PUT /api/cafeteria-congestion` のみ使える。
+
+フロントは `localStorage["admin_role"]` を見て、cafeteria なら食堂混雑度専用画面（`CafeteriaPage`）、admin なら通常の `AdminPage` を表示する（`App.tsx` の `AdminApp`）。
+
 ### モデル（`backend/models/`）
 
 | モデル | 内容 |
@@ -127,6 +134,7 @@ docker compose up -d --build
 /api/destinations       POST         — 目的地登録（管理者のみ。node_ids で所属ノードを指定）
 /api/destinations/:id   PUT/DELETE   — 目的地更新・削除（管理者のみ）
 /api/settings       GET/PUT
+/api/cafeteria-congestion  PUT   — 食堂の混雑度だけを更新（食堂編集用アカウント or 管理者）
 /api/users/register POST
 /api/users          GET
 /api/map-images     GET/POST

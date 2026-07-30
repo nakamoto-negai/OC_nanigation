@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { api } from "../api/client";
 
 interface Props {
-  onLogin: (token: string) => void;
+  onLogin: (token: string, role: string) => void;
 }
 
 export const AdminLogin: React.FC<Props> = ({ onLogin }) => {
@@ -15,9 +15,10 @@ export const AdminLogin: React.FC<Props> = ({ onLogin }) => {
     setLoading(true);
     setError("");
     try {
-      const { token } = await api.admin.login(password);
+      const { token, role } = await api.admin.login(password);
       localStorage.setItem("admin_token", token);
-      onLogin(token);
+      localStorage.setItem("admin_role", role);
+      onLogin(token, role);
     } catch {
       setError("パスワードが違います");
     } finally {

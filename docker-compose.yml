@@ -30,6 +30,8 @@ services:
       UPLOAD_DIR: /uploads
       ADMIN_PASSWORD: admin
       ADMIN_SECRET: dev-secret-change-in-production
+      # 食堂編集用アカウント（食堂の混雑度だけを編集できる）のパスワード
+      CAFETERIA_PASSWORD: cafeteria
     volumes:
       - uploads:/uploads
     depends_on:

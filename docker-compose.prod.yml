@@ -37,6 +37,7 @@ services:
       GIN_MODE: release
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_SECRET: ${ADMIN_SECRET}
+      CAFETERIA_PASSWORD: ${CAFETERIA_PASSWORD}
     volumes:
       - uploads:/uploads
     depends_on:
