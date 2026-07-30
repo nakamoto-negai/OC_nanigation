@@ -72,9 +72,15 @@ func main() {
 		admin.DELETE("/photos/:id", handlers.DeletePhoto)
 		admin.PUT("/photos/reorder", handlers.ReorderPhotos)
 
-		// 到着地点の写真（リンク）: 登録・削除は管理者のみ
+		// 到着地点の写真（リンク）: 登録・上書き・削除は管理者のみ
 		admin.POST("/arrival-photos", handlers.UploadArrivalPhoto)
+		admin.PUT("/arrival-photos/:id", handlers.ReplaceArrivalPhoto)
 		admin.DELETE("/arrival-photos/:id", handlers.DeleteArrivalPhoto)
+
+		// 合成用写真（到着写真エディタで重ねる素材）: すべて管理者のみ
+		admin.GET("/overlay-images", handlers.ListOverlayImages)
+		admin.POST("/overlay-images", handlers.UploadOverlayImage)
+		admin.DELETE("/overlay-images/:id", handlers.DeleteOverlayImage)
 
 		admin.PUT("/settings", handlers.UpdateSettings)
 

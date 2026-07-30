@@ -54,6 +54,14 @@ export interface Photo {
   created_at: string;
 }
 
+// 到着地点写真の合成に使う「合成用写真」（ステッカー等）。事前に登録しておく。
+export interface OverlayImage {
+  id: number;
+  name: string;
+  url: string;
+  created_at: string;
+}
+
 // リンクに紐づく到着地点の写真（「到着地点を確認する」で表示）。道中スライダーの Photo とは別系統。
 export interface ArrivalPhoto {
   id: number;

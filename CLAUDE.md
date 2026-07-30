@@ -97,7 +97,8 @@ docker compose up -d --build
 | `Event` | 目的地で開催されるイベント。`destination_id` で目的地に紐づく |
 | `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚 |
 | `Photo` | リンクに紐付く道中写真。道案内中のスライダー表示に使う。sort_order で順序管理 |
-| `ArrivalPhoto` | リンクに紐付く「到着地点の写真」。管理者が写真タブでリンクごとに登録し、道案内の「到着地点を確認する」でユーザー閲覧専用に表示される（道中の Photo とは別系統） |
+| `ArrivalPhoto` | リンクに紐付く「到着地点の写真」。管理者が写真タブでリンクごとに登録し、道案内の「到着地点を確認する」でユーザー閲覧専用に表示される（道中の Photo とは別系統）。合成エディタで合成後は同レコードを上書き（PUT で URL 差し替え） |
+| `OverlayImage` | 到着写真に重ねる「合成用写真」（ステッカー等）。管理画面「合成素材」タブで事前登録し、写真タブの各到着写真の「合成」ボタンからブラウザ側 canvas で合成→1枚に平坦化して上書き保存する |
 | `Setting` | ID=1 のシングルトン。map_north_offset（コンパス補正用）・default_destination_id（初期目的地）・destinations_migrated（移行フラグ） |
 | `MapImage` | マップ背景画像。is_active フラグで1枚を選択 |
 | `User` | ブラウザ初回起動時に自動登録。device_id (UUID) で識別 |
@@ -115,7 +116,10 @@ docker compose up -d --build
 /api/links/:id      GET/PUT/DELETE
 /api/links/:id/arrival-photos  GET   — リンクの到着地点写真一覧（公開・閲覧のみ）
 /api/arrival-photos       POST       — リンクに到着地点写真を登録（管理者のみ）
+/api/arrival-photos/:id   PUT        — 到着地点写真の画像を差し替え＝合成結果の上書き（管理者のみ）
 /api/arrival-photos/:id   DELETE     — 到着地点写真を削除（管理者のみ）
+/api/overlay-images       GET/POST         — 合成用写真の一覧・登録（管理者のみ）
+/api/overlay-images/:id   DELETE           — 合成用写真の削除（管理者のみ）
 /api/photos         POST
 /api/photos/:id     DELETE
 /api/photos/reorder PUT

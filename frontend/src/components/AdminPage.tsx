@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, ARObject, Category, Destination, Event, Link, MapImage, Node, NodeDetour, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ARFeature, ARObject, Category, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
 import { getDeviceId } from "../hooks/useUser";
@@ -23,7 +23,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "destination" | "link" | "detour" | "photo" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
+type Tab = "node" | "destination" | "link" | "detour" | "photo" | "overlay" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -1469,6 +1469,83 @@ function CategoryTab() {
 
 // ── Event Tab ────────────────────────────────────────────────────────────────
 
+// 合成素材（到着写真に重ねる「合成用写真」）の管理タブ。
+function OverlayImageTab() {
+  const [overlays, setOverlays] = useState<OverlayImage[]>([]);
+  const [name, setName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { api.overlayImages.list().then(setOverlays).catch(() => {}); }, []);
+
+  const upload = async () => {
+    if (!file) { setMsg({ type: "err", text: "画像を選択してください" }); return; }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      form.append("name", name.trim());
+      const created = await api.overlayImages.upload(form);
+      setOverlays((p) => [created, ...p]);
+      setName(""); setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      setMsg({ type: "ok", text: "登録しました" });
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+    finally { setUploading(false); }
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("この合成用写真を削除しますか？")) return;
+    try {
+      await api.overlayImages.delete(id);
+      setOverlays((p) => p.filter((o) => o.id !== id));
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>合成用写真を追加</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <p className="hint" style={{ marginBottom: 12 }}>
+          到着地点写真に重ねる素材（透過PNG推奨）を登録します。写真タブの各到着写真の「合成」ボタンから、ここで登録した素材を重ねて上書き保存できます。
+        </p>
+        <div className="adm-field">
+          <label>名前</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 記念フレーム" />
+        </div>
+        <div className="adm-field">
+          <label>画像ファイル <span className="req">*</span></label>
+          <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={upload} disabled={uploading || !file}>
+            {uploading ? "アップロード中..." : "アップロード"}
+          </button>
+        </div>
+      </div>
+      <div className="adm-list-col">
+        <h3>合成用写真一覧 <span className="count-badge">{overlays.length}</span></h3>
+        {overlays.length === 0 ? (
+          <p className="adm-empty">合成用写真がまだありません</p>
+        ) : (
+          <div className="overlay-lib-grid">
+            {overlays.map((o) => (
+              <div key={o.id} className="overlay-lib-item">
+                <img src={`${BASE}${o.url}`} alt={o.name} />
+                <div className="overlay-lib-name">{o.name || "（名称なし）"}</div>
+                <button className="btn-del" onClick={() => del(o.id)}>削除</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DestinationTab({
   nodes,
   categories: categoriesProp,
@@ -2570,6 +2647,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "link", label: "リンク", badge: links.length },
     { key: "detour", label: "寄り道" },
     { key: "photo", label: "写真" },
+    { key: "overlay", label: "合成素材" },
     { key: "settings", label: "設定" },
     { key: "category", label: "カテゴリ", badge: categories.length },
     { key: "event", label: "イベント" },
@@ -2653,6 +2731,7 @@ export const AdminPage: React.FC<Props> = ({
             onCategoryCreated={(cat) => setCategories((p) => [...p, cat])}
           />
         )}
+        {tab === "overlay" && <OverlayImageTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
         {tab === "event" && <EventTab destinations={destinations} />}

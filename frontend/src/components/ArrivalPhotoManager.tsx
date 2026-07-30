@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrivalPhoto } from "../types";
 import { api } from "../api/client";
+import { ArrivalCompositeEditor } from "./ArrivalCompositeEditor";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -22,6 +23,8 @@ export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, on
   const [photos, setPhotos] = useState<ArrivalPhoto[]>(initialPhotos ?? []);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  // 合成エディタで編集中の写真（null なら閉じている）
+  const [editing, setEditing] = useState<ArrivalPhoto | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // スマホのカメラ直接起動用（capture 付き）。PC では通常のファイル選択にフォールバックする。
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -103,9 +106,24 @@ export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, on
               >
                 ×
               </button>
+              <button
+                type="button"
+                className="node-photo-composite"
+                onClick={() => setEditing(p)}
+              >
+                合成
+              </button>
             </div>
           ))}
         </div>
+      )}
+
+      {editing && (
+        <ArrivalCompositeEditor
+          photo={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => apply(photos.map((p) => (p.id === updated.id ? updated : p)))}
+        />
       )}
 
       {/* カメラ撮影用（スマホは背面カメラが起動、PCはファイル選択にフォールバック） */}
