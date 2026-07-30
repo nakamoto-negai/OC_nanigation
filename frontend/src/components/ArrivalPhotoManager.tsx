@@ -23,6 +23,8 @@ export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, on
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // スマホのカメラ直接起動用（capture 付き）。PC では通常のファイル選択にフォールバックする。
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   // 対象リンクが切り替わったら、そのリンクの写真を読み直す
   useEffect(() => {
@@ -106,6 +108,16 @@ export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, on
         </div>
       )}
 
+      {/* カメラ撮影用（スマホは背面カメラが起動、PCはファイル選択にフォールバック） */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: "none" }}
+        onChange={onPick}
+      />
+      {/* 端末内の画像から選ぶ用（複数可） */}
       <input
         ref={fileRef}
         type="file"
@@ -114,14 +126,24 @@ export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, on
         style={{ display: "none" }}
         onChange={onPick}
       />
-      <button
-        type="button"
-        className="btn-secondary"
-        disabled={uploading}
-        onClick={() => fileRef.current?.click()}
-      >
-        {uploading ? "アップロード中..." : "到着地点の写真を追加"}
-      </button>
+      <div className="arrival-photo-btns">
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={uploading}
+          onClick={() => cameraRef.current?.click()}
+        >
+          {uploading ? "アップロード中..." : "カメラで撮影"}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+        >
+          写真を選ぶ
+        </button>
+      </div>
     </div>
   );
 };

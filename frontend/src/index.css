@@ -968,6 +968,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   font-size: 15px; line-height: 22px; text-align: center;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
+/* 到着地点写真の「カメラで撮影」「写真を選ぶ」ボタンを横並びにする */
+.arrival-photo-btns { display: flex; gap: 8px; }
+.arrival-photo-btns button { flex: 1; }
 
 .blocked-btn-bar {
   padding: 6px 10px;
