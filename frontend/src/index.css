@@ -1073,6 +1073,31 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .cafeteria-choice:active { transform: scale(0.97); }
 .cafeteria-choice:disabled { opacity: 0.6; cursor: default; }
 
+/* 起動時のコンパス許可ポップアップ */
+.compass-pop-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.compass-pop {
+  width: 100%; max-width: 360px;
+  background: #fff; border-radius: 16px; padding: 22px 20px;
+  text-align: center; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
+}
+.compass-pop-icon { width: 76px; height: 76px; margin: 0 auto 10px; display: block; }
+.compass-pop-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: #1e293b; }
+.compass-pop-text { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #475569; }
+.compass-pop-actions { display: flex; flex-direction: column; gap: 10px; }
+.compass-pop-enable {
+  padding: 13px 0; border: none; border-radius: 10px; cursor: pointer;
+  background: #3b82f6; color: #fff; font-size: 16px; font-weight: 800;
+}
+.compass-pop-enable:active { background: #2563eb; }
+.compass-pop-later {
+  padding: 11px 0; border: none; border-radius: 10px; cursor: pointer;
+  background: transparent; color: #64748b; font-size: 14px; font-weight: 600;
+}
+
 .blocked-btn-bar {
   padding: 6px 10px;
   background: #fff;

@@ -8,8 +8,9 @@ import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
+import { CompassPermissionPop } from "./components/CompassPermissionPop";
 import { useUser } from "./hooks/useUser";
-import { armCompassAutoRequest } from "./hooks/useCompass";
+import { useCompassPermission, compassNeedsPermission } from "./hooks/useCompass";
 import { Announcement, Cafeteria, Destination, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
@@ -124,6 +125,14 @@ function UserApp() {
   // お知らせPOP（アプリを開いた最初に、カメラ/コンパス許可より前に表示）
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [popDismissed, setPopDismissed] = useState(false);
+  // お知らせの取得が完了したか（完了後にコンパス許可ポップアップの表示判定を行う）
+  const [announcementChecked, setAnnouncementChecked] = useState(false);
+  // コンパス許可ポップアップを閉じた（＝一度選択した）か。次回以降は出さないよう localStorage に記録。
+  const [compassPopDismissed, setCompassPopDismissed] = useState(
+    () => localStorage.getItem("compass_pop_dismissed") === "1",
+  );
+  // コンパス許可状態を購読（iOS 未許可のときだけポップアップを出すため）
+  const compass = useCompassPermission();
   // アンケートをアプリ内操作で開いたか（true のとき閉じるは履歴を戻す）
   const openedSurveyInApp = useRef(false);
   const [loadError, setLoadError] = useState("");
@@ -147,21 +156,30 @@ function UserApp() {
     api.cafeterias.list().then(setCafeterias).catch(() => {});
   }, []);
 
-  // お知らせPOPを取得。無ければ（あるいは取得失敗なら）その場でコンパス許可の自動要求を解禁する。
-  // ある場合は POP を閉じたときに解禁する（POP をカメラ/コンパス許可より前に見せるため）。
+  // お知らせPOPを取得。取得完了後（お知らせを閉じた後）にコンパス許可ポップアップの表示判定を行う。
   useEffect(() => {
     api.announcements.getActive()
-      .then((a: Announcement | null) => {
-        if (a) setAnnouncement(a);
-        else armCompassAutoRequest();
-      })
-      .catch(() => armCompassAutoRequest());
+      .then((a: Announcement | null) => { if (a) setAnnouncement(a); })
+      .catch(() => {})
+      .finally(() => setAnnouncementChecked(true));
   }, []);
 
-  const dismissPop = () => {
-    setPopDismissed(true);
-    // このタップ自体では許可要求させず、次の操作から解禁する（POPを閉じる操作で許可が出るのを防ぐ）
-    setTimeout(() => armCompassAutoRequest(), 0);
+  const dismissPop = () => setPopDismissed(true);
+
+  // お知らせPOPが閉じていて、iOSで方位センサー未許可、かつ未提示のときだけコンパス許可ポップアップを出す。
+  const announcementOpen = !!announcement && !popDismissed;
+  const showCompassPop =
+    announcementChecked && !announcementOpen &&
+    compassNeedsPermission() && compass.permission === "prompt" && !compassPopDismissed;
+
+  const closeCompassPop = () => {
+    setCompassPopDismissed(true);
+    localStorage.setItem("compass_pop_dismissed", "1");
+  };
+  const enableCompass = () => {
+    // このクリックはユーザー操作なので、ここで iOS のコンパス許可要求を発火できる。
+    compass.requestPermission();
+    closeCompassPop();
   };
 
   // 初期表示が URL と食い違う場合は URL 側を画面に合わせる（例: コールドロードの /route → home）
@@ -221,6 +239,11 @@ function UserApp() {
       {/* お知らせPOP（最初に表示。カメラ/コンパス許可より前） */}
       {announcement && !popDismissed && (
         <AnnouncementPop announcement={announcement} onClose={dismissPop} />
+      )}
+
+      {/* お知らせを閉じた直後、iOSで方位センサー未許可のときだけコンパス許可ポップアップを出す */}
+      {showCompassPop && (
+        <CompassPermissionPop onEnable={enableCompass} onDismiss={closeCompassPop} />
       )}
 
       <header className="app-header">
