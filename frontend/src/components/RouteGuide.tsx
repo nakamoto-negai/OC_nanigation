@@ -121,6 +121,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   const [visibleCardIndex, setVisibleCardIndex] = useState(0);
   // どのカードを AR 表示中か（ステップカードのみ。null は通常＝画像表示）
   const [arCardIndex, setArCardIndex] = useState<number | null>(null);
+  // ユーザーが「画像案内に変更」を選んだか。true の間はスクロールしても AR を自動で開かず、
+  // 画像案内を維持する。「ARで案内する」を押すと false に戻る。
+  const [preferImageGuide, setPreferImageGuide] = useState(false);
   // 位置情報で到着したカード（その ARNavGuide に「到着しました」を表示する）
   const [arrivedCardIndex, setArrivedCardIndex] = useState<number | null>(null);
   // 現在カードの目的ノードまでの距離(m)。AR の「到着まで◯m」表示に使う（GPS が無ければ null）
@@ -157,6 +160,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     setArCardIndex(null);
     setArrivedCardIndex(null);
     setExpandedDetours(new Set());
+    setPreferImageGuide(false);
     handledArrivalRef.current.clear();
     autoAdvanceArRef.current = null;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -178,14 +182,14 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   }, [visibleCardIndex, arCardIndex, embedded]);
 
   // 埋め込み時は、表示中のステップカードを初めから AR 表示にする（「ARで案内する」を押さなくてよい）。
-  // 依存に arCardIndex を入れないので、ユーザーが「画像案内に戻る」で閉じた場合は
-  // カードを移動する（visibleCardIndex が変わる）までは画像案内のまま維持される。
+  // ただし「画像案内に変更」を選んでいる間（preferImageGuide）は、スクロールしても AR を
+  // 自動で開かず画像案内を維持する。「ARで案内する」を押すと preferImageGuide が false に戻る。
   // 表示中の 1 枚だけカメラを起動するため、カメラの多重起動は起きない。
   useEffect(() => {
     if (!embedded) return;
     const card = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
-    setArCardIndex(card && card.kind === "step" ? visibleCardIndex : null);
-  }, [embedded, visibleCardIndex, cards]);
+    setArCardIndex(card && card.kind === "step" && !preferImageGuide ? visibleCardIndex : null);
+  }, [embedded, visibleCardIndex, cards, preferImageGuide]);
 
   // 現在地（GPS）を監視。到着判定に使う。
   // 権限を永久拒否している場合は watchPosition を呼ぶとコンソールエラーになるため、事前に確認する。
@@ -469,7 +473,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   userLat={null}
                   userLng={null}
                   mapNorthOffset={mapNorthOffset}
-                  onClose={() => setArCardIndex(null)}
+                  onClose={() => { setArCardIndex(null); setPreferImageGuide(true); }}
                   onNext={() => goToNextCard(ci)}
                   arrived={arrivedCardIndex === ci}
                   distance={distanceToTarget}
@@ -492,6 +496,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       onClick={() => {
                         // ボタン押下はユーザー操作なので、ここで iOS のコンパス許可も要求する
                         if (permission === "prompt") requestPermission();
+                        setPreferImageGuide(false);
                         setArCardIndex(ci);
                         sendAction("ar_start", s.step_number, route.steps.length, s.from_node.name, s.to_node.name, originName, destName);
                       }}
