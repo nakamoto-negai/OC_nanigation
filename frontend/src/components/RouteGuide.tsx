@@ -442,9 +442,6 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                 {arCardIndex === ci && (
                   <span className="rg-ar-inline-hint">到着地点を確認してスクロール</span>
                 )}
-                {s.link.photos && s.link.photos.length > 0 && (
-                  <span className="rg-photo-badge">📷 {s.link.photos.length}</span>
-                )}
               </div>
               {/* 埋め込み(AR)カードでは AR 側に情報を集約するため、リンク名・距離・コンパス文言は出さない */}
               {!embedded && s.link.name && <p className="rg-link-name">{s.link.name}</p>}

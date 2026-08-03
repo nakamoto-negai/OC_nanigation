@@ -738,32 +738,80 @@ function PhotoTab({
       </div>
 
       <div className="adm-list-col">
+        {/* 全リンクの写真カバレッジ一覧（どのリンクが撮影済み／未撮影か一目で分かる） */}
         <h3>
-          写真一覧
-          {selectedLink && (
-            <span className="count-badge">{photos.length}枚</span>
-          )}
+          リンク写真の一覧 <span className="count-badge">{links.length}</span>
         </h3>
-        {!selectedLink ? (
-          <p className="adm-empty">左でリンクを選択すると写真が表示されます</p>
-        ) : photos.length === 0 ? (
-          <p className="adm-empty">写真がまだありません</p>
+        {(() => {
+          const withPhoto = links.filter((l) => (l.photos?.length ?? 0) > 0).length;
+          const missing = links.length - withPhoto;
+          return (
+            <p className="hint" style={{ marginBottom: 8 }}>
+              道中写真あり {withPhoto} / {links.length} リンク（未撮影 <strong style={{ color: missing > 0 ? "#ef4444" : "#16a34a" }}>{missing}</strong> 件）。行をクリックすると左でそのリンクを選択します。
+            </p>
+          );
+        })()}
+        {links.length === 0 ? (
+          <p className="adm-empty">リンクがまだありません</p>
         ) : (
-          <div className="photo-grid">
-            {photos.map((p, i) => (
-              <div key={p.id} className="photo-card">
-                <div className="photo-card-order">{i + 1}</div>
-                <img src={`${BASE}${p.url}`} alt={p.caption} />
-                {p.caption && <p className="photo-card-caption">{p.caption}</p>}
-                <div className="photo-card-actions">
-                  <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
-                  <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
-                  <button className="photo-card-composite" onClick={() => setEditingPhoto(p)}>合成</button>
-                  <button className="photo-card-del" onClick={() => del(p)}>削除</button>
-                </div>
+          <table className="adm-table photo-overview">
+            <thead>
+              <tr><th>経路</th><th>道中</th><th>到着</th><th>屋内</th></tr>
+            </thead>
+            <tbody>
+              {links.map((l) => {
+                const cnt = l.photos?.length ?? 0;
+                const arr = l.arrival_photos?.length ?? 0;
+                const indoor = !!l.indoor_image_url;
+                return (
+                  <tr
+                    key={l.id}
+                    className={`${selectedLinkId === l.id ? "editing" : ""}${cnt === 0 ? " no-photo" : ""}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelectedLinkId(l.id)}
+                  >
+                    <td>
+                      <strong>{l.from_node?.name ?? l.from_node_id} → {l.to_node?.name ?? l.to_node_id}</strong>
+                      {l.name ? <span className="text-muted"> ({l.name})</span> : null}
+                    </td>
+                    <td className="center">
+                      {cnt === 0 ? <span className="photo-missing">未撮影</span> : `${cnt}枚`}
+                    </td>
+                    <td className="center">{arr > 0 ? `${arr}枚` : <span className="text-muted">—</span>}</td>
+                    <td className="center">{indoor ? "✓" : <span className="text-muted">—</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* 選択中リンクの道中写真（並び替え・合成・削除） */}
+        {selectedLink && (
+          <>
+            <h3 style={{ marginTop: 20 }}>
+              選択中リンクの道中写真 <span className="count-badge">{photos.length}枚</span>
+            </h3>
+            {photos.length === 0 ? (
+              <p className="adm-empty">このリンクの写真はまだありません</p>
+            ) : (
+              <div className="photo-grid">
+                {photos.map((p, i) => (
+                  <div key={p.id} className="photo-card">
+                    <div className="photo-card-order">{i + 1}</div>
+                    <img src={`${BASE}${p.url}`} alt={p.caption} />
+                    {p.caption && <p className="photo-card-caption">{p.caption}</p>}
+                    <div className="photo-card-actions">
+                      <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+                      <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
+                      <button className="photo-card-composite" onClick={() => setEditingPhoto(p)}>合成</button>
+                      <button className="photo-card-del" onClick={() => del(p)}>削除</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
