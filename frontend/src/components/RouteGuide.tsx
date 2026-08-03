@@ -22,7 +22,9 @@ const ARRIVAL_ADVANCE_MS = 1800;
 // stepIndex は元になるステップの番号（WS送信・到着判定の基準）。
 type GuideCard =
   | { kind: "step"; step: RouteStepDetail; stepIndex: number; incomingDetour: NodeDetour | null }
-  | { kind: "detour"; detour: NodeDetour };
+  | { kind: "detour"; detour: NodeDetour }
+  // 屋内に入る直前のステップ（link.enters_indoors）の直後に挿入する「屋内に入る」案内カード
+  | { kind: "indoor"; step: RouteStepDetail };
 
 interface Props {
   route: RouteResponse;
@@ -90,6 +92,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
         list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: null });
       } else {
         list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: incoming });
+      }
+      // このステップのリンクが「屋内に入る」なら、直後に屋内案内カードを挿入する。
+      if (s.link.enters_indoors) {
+        list.push({ kind: "indoor", step: s });
       }
     });
     // 最後のステップの寄り道はゴールカードがホストする。展開時はゴールの直前に挿入。
@@ -356,6 +362,43 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   >
                     ここに進む
                   </button>
+                </div>
+              </div>
+            );
+          }
+
+          // 「屋内に入る」案内カード。画像（建物への入館イラスト）で屋内に入ることを明示する。
+          if (card.kind === "indoor") {
+            return (
+              <div key={ci} className="rg-step rg-indoor-card">
+                <div className="rg-indoor-inner">
+                  {card.step.link.indoor_image_url ? (
+                    // リンクに登録された画像があればそれを表示
+                    <img className="rg-indoor-photo" src={`${BASE}${card.step.link.indoor_image_url}`} alt="屋内に入る案内" />
+                  ) : (
+                    // 未登録なら内蔵SVGイラスト（建物への入館）
+                    <svg className="rg-indoor-illust" viewBox="0 0 120 120" role="img" aria-label="屋内に入るイラスト">
+                      {/* 建物 */}
+                      <rect x="20" y="26" width="80" height="74" rx="4" fill="#3b82f6" />
+                      <rect x="20" y="26" width="80" height="16" rx="4" fill="#1d4ed8" />
+                      {/* 窓 */}
+                      <rect x="30" y="52" width="14" height="14" rx="2" fill="#bfdbfe" />
+                      <rect x="76" y="52" width="14" height="14" rx="2" fill="#bfdbfe" />
+                      {/* 入口（開いたドア） */}
+                      <rect x="50" y="66" width="20" height="34" rx="2" fill="#e0f2fe" />
+                      <rect x="50" y="66" width="20" height="34" rx="2" fill="none" stroke="#1d4ed8" strokeWidth="2" />
+                      {/* 入る方向の矢印 */}
+                      <g stroke="#f59e0b" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                        <line x1="34" y1="83" x2="60" y2="83" />
+                        <polyline points="52,75 62,83 52,91" />
+                      </g>
+                    </svg>
+                  )}
+                  <div className="rg-indoor-title">屋内に入ります</div>
+                  {card.step.to_node.name && (
+                    <div className="rg-indoor-sub">「{card.step.to_node.name}」から建物の中へ進みます</div>
+                  )}
+                  <p className="rg-scroll-hint">スクロールして案内を続ける</p>
                 </div>
               </div>
             );

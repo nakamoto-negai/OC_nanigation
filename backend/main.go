@@ -71,6 +71,9 @@ func main() {
 		admin.POST("/links", handlers.CreateLink)
 		admin.PUT("/links/:id", handlers.UpdateLink)
 		admin.DELETE("/links/:id", handlers.DeleteLink)
+		// 屋内案内カードの画像（リンクごと）: アップロード（差し替え）・削除は管理者のみ
+		admin.POST("/links/:id/indoor-image", handlers.UploadLinkIndoorImage)
+		admin.DELETE("/links/:id/indoor-image", handlers.DeleteLinkIndoorImage)
 
 		admin.POST("/photos", handlers.UploadPhoto)
 		admin.DELETE("/photos/:id", handlers.DeletePhoto)

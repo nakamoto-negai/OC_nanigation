@@ -102,7 +102,7 @@ docker compose up -d --build
 | `Destination` | 目的地。ユーザーが選ぶ「行き先」の単位。1つの目的地に複数ノードを多対多(`destination_nodes`)で登録でき、経路案内では現在地から最も近い所属ノードへ案内する。カテゴリ・イベントは目的地に紐づく |
 | `Category` | 目的地のカテゴリ。目的地選択画面のグループ見出しに使う |
 | `Event` | 目的地で開催されるイベント。`destination_id` で目的地に紐づく |
-| `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚 |
+| `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚・enters_indoors（この区間で屋内に入る＝道案内でこのカード直後に「屋内に入ります」カードを挿入）・indoor_image_url（屋内カードに表示する画像。未設定なら内蔵SVGイラスト） |
 | `Photo` | リンクに紐付く道中写真。道案内中のスライダー表示に使う。sort_order で順序管理 |
 | `ArrivalPhoto` | リンクに紐付く「到着地点の写真」。管理者が写真タブでリンクごとに登録し、道案内の「到着地点を確認する」でユーザー閲覧専用に表示される（道中の Photo とは別系統）。合成エディタで合成後は同レコードを上書き（PUT で URL 差し替え） |
 | `OverlayImage` | 到着写真に重ねる「合成用写真」（ステッカー等）。管理画面「合成素材」タブで事前登録し、写真タブの各到着写真の「合成」ボタンからブラウザ側 canvas で合成→1枚に平坦化して上書き保存する |
@@ -123,6 +123,7 @@ docker compose up -d --build
 /api/links          GET/POST
 /api/links/:id      GET/PUT/DELETE
 /api/links/:id/arrival-photos  GET   — リンクの到着地点写真一覧（公開・閲覧のみ）
+/api/links/:id/indoor-image    POST/DELETE  — 屋内案内カードの画像の設定・削除（管理者のみ）
 /api/arrival-photos       POST       — リンクに到着地点写真を登録（管理者のみ）
 /api/arrival-photos/:id   PUT        — 到着地点写真の画像を差し替え＝合成結果の上書き（管理者のみ）
 /api/arrival-photos/:id   DELETE     — 到着地点写真を削除（管理者のみ）

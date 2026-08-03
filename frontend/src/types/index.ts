@@ -83,6 +83,10 @@ export interface Link {
   distance: number;
   photos: Photo[];
   arrival_photos?: ArrivalPhoto[];
+  /** この区間を進むと屋内に入る。true のとき道案内でこのカードの直後に屋内案内カードを表示する。 */
+  enters_indoors: boolean;
+  /** 屋内案内カードに表示する画像URL。空なら内蔵SVGイラストを表示する。 */
+  indoor_image_url: string;
   created_at: string;
   updated_at: string;
 }

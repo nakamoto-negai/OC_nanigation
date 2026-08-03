@@ -8,6 +8,7 @@ import { ARRecognizer } from "./ARRecognizer";
 import { ARDemoTab } from "./ARDemoTab";
 import { AnnouncementTab } from "./AnnouncementTab";
 import { ArrivalPhotoManager } from "./ArrivalPhotoManager";
+import { LinkIndoorImageManager } from "./LinkIndoorImageManager";
 import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
 interface Props {
@@ -387,10 +388,11 @@ interface LinkFormState {
   name: string;
   description: string;
   distance: string;
+  entersIndoors: boolean;
 }
 
 const emptyLink = (): LinkFormState => ({
-  id: null, fromNodeId: "", toNodeId: "", name: "", description: "", distance: "1",
+  id: null, fromNodeId: "", toNodeId: "", name: "", description: "", distance: "1", entersIndoors: false,
 });
 
 function LinkTab({
@@ -409,6 +411,9 @@ function LinkTab({
   const [form, setForm] = useState<LinkFormState>(emptyLink());
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // 編集中の既存リンク（屋内画像アップローダに渡す。indoor_image_url を持つ最新の Link）
+  const editingLink = form.id != null ? links.find((l) => l.id === form.id) ?? null : null;
 
   const set = (k: keyof LinkFormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -432,6 +437,7 @@ function LinkTab({
         name: form.name.trim(),
         description: form.description.trim(),
         distance: parseFloat(form.distance),
+        enters_indoors: form.entersIndoors,
       };
       if (form.id) {
         const updated = await api.links.update(form.id, data);
@@ -458,6 +464,7 @@ function LinkTab({
       name: l.name,
       description: l.description,
       distance: String(l.distance),
+      entersIndoors: l.enters_indoors ?? false,
     });
     setMsg(null);
   };
@@ -516,6 +523,20 @@ function LinkTab({
             <input type="number" value={form.distance} onChange={set("distance")} min="0.1" step="0.1" />
           </div>
         </div>
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.entersIndoors}
+              onChange={(e) => setForm((f) => ({ ...f, entersIndoors: e.target.checked }))}
+            />
+            この区間で屋内に入る
+          </label>
+          <p className="hint">オンにすると、道案内でこのカードの直後に「屋内に入ります」の画像付き案内カードが表示されます。</p>
+        </div>
+        {editingLink && (
+          <LinkIndoorImageManager link={editingLink} onUpdated={onUpdated} />
+        )}
         <div className="adm-actions">
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "保存中..." : form.id ? "更新" : "追加"}

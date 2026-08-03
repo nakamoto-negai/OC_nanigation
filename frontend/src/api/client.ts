@@ -47,6 +47,14 @@ export const api = {
       adminReq<Link>(`/api/links/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/links/${id}`, { method: "DELETE" }),
+    // 屋内案内カードの画像をアップロード（差し替え）／削除。更新後の Link を返す。
+    uploadIndoorImage: (id: number, form: FormData) =>
+      adminFetch(`/api/links/${id}/indoor-image`, { method: "POST", body: form }).then((r) => {
+        if (!r.ok) throw new Error("upload failed");
+        return r.json() as Promise<Link>;
+      }),
+    deleteIndoorImage: (id: number) =>
+      adminReq<Link>(`/api/links/${id}/indoor-image`, { method: "DELETE" }),
   },
   photos: {
     upload: (form: FormData) =>
