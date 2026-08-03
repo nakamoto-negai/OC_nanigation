@@ -615,6 +615,13 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .photo-missing { color: #ef4444; font-weight: 700; }
 /* ノード一覧: GPS座標が未登録の行を強調 */
 .adm-table tr.no-gps td { background: #fef2f2; }
+/* リンク写真一覧: 各行から写真/カメラで直接追加するボタン */
+.photo-add-btn {
+  padding: 4px 8px; margin: 1px; border: 1px solid #bfdbfe; border-radius: 6px;
+  background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap;
+}
+.photo-add-btn:disabled { opacity: 0.5; cursor: default; }
 .hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
 /* ── Layout ── */

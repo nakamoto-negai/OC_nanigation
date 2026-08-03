@@ -610,49 +610,56 @@ function PhotoTab({
   onReordered: (linkId: number, photos: Photo[]) => void;
 }) {
   const [selectedLinkId, setSelectedLinkId] = useState<number | "">("");
-  const [caption, setCaption] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   // 合成エディタで編集中の道中写真（null なら閉じている）
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
+  // アップロード対象リンク（一覧の「写真」「カメラ」ボタンで開いた選択の保存先）
+  const uploadTargetRef = useRef<number | null>(null);
 
   const selectedLink = links.find((l) => l.id === selectedLinkId);
 
-  // カメラ撮影した1枚を、選択中のファイル一覧に追加する（同じアップロード導線に乗せる）。
-  const onCameraPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) setFiles((prev) => [...prev, f]);
-    if (cameraRef.current) cameraRef.current.value = "";
-  };
-
-  const upload = async () => {
-    if (selectedLinkId === "" || files.length === 0) {
-      setMsg({ type: "err", text: "リンクとファイルを選択してください" });
-      return;
-    }
+  // 選んだ画像を対象リンクの道中写真として末尾に追加アップロードする。
+  const doUpload = async (fileList: File[]) => {
+    const linkId = uploadTargetRef.current;
+    if (linkId == null || fileList.length === 0) return;
+    const base = links.find((l) => l.id === linkId)?.photos?.length ?? 0;
     setUploading(true);
+    setMsg(null);
     try {
-      for (let i = 0; i < files.length; i++) {
+      for (let i = 0; i < fileList.length; i++) {
         const form = new FormData();
-        form.append("photo", files[i]);
-        form.append("link_id", String(selectedLinkId));
-        form.append("caption", files.length === 1 ? caption : "");
-        form.append("sort_order", String(i));
+        form.append("photo", fileList[i]);
+        form.append("link_id", String(linkId));
+        form.append("sort_order", String(base + i));
         const photo = await api.photos.upload(form);
-        onUploaded(Number(selectedLinkId), photo);
+        onUploaded(linkId, photo);
       }
-      setMsg({ type: "ok", text: `${files.length}枚アップロードしました` });
-      setFiles([]);
-      setCaption("");
-      if (fileRef.current) fileRef.current.value = "";
+      setMsg({ type: "ok", text: `${fileList.length}枚追加しました` });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
     } finally {
       setUploading(false);
     }
+  };
+
+  // 一覧の各行の「写真」「カメラ」ボタン: そのリンクを対象にして選択ダイアログを開く。
+  const openPicker = (linkId: number, camera: boolean) => {
+    uploadTargetRef.current = linkId;
+    setSelectedLinkId(linkId);
+    (camera ? cameraRef : fileRef).current?.click();
+  };
+
+  const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    doUpload(Array.from(e.target.files ?? []));
+    if (fileRef.current) fileRef.current.value = "";
+  };
+  const onCameraPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) doUpload([f]);
+    if (cameraRef.current) cameraRef.current.value = "";
   };
 
   const del = async (photo: Photo) => {
@@ -684,150 +691,105 @@ function PhotoTab({
     ? [...(selectedLink.photos ?? [])].sort((a, b) => a.sort_order - b.sort_order)
     : [];
 
+  const linkLabel = (l: Link) =>
+    `${l.from_node?.name ?? l.from_node_id} → ${l.to_node?.name ?? l.to_node_id}${l.name ? ` (${l.name})` : ""}`;
+
   return (
-    <div className="adm-layout">
-      <div className="adm-form-col">
-        <h3>写真をアップロード</h3>
-        {msg && (
-          <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>
-            {msg.text} ✕
+    <div className="adm-list-col">
+      {/* 共有の隠しファイル/カメラ入力（一覧の各行から使う） */}
+      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={onFilePick} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={onCameraPick} />
+
+      <h3>リンク写真の一覧 <span className="count-badge">{links.length}</span></h3>
+      {msg && (
+        <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>
+      )}
+      {(() => {
+        const withPhoto = links.filter((l) => (l.photos?.length ?? 0) > 0).length;
+        const missing = links.length - withPhoto;
+        return (
+          <p className="hint" style={{ marginBottom: 8 }}>
+            道中写真あり {withPhoto} / {links.length} リンク（未撮影 <strong style={{ color: missing > 0 ? "#ef4444" : "#16a34a" }}>{missing}</strong> 件）。各行の「写真」「カメラ」から直接追加できます。行をクリックすると下に写真を表示します。
+          </p>
+        );
+      })()}
+      {links.length === 0 ? (
+        <p className="adm-empty">リンクがまだありません</p>
+      ) : (
+        <table className="adm-table photo-overview">
+          <thead>
+            <tr><th>経路</th><th>道中</th><th>到着</th><th>屋内</th><th>写真追加</th></tr>
+          </thead>
+          <tbody>
+            {links.map((l) => {
+              const cnt = l.photos?.length ?? 0;
+              const arr = l.arrival_photos?.length ?? 0;
+              const indoor = !!l.indoor_image_url;
+              return (
+                <tr
+                  key={l.id}
+                  className={`${selectedLinkId === l.id ? "editing" : ""}${cnt === 0 ? " no-photo" : ""}`}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setSelectedLinkId(l.id)}
+                >
+                  <td>
+                    <strong>{l.from_node?.name ?? l.from_node_id} → {l.to_node?.name ?? l.to_node_id}</strong>
+                    {l.name ? <span className="text-muted"> ({l.name})</span> : null}
+                  </td>
+                  <td className="center">
+                    {cnt === 0 ? <span className="photo-missing">未撮影</span> : `${cnt}枚`}
+                  </td>
+                  <td className="center">{arr > 0 ? `${arr}枚` : <span className="text-muted">—</span>}</td>
+                  <td className="center">{indoor ? "✓" : <span className="text-muted">—</span>}</td>
+                  <td className="center" onClick={(e) => e.stopPropagation()}>
+                    <button className="photo-add-btn" disabled={uploading} onClick={() => openPicker(l.id, false)}>写真</button>
+                    <button className="photo-add-btn" disabled={uploading} onClick={() => openPicker(l.id, true)}>カメラ</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {/* 選択中リンクの道中写真（追加・並び替え・合成・削除）＋到着写真 */}
+      {selectedLink && (
+        <div style={{ marginTop: 12 }}>
+          <h3>
+            選択中: {linkLabel(selectedLink)} <span className="count-badge">{photos.length}枚</span>
+          </h3>
+          <div className="arrival-photo-btns" style={{ marginBottom: 10 }}>
+            <button type="button" className="btn-primary" disabled={uploading} onClick={() => openPicker(selectedLink.id, true)}>
+              {uploading ? "アップロード中..." : "カメラで撮影して追加"}
+            </button>
+            <button type="button" className="btn-secondary" disabled={uploading} onClick={() => openPicker(selectedLink.id, false)}>
+              写真を選んで追加
+            </button>
           </div>
-        )}
-        <div className="adm-field">
-          <label>リンクを選択 <span className="req">*</span></label>
-          <select value={selectedLinkId} onChange={(e) => setSelectedLinkId(Number(e.target.value) || "")}>
-            <option value="">選択してください</option>
-            {links.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.from_node?.name ?? l.from_node_id} → {l.to_node?.name ?? l.to_node_id}
-                {l.name ? ` (${l.name})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="adm-field">
-          <label>写真ファイル <span className="req">*</span></label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-          />
-          {/* スマホのカメラで撮影して追加（capture）。撮った1枚が選択リストに加わる。 */}
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: "none" }}
-            onChange={onCameraPick}
-          />
-          <button type="button" className="btn-secondary" style={{ marginTop: 8 }} onClick={() => cameraRef.current?.click()}>
-            カメラで撮影して追加
-          </button>
-          {files.length > 0 && (
-            <p className="hint">{files.length}枚選択中</p>
-          )}
-        </div>
-        <div className="adm-field">
-          <label>キャプション {files.length > 1 && <span className="text-muted">（1枚の場合のみ）</span>}</label>
-          <input
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="写真の説明"
-            disabled={files.length > 1}
-          />
-        </div>
-        <div className="adm-actions">
-          <button className="btn-primary" onClick={upload} disabled={uploading || files.length === 0 || selectedLinkId === ""}>
-            {uploading ? "アップロード中..." : "アップロード"}
-          </button>
-        </div>
-
-        {/* 到着地点の写真（このリンクに紐づく。「到着地点を確認する」で表示） */}
-        {selectedLink && (
-          <ArrivalPhotoManager linkId={selectedLink.id} initialPhotos={selectedLink.arrival_photos} />
-        )}
-      </div>
-
-      <div className="adm-list-col">
-        {/* 全リンクの写真カバレッジ一覧（どのリンクが撮影済み／未撮影か一目で分かる） */}
-        <h3>
-          リンク写真の一覧 <span className="count-badge">{links.length}</span>
-        </h3>
-        {(() => {
-          const withPhoto = links.filter((l) => (l.photos?.length ?? 0) > 0).length;
-          const missing = links.length - withPhoto;
-          return (
-            <p className="hint" style={{ marginBottom: 8 }}>
-              道中写真あり {withPhoto} / {links.length} リンク（未撮影 <strong style={{ color: missing > 0 ? "#ef4444" : "#16a34a" }}>{missing}</strong> 件）。行をクリックすると左でそのリンクを選択します。
-            </p>
-          );
-        })()}
-        {links.length === 0 ? (
-          <p className="adm-empty">リンクがまだありません</p>
-        ) : (
-          <table className="adm-table photo-overview">
-            <thead>
-              <tr><th>経路</th><th>道中</th><th>到着</th><th>屋内</th></tr>
-            </thead>
-            <tbody>
-              {links.map((l) => {
-                const cnt = l.photos?.length ?? 0;
-                const arr = l.arrival_photos?.length ?? 0;
-                const indoor = !!l.indoor_image_url;
-                return (
-                  <tr
-                    key={l.id}
-                    className={`${selectedLinkId === l.id ? "editing" : ""}${cnt === 0 ? " no-photo" : ""}`}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelectedLinkId(l.id)}
-                  >
-                    <td>
-                      <strong>{l.from_node?.name ?? l.from_node_id} → {l.to_node?.name ?? l.to_node_id}</strong>
-                      {l.name ? <span className="text-muted"> ({l.name})</span> : null}
-                    </td>
-                    <td className="center">
-                      {cnt === 0 ? <span className="photo-missing">未撮影</span> : `${cnt}枚`}
-                    </td>
-                    <td className="center">{arr > 0 ? `${arr}枚` : <span className="text-muted">—</span>}</td>
-                    <td className="center">{indoor ? "✓" : <span className="text-muted">—</span>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        {/* 選択中リンクの道中写真（並び替え・合成・削除） */}
-        {selectedLink && (
-          <>
-            <h3 style={{ marginTop: 20 }}>
-              選択中リンクの道中写真 <span className="count-badge">{photos.length}枚</span>
-            </h3>
-            {photos.length === 0 ? (
-              <p className="adm-empty">このリンクの写真はまだありません</p>
-            ) : (
-              <div className="photo-grid">
-                {photos.map((p, i) => (
-                  <div key={p.id} className="photo-card">
-                    <div className="photo-card-order">{i + 1}</div>
-                    <img src={`${BASE}${p.url}`} alt={p.caption} />
-                    {p.caption && <p className="photo-card-caption">{p.caption}</p>}
-                    <div className="photo-card-actions">
-                      <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
-                      <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
-                      <button className="photo-card-composite" onClick={() => setEditingPhoto(p)}>合成</button>
-                      <button className="photo-card-del" onClick={() => del(p)}>削除</button>
-                    </div>
+          {photos.length === 0 ? (
+            <p className="adm-empty">このリンクの道中写真はまだありません</p>
+          ) : (
+            <div className="photo-grid">
+              {photos.map((p, i) => (
+                <div key={p.id} className="photo-card">
+                  <div className="photo-card-order">{i + 1}</div>
+                  <img src={`${BASE}${p.url}`} alt={p.caption} />
+                  {p.caption && <p className="photo-card-caption">{p.caption}</p>}
+                  <div className="photo-card-actions">
+                    <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
+                    <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
+                    <button className="photo-card-composite" onClick={() => setEditingPhoto(p)}>合成</button>
+                    <button className="photo-card-del" onClick={() => del(p)}>削除</button>
                   </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 到着地点の写真（このリンクに紐づく。「到着地点を確認する」で表示） */}
+          <ArrivalPhotoManager linkId={selectedLink.id} initialPhotos={selectedLink.arrival_photos} />
+        </div>
+      )}
 
       {editingPhoto && (
         <CompositeEditor
