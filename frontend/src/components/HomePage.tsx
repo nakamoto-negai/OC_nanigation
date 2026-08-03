@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Category, Destination, Link, Node, NodeDetour, RouteResponse, Setting } from "../types";
+import { Category, Destination, Link, MapImage, Node, NodeDetour, RouteResponse, Setting } from "../types";
 import { calcRouteToNodes } from "../utils/dijkstra";
+import { api } from "../api/client";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
+import { MapSelector, MapMarker } from "./MapSelector";
 import { useCompassPermission } from "../hooks/useCompass";
 
 // 目的地の所属ノードID一覧。
@@ -64,6 +66,12 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [destId, setDestId] = useState<number | null>(null);
   // 目的地セレクト（プルダウン）を押したときに開く、カテゴリ別リストのオーバーレイ。
   const [destPickerOpen, setDestPickerOpen] = useState(false);
+  // 目的地オーバーレイのタブ（既存のリスト or マップ）
+  const [destTab, setDestTab] = useState<"list" | "map">("list");
+  // 現在地を地図から選ぶオーバーレイ
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
+  // マップ選択用の背景画像（アクティブなマップ）
+  const [mapImage, setMapImage] = useState<MapImage | null>(null);
   const [error, setError] = useState("");
 
   // コンパス（方位）許可。ホーム画面で先に取得しておき、埋め込み道案内へ共有する。
@@ -71,6 +79,11 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   // 許可状態だけを購読する（heading の 60fps 更新で HomePage を再レンダリングしない）。
   // heading は埋め込み道案内(RouteGuide)側が useCompass で購読する。
   const compass = useCompassPermission();
+
+  // マップ選択用に、アクティブなマップ画像を取得する。
+  useEffect(() => {
+    api.mapImages.getActive().then(setMapImage).catch(() => setMapImage(null));
+  }, []);
 
   // 位置情報の取得・監視
   useEffect(() => {
@@ -194,6 +207,15 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     const ids = destNodeIds(d);
     return ids.length > 0 && !ids.every((nid) => nid === startId);
   });
+
+  // マップ選択のマーカー。現在地は全ノード、目的地は各目的地の代表ノード位置に置く。
+  const startMarkers: MapMarker[] = nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, label: n.name }));
+  const destMarkers: MapMarker[] = visibleDestinations
+    .map((d) => {
+      const rep = representativeNode(d);
+      return rep ? { id: d.id, x: rep.x, y: rep.y, label: d.name } : null;
+    })
+    .filter((m): m is MapMarker => m !== null);
 
   // カテゴリ別グループ（Category オブジェクト使用、sort_order 昇順、未設定は末尾）
   type Group = { key: string; label: string; cat: Category | null; items: Destination[] };
@@ -367,6 +389,9 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 <option key={n.id} value={n.id}>{n.name}</option>
               ))}
             </select>
+            <button type="button" className="loc-map-btn" onClick={() => setStartPickerOpen(true)}>
+              地図から選択
+            </button>
             {manualStart && geoStatus === "found" && (
               <button
                 className="loc-auto-btn"
@@ -395,7 +420,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           <button
             type="button"
             className="loc-manual-select dest-picker-btn"
-            onClick={() => setDestPickerOpen(true)}
+            onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
           >
             <span>{destDestination ? destDestination.name : "目的地を選択..."}</span>
             <span className="dest-picker-caret">▼</span>
@@ -442,7 +467,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </>
       )}
 
-      {/* 目的地プルダウンを押したときのオーバーレイ（目的地選択画面と同じリスト） */}
+      {/* 目的地プルダウンを押したときのオーバーレイ。リスト（既存画面）とマップの2タブ。 */}
       {destPickerOpen && (
         <div className="dest-modal-overlay" onClick={() => setDestPickerOpen(false)}>
           <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
@@ -456,7 +481,64 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 ×
               </button>
             </div>
-            <div className="dest-modal-body">{destListBody}</div>
+            <div className="picker-tabs">
+              <button
+                className={`picker-tab${destTab === "list" ? " active" : ""}`}
+                onClick={() => setDestTab("list")}
+              >
+                リスト
+              </button>
+              <button
+                className={`picker-tab${destTab === "map" ? " active" : ""}`}
+                onClick={() => setDestTab("map")}
+              >
+                マップ
+              </button>
+            </div>
+            <div className="dest-modal-body">
+              {destTab === "list" ? (
+                destListBody
+              ) : (
+                <MapSelector
+                  mapImage={mapImage}
+                  markers={destMarkers}
+                  selectedId={destId}
+                  onSelect={(id) => chooseDest(id)}
+                  emptyText="マップ画像が未登録です。リストから選択してください。"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 現在地を地図から選ぶオーバーレイ */}
+      {startPickerOpen && (
+        <div className="dest-modal-overlay" onClick={() => setStartPickerOpen(false)}>
+          <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dest-modal-head">
+              <h2 className="dest-heading">現在地を地図から選択</h2>
+              <button
+                className="dest-modal-close"
+                onClick={() => setStartPickerOpen(false)}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <div className="dest-modal-body">
+              <MapSelector
+                mapImage={mapImage}
+                markers={startMarkers}
+                selectedId={startId}
+                onSelect={(id) => {
+                  setStartId(id);
+                  setManualStart(true);
+                  setStartPickerOpen(false);
+                }}
+                emptyText="マップ画像が未登録です。上の一覧から選択してください。"
+              />
+            </div>
           </div>
         </div>
       )}
