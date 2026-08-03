@@ -9,6 +9,7 @@ import { ARDemoTab } from "./ARDemoTab";
 import { AnnouncementTab } from "./AnnouncementTab";
 import { ArrivalPhotoManager } from "./ArrivalPhotoManager";
 import { LinkIndoorImageManager } from "./LinkIndoorImageManager";
+import { CompositeEditor } from "./CompositeEditor";
 import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
 interface Props {
@@ -600,8 +601,18 @@ function PhotoTab({
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  // 合成エディタで編集中の道中写真（null なら閉じている）
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
 
   const selectedLink = links.find((l) => l.id === selectedLinkId);
+
+  // カメラ撮影した1枚を、選択中のファイル一覧に追加する（同じアップロード導線に乗せる）。
+  const onCameraPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) setFiles((prev) => [...prev, f]);
+    if (cameraRef.current) cameraRef.current.value = "";
+  };
 
   const upload = async () => {
     if (selectedLinkId === "" || files.length === 0) {
@@ -689,6 +700,18 @@ function PhotoTab({
             multiple
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
           />
+          {/* スマホのカメラで撮影して追加（capture）。撮った1枚が選択リストに加わる。 */}
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={onCameraPick}
+          />
+          <button type="button" className="btn-secondary" style={{ marginTop: 8 }} onClick={() => cameraRef.current?.click()}>
+            カメラで撮影して追加
+          </button>
           {files.length > 0 && (
             <p className="hint">{files.length}枚選択中</p>
           )}
@@ -735,6 +758,7 @@ function PhotoTab({
                 <div className="photo-card-actions">
                   <button className="photo-card-move" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
                   <button className="photo-card-move" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</button>
+                  <button className="photo-card-composite" onClick={() => setEditingPhoto(p)}>合成</button>
                   <button className="photo-card-del" onClick={() => del(p)}>削除</button>
                 </div>
               </div>
@@ -742,6 +766,22 @@ function PhotoTab({
           </div>
         )}
       </div>
+
+      {editingPhoto && (
+        <CompositeEditor
+          baseImageUrl={editingPhoto.url}
+          title="道中写真に合成"
+          onClose={() => setEditingPhoto(null)}
+          onSave={async (blob) => {
+            const form = new FormData();
+            form.append("photo", blob, "composite.jpg");
+            const updated = await api.photos.replace(editingPhoto.id, form);
+            if (selectedLink) {
+              onReordered(selectedLink.id, photos.map((ph) => (ph.id === updated.id ? updated : ph)));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

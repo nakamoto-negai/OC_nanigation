@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Link } from "../types";
 import { api } from "../api/client";
+import { CompositeEditor } from "./CompositeEditor";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -19,6 +20,8 @@ interface Props {
 export const LinkIndoorImageManager: React.FC<Props> = ({ link, onUpdated }) => {
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  // 合成エディタを開いているか
+  const [compositing, setCompositing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -74,8 +77,25 @@ export const LinkIndoorImageManager: React.FC<Props> = ({ link, onUpdated }) => 
             <button type="button" className="node-photo-del" aria-label="この画像を削除" onClick={remove}>
               ×
             </button>
+            <button type="button" className="node-photo-composite" onClick={() => setCompositing(true)}>
+              合成
+            </button>
           </div>
         </div>
+      )}
+
+      {compositing && link.indoor_image_url && (
+        <CompositeEditor
+          baseImageUrl={link.indoor_image_url}
+          title="屋内画像に合成"
+          onClose={() => setCompositing(false)}
+          onSave={async (blob) => {
+            const form = new FormData();
+            form.append("image", blob, "composite.jpg");
+            const updated = await api.links.uploadIndoorImage(link.id, form);
+            onUpdated(updated);
+          }}
+        />
       )}
 
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={onPick} />

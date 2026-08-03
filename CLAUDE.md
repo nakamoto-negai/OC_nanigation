@@ -130,7 +130,7 @@ docker compose up -d --build
 /api/overlay-images       GET/POST         — 合成用写真の一覧・登録（管理者のみ）
 /api/overlay-images/:id   DELETE           — 合成用写真の削除（管理者のみ）
 /api/photos         POST
-/api/photos/:id     DELETE
+/api/photos/:id     PUT/DELETE   — PUT は道中写真の画像差し替え（合成結果の上書き。管理者のみ）
 /api/photos/reorder PUT
 /api/destinations       GET          — 目的地一覧（公開）
 /api/destinations       POST         — 目的地登録（管理者のみ。node_ids で所属ノードを指定）

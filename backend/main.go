@@ -78,6 +78,7 @@ func main() {
 		admin.POST("/photos", handlers.UploadPhoto)
 		admin.DELETE("/photos/:id", handlers.DeletePhoto)
 		admin.PUT("/photos/reorder", handlers.ReorderPhotos)
+		admin.PUT("/photos/:id", handlers.ReplacePhoto)
 
 		// 到着地点の写真（リンク）: 登録・上書き・削除は管理者のみ
 		admin.POST("/arrival-photos", handlers.UploadArrivalPhoto)

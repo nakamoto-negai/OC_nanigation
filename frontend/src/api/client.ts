@@ -1,4 +1,4 @@
-import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -61,6 +61,12 @@ export const api = {
       adminFetch("/api/photos", { method: "POST", body: form }).then((r) => {
         if (!r.ok) throw new Error("upload failed");
         return r.json();
+      }),
+    // 合成結果などで画像を差し替える（同じレコードを上書き）。
+    replace: (id: number, form: FormData) =>
+      adminFetch(`/api/photos/${id}`, { method: "PUT", body: form }).then((r) => {
+        if (!r.ok) throw new Error("replace failed");
+        return r.json() as Promise<Photo>;
       }),
     delete: (id: number) =>
       adminReq<void>(`/api/photos/${id}`, { method: "DELETE" }),
