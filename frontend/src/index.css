@@ -613,6 +613,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .photo-overview tr.no-photo td { background: #fef2f2; }
 .photo-overview tr.editing td { background: #eff6ff; }
 .photo-missing { color: #ef4444; font-weight: 700; }
+/* ノード一覧: GPS座標が未登録の行を強調 */
+.adm-table tr.no-gps td { background: #fef2f2; }
 .hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
 /* ── Layout ── */

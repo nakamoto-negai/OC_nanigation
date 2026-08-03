@@ -341,6 +341,15 @@ function NodeTab({
           </p>
         )}
         <h3>ノード一覧 <span className="count-badge">{nodes.length}</span></h3>
+        {nodes.length > 0 && (() => {
+          const withGps = nodes.filter((n) => n.lat != null && n.lng != null).length;
+          const missing = nodes.length - withGps;
+          return (
+            <p className="hint" style={{ marginBottom: 8 }}>
+              GPS座標 登録済み {withGps} / {nodes.length} ノード（未登録 <strong style={{ color: missing > 0 ? "#ef4444" : "#16a34a" }}>{missing}</strong> 件）。未登録の行は赤く表示されます。
+            </p>
+          );
+        })()}
         {nodes.length === 0 ? (
           <p className="adm-empty">ノードがまだありません</p>
         ) : (
@@ -350,20 +359,24 @@ function NodeTab({
                 <th>名前</th><th>説明</th>
                 <th>X</th><th>Y</th>
                 <th>緯度</th><th>経度</th>
+                <th>GPS</th>
                 <th>混雑度</th>
                 <th>待ち時間</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {nodes.map((n) => (
-                <tr key={n.id} className={form.id === n.id ? "editing" : ""}>
+              {nodes.map((n) => {
+                const hasGps = n.lat != null && n.lng != null;
+                return (
+                <tr key={n.id} className={`${form.id === n.id ? "editing" : ""}${hasGps ? "" : " no-gps"}`}>
                   <td><strong>{n.name}</strong></td>
                   <td className="text-muted">{n.description || "—"}</td>
                   <td className="num">{Math.round(n.x)}</td>
                   <td className="num">{Math.round(n.y)}</td>
                   <td className="num">{n.lat != null ? n.lat.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="num">{n.lng != null ? n.lng.toFixed(5) : <span className="text-muted">—</span>}</td>
+                  <td className="center">{hasGps ? "✓" : <span className="photo-missing">未登録</span>}</td>
                   <td className="center"><CongestionBadge level={n.congestion_level} /></td>
                   <td className="num">{n.wait_time > 0 ? `${n.wait_time}分` : <span className="text-muted">—</span>}</td>
                   <td className="adm-row-actions">
@@ -371,7 +384,8 @@ function NodeTab({
                     <button className="btn-del" onClick={() => del(n.id, n.name)}>削除</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
