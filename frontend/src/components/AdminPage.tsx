@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ARFeature, ARObject, Cafeteria, Category, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "../utils/congestion";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
@@ -603,15 +603,19 @@ function PhotoTab({
   onUploaded,
   onDeleted,
   onReordered,
+  onLinkUpdated,
 }: {
   links: Link[];
   onUploaded: (linkId: number, photo: Photo) => void;
   onDeleted: (linkId: number, photoId: number) => void;
   onReordered: (linkId: number, photos: Photo[]) => void;
+  onLinkUpdated: (link: Link) => void;
 }) {
   const [selectedLinkId, setSelectedLinkId] = useState<number | "">("");
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  // 一覧の「写真」「カメラ」ボタンで追加する対象: 道中写真 or 到着地点の写真
+  const [addTarget, setAddTarget] = useState<"photo" | "arrival">("photo");
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   // 合成エディタで編集中の道中写真（null なら閉じている）
@@ -621,23 +625,40 @@ function PhotoTab({
 
   const selectedLink = links.find((l) => l.id === selectedLinkId);
 
-  // 選んだ画像を対象リンクの道中写真として末尾に追加アップロードする。
+  // 選んだ画像を、対象リンクの「道中写真」または「到着地点の写真」として末尾に追加する。
   const doUpload = async (fileList: File[]) => {
     const linkId = uploadTargetRef.current;
     if (linkId == null || fileList.length === 0) return;
-    const base = links.find((l) => l.id === linkId)?.photos?.length ?? 0;
+    const link = links.find((l) => l.id === linkId);
     setUploading(true);
     setMsg(null);
     try {
-      for (let i = 0; i < fileList.length; i++) {
-        const form = new FormData();
-        form.append("photo", fileList[i]);
-        form.append("link_id", String(linkId));
-        form.append("sort_order", String(base + i));
-        const photo = await api.photos.upload(form);
-        onUploaded(linkId, photo);
+      if (addTarget === "arrival") {
+        // 到着地点の写真として追加し、親のリンク状態を更新（一覧の件数を即反映）。
+        const base = link?.arrival_photos?.length ?? 0;
+        const added: ArrivalPhoto[] = [];
+        for (let i = 0; i < fileList.length; i++) {
+          const form = new FormData();
+          form.append("photo", fileList[i]);
+          form.append("link_id", String(linkId));
+          form.append("sort_order", String(base + i));
+          added.push(await api.arrivalPhotos.upload(form));
+        }
+        if (link) onLinkUpdated({ ...link, arrival_photos: [...(link.arrival_photos ?? []), ...added] });
+        setMsg({ type: "ok", text: `到着写真を${fileList.length}枚追加しました` });
+      } else {
+        // 道中写真として追加。
+        const base = link?.photos?.length ?? 0;
+        for (let i = 0; i < fileList.length; i++) {
+          const form = new FormData();
+          form.append("photo", fileList[i]);
+          form.append("link_id", String(linkId));
+          form.append("sort_order", String(base + i));
+          const photo = await api.photos.upload(form);
+          onUploaded(linkId, photo);
+        }
+        setMsg({ type: "ok", text: `道中写真を${fileList.length}枚追加しました` });
       }
-      setMsg({ type: "ok", text: `${fileList.length}枚追加しました` });
     } catch (e: any) {
       setMsg({ type: "err", text: e.message });
     } finally {
@@ -713,6 +734,24 @@ function PhotoTab({
           </p>
         );
       })()}
+      {/* 追加先の選択: 各行の「写真」「カメラ」ボタンがどちらに追加するか */}
+      <div className="add-target-row">
+        <span className="add-target-label">追加先:</span>
+        <button
+          type="button"
+          className={`add-target-btn${addTarget === "photo" ? " active" : ""}`}
+          onClick={() => setAddTarget("photo")}
+        >
+          道中写真
+        </button>
+        <button
+          type="button"
+          className={`add-target-btn${addTarget === "arrival" ? " active" : ""}`}
+          onClick={() => setAddTarget("arrival")}
+        >
+          到着地点の写真
+        </button>
+      </div>
       {links.length === 0 ? (
         <p className="adm-empty">リンクがまだありません</p>
       ) : (
@@ -2892,6 +2931,7 @@ export const AdminPage: React.FC<Props> = ({
             onUploaded={onPhotoUploaded}
             onDeleted={onPhotoDeleted}
             onReordered={onPhotoReordered}
+            onLinkUpdated={onLinkUpdated}
           />
         )}
         {tab === "destination" && (

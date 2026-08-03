@@ -622,6 +622,14 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   white-space: nowrap;
 }
 .photo-add-btn:disabled { opacity: 0.5; cursor: default; }
+/* 追加先（道中写真 / 到着地点の写真）の切替 */
+.add-target-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.add-target-label { font-size: 13px; font-weight: 700; color: #475569; }
+.add-target-btn {
+  padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #f8fafc; color: #64748b; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.add-target-btn.active { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
 .hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
 /* ── Layout ── */
@@ -1318,17 +1326,13 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border: none; border-radius: 8px; cursor: pointer; font-size: 13px; width: fit-content;
 }
 
-/* ── 目的地オーバーレイ下部の選択切替ボタン（地図選択 / イベント選択） ── */
-.picker-bottom-btns {
-  display: flex; gap: 8px; padding: 10px 20px; background: #fff;
-  border-top: 1px solid #e2e8f0; flex-shrink: 0;
+/* ── 目的地プルダウン直下の選択手段ボタン（地図選択 / イベント選択） ── */
+.dest-mode-btns { display: flex; gap: 6px; width: 100%; }
+.dest-mode-btn {
+  flex: 1; padding: 8px 0; border: 1px solid #bfdbfe; border-radius: 8px;
+  background: #eff6ff; color: #2563eb; font-size: 13px; font-weight: 700; cursor: pointer;
 }
-.picker-bottom-btn {
-  flex: 1; padding: 12px 0; border: 1px solid #e2e8f0; border-radius: 10px;
-  background: #f8fafc; color: #64748b; font-size: 15px; font-weight: 700; cursor: pointer;
-}
-.picker-bottom-btn.active { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
-.picker-bottom-btn:active { background: #dbeafe; }
+.dest-mode-btn:active { background: #dbeafe; }
 
 /* ── ユーザー向けマップ選択（マップ画像＋タップ可能なマーカー） ── */
 .map-selector { width: 100%; }

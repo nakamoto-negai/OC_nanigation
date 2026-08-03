@@ -425,6 +425,23 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
             <span>{destDestination ? destDestination.name : "目的地を選択..."}</span>
             <span className="dest-picker-caret">▼</span>
           </button>
+          {/* プルダウン直下の選択手段ボタン。地図選択＝地図、イベント選択＝リスト（イベント表示付き）。 */}
+          <div className="dest-mode-btns">
+            <button
+              type="button"
+              className="dest-mode-btn"
+              onClick={() => { setDestTab("map"); setDestPickerOpen(true); }}
+            >
+              地図選択
+            </button>
+            <button
+              type="button"
+              className="dest-mode-btn"
+              onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
+            >
+              イベント選択
+            </button>
+          </div>
         </div>
       </div>
 
@@ -467,7 +484,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </>
       )}
 
-      {/* 目的地プルダウンを押したときのオーバーレイ。リスト（既存画面）とマップの2タブ。 */}
+      {/* 目的地選択オーバーレイ。destTab（イベント選択=リスト / 地図選択=マップ）で表示を切替。
+          モードはプルダウン直下の「地図選択」「イベント選択」ボタンで指定して開く。 */}
       {destPickerOpen && (
         <div className="dest-modal-overlay" onClick={() => setDestPickerOpen(false)}>
           <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
@@ -493,21 +511,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                   emptyText="マップ画像が未登録です。イベント選択から選んでください。"
                 />
               )}
-            </div>
-            {/* 下部の選択切替ボタン。地図選択＝マップ、イベント選択＝目的地リスト（イベント表示付き）。 */}
-            <div className="picker-bottom-btns">
-              <button
-                className={`picker-bottom-btn${destTab === "map" ? " active" : ""}`}
-                onClick={() => setDestTab("map")}
-              >
-                地図選択
-              </button>
-              <button
-                className={`picker-bottom-btn${destTab === "list" ? " active" : ""}`}
-                onClick={() => setDestTab("list")}
-              >
-                イベント選択
-              </button>
             </div>
           </div>
         </div>
