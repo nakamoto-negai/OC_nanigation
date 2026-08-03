@@ -142,7 +142,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   background: none; border: none; font-size: 26px; line-height: 1;
   color: #94a3b8; cursor: pointer; padding: 0 4px;
 }
-.dest-modal-body { padding: 16px 20px; overflow-y: auto; }
+.dest-modal-body { padding: 16px 20px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 @media (min-width: 560px) {
   .dest-modal-overlay { align-items: center; }
   .dest-modal { border-radius: 16px; }
@@ -1311,16 +1311,17 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border: none; border-radius: 8px; cursor: pointer; font-size: 13px; width: fit-content;
 }
 
-/* ── 現在地/目的地オーバーレイのタブ（リスト / マップ） ── */
-.picker-tabs {
-  display: flex; gap: 6px; padding: 8px 20px 0; background: #fff;
+/* ── 目的地オーバーレイ下部の選択切替ボタン（地図選択 / イベント選択） ── */
+.picker-bottom-btns {
+  display: flex; gap: 8px; padding: 10px 20px; background: #fff;
+  border-top: 1px solid #e2e8f0; flex-shrink: 0;
 }
-.picker-tab {
-  flex: 1; padding: 9px 0; border: 1px solid #e2e8f0; border-bottom: none;
-  border-radius: 10px 10px 0 0; background: #f8fafc; color: #64748b;
-  font-size: 14px; font-weight: 700; cursor: pointer;
+.picker-bottom-btn {
+  flex: 1; padding: 12px 0; border: 1px solid #e2e8f0; border-radius: 10px;
+  background: #f8fafc; color: #64748b; font-size: 15px; font-weight: 700; cursor: pointer;
 }
-.picker-tab.active { background: #fff; color: #1d4ed8; border-color: #bfdbfe; }
+.picker-bottom-btn.active { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
+.picker-bottom-btn:active { background: #dbeafe; }
 
 /* ── ユーザー向けマップ選択（マップ画像＋タップ可能なマーカー） ── */
 .map-selector { width: 100%; }

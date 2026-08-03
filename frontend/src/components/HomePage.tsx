@@ -481,20 +481,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 ×
               </button>
             </div>
-            <div className="picker-tabs">
-              <button
-                className={`picker-tab${destTab === "list" ? " active" : ""}`}
-                onClick={() => setDestTab("list")}
-              >
-                リスト
-              </button>
-              <button
-                className={`picker-tab${destTab === "map" ? " active" : ""}`}
-                onClick={() => setDestTab("map")}
-              >
-                マップ
-              </button>
-            </div>
             <div className="dest-modal-body">
               {destTab === "list" ? (
                 destListBody
@@ -504,9 +490,24 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                   markers={destMarkers}
                   selectedId={destId}
                   onSelect={(id) => chooseDest(id)}
-                  emptyText="マップ画像が未登録です。リストから選択してください。"
+                  emptyText="マップ画像が未登録です。イベント選択から選んでください。"
                 />
               )}
+            </div>
+            {/* 下部の選択切替ボタン。地図選択＝マップ、イベント選択＝目的地リスト（イベント表示付き）。 */}
+            <div className="picker-bottom-btns">
+              <button
+                className={`picker-bottom-btn${destTab === "map" ? " active" : ""}`}
+                onClick={() => setDestTab("map")}
+              >
+                地図選択
+              </button>
+              <button
+                className={`picker-bottom-btn${destTab === "list" ? " active" : ""}`}
+                onClick={() => setDestTab("list")}
+              >
+                イベント選択
+              </button>
             </div>
           </div>
         </div>
