@@ -5,6 +5,7 @@ import { CompassGuide } from "./CompassGuide";
 import { ARNavGuide } from "./ARNavGuide";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { useCompass } from "../hooks/useCompass";
+import { useSharedCamera } from "../hooks/useSharedCamera";
 import { useRouteWS } from "../hooks/useRouteWS";
 import { calcRoute } from "../utils/dijkstra";
 import { gpsDistance } from "../utils/bearing";
@@ -109,6 +110,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   // （フックは常に呼ぶ必要があるため ownCompass は常に生成し、使うかどうかだけ切り替える）
   const ownCompass = useCompass();
   const { heading, permission, requestPermission } = compass ?? ownCompass;
+  // 道案内中は背面カメラを1本だけ保持して各 AR カードで使い回す（スクロールごとの再要求を防ぐ）。
+  const sharedCamera = useSharedCamera();
   const { sendPosition, sendGoalReached, sendAction, ready: wsReady } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
@@ -131,6 +134,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   // 到着の自動遷移タイマー内から最新の arCardIndex を読むためのミラー
   const arCardIndexRef = useRef<number | null>(null);
   useEffect(() => { arCardIndexRef.current = arCardIndex; }, [arCardIndex]);
+
+  // AR カードが表示されたら共有カメラを一度だけ起動する（start は取得済みなら何もしない）。
+  useEffect(() => {
+    if (arCardIndex !== null) sharedCamera.start();
+  }, [arCardIndex, sharedCamera.start]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -465,6 +473,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   onNext={() => goToNextCard(ci)}
                   arrived={arrivedCardIndex === ci}
                   distance={distanceToTarget}
+                  externalStream={sharedCamera.stream}
+                  externalError={sharedCamera.error}
                   onConfirmArrival={() =>
                     sendAction("arrival_view", s.step_number, route.steps.length, s.from_node.name, s.to_node.name, originName, destName)
                   }

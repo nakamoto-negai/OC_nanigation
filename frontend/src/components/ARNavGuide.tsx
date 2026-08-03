@@ -26,6 +26,12 @@ interface Props {
   /** デモ用: 指定するとカメラを起動せず、この画像を背景（カメラの代わり）に表示する。
       道案内ARと全く同じレイアウトで、カメラ部分だけを画像に差し替えるために使う。 */
   demoImageUrl?: string;
+  /** 親（RouteGuide）が保持する共有カメラのストリーム。指定された場合、このコンポーネントは
+      getUserMedia を呼ばず、このストリームを <video> に付けるだけにする（カード切替のたびに
+      カメラを再要求しないため）。undefined の場合は従来どおり自前でカメラを取得する。 */
+  externalStream?: MediaStream | null;
+  /** externalStream モードでのカメラ取得エラー文言（親から渡す）。 */
+  externalError?: string;
 }
 
 // 目的ノードまでこの距離(m)以内に近づいたら「到着まで◯m」のカウントダウンを表示する
@@ -42,12 +48,16 @@ const APPROACH_DISPLAY_M = 10;
  *   差 -  → 左に傾く（左へ回る）
  */
 export const ARNavGuide: React.FC<Props> = ({
-  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に変更", onNext, arrived = false, distance = null, onConfirmArrival, demoImageUrl,
+  step, heading, permission, onRequestPermission, userLat, userLng, mapNorthOffset, onClose, closeLabel = "画像案内に変更", onNext, arrived = false, distance = null, onConfirmArrival, demoImageUrl, externalStream, externalError,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [err, setErr] = useState("");
+  // 親から共有ストリームを渡された場合は「共有モード」。自前でカメラ取得・停止をしない。
+  const externalMode = externalStream !== undefined;
+  // 表示するカメラエラー（共有モードは親のエラー、スタンドアロンは自前のエラー）。
+  const displayErr = externalMode ? (externalError ?? "") : err;
   // 「到着地点を確認する」で、到着地点(終着ノード)の登録写真をオーバーレイ表示するか
   const [showArrival, setShowArrival] = useState(false);
 
@@ -64,10 +74,23 @@ export const ARNavGuide: React.FC<Props> = ({
     };
   })();
 
-  // 背面カメラ起動（マウント時）。アンマウントで必ず停止する。
+  // 共有モード: 親（RouteGuide）が保持するストリームを <video> に付けるだけ。
+  // getUserMedia は呼ばない＝カード切替のたびの再要求（許可トースト）が起きない。
+  // アンマウントでもストリームは止めない（親が管理する）。
+  useEffect(() => {
+    if (demoImageUrl || !externalMode) return;
+    const v = videoRef.current;
+    if (v && externalStream) {
+      v.srcObject = externalStream;
+      v.play().catch(() => { /* 自動再生の失敗は無視 */ });
+      setCameraOn(true);
+    }
+  }, [demoImageUrl, externalMode, externalStream]);
+
+  // スタンドアロンモード（externalStream 未指定）: 自前で背面カメラを取得し、アンマウントで停止する。
   // デモモード（demoImageUrl 指定）ではカメラを使わないので起動しない。
   useEffect(() => {
-    if (demoImageUrl) return;
+    if (demoImageUrl || externalMode) return;
     let cancelled = false;
     (async () => {
       try {
@@ -94,7 +117,7 @@ export const ARNavGuide: React.FC<Props> = ({
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [demoImageUrl, externalMode]);
 
   const hasHeading = heading !== null && permission === "granted";
   const diff = hasHeading ? angleDiff(targetBearing, heading!) : 0;
@@ -214,8 +237,8 @@ export const ARNavGuide: React.FC<Props> = ({
           </div>
         )}
 
-        {!demoImageUrl && !cameraOn && !err && <div className="arnav-placeholder">カメラ起動中…</div>}
-        {err && <div className="arnav-error">{err}</div>}
+        {!demoImageUrl && !cameraOn && !displayErr && <div className="arnav-placeholder">カメラ起動中…</div>}
+        {displayErr && <div className="arnav-error">{displayErr}</div>}
         <div className="arnav-method">{method}基準</div>
 
         {/* カメラ道案内中は常に、利用ログの研究利用に関する注記を表示する */}
