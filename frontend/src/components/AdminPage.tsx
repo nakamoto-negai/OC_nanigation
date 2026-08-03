@@ -598,6 +598,32 @@ function LinkTab({
 
 // ── Photo Tab ────────────────────────────────────────────────────────────────
 
+// 2点間の距離(m)。Haversine。
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// リンクの現在地からの距離。両端ノードのGPSのうち最も近い方を採用。GPS未登録は Infinity。
+function linkDistanceM(link: Link, lat: number, lng: number): number {
+  let best = Infinity;
+  for (const n of [link.from_node, link.to_node]) {
+    if (n && n.lat != null && n.lng != null) {
+      best = Math.min(best, haversineM(lat, lng, n.lat, n.lng));
+    }
+  }
+  return best;
+}
+
+function formatDistance(d: number): string {
+  if (!isFinite(d)) return "GPS無";
+  return d < 1000 ? `約${Math.round(d)}m` : `約${(d / 1000).toFixed(2)}km`;
+}
+
 function PhotoTab({
   links,
   onUploaded,
@@ -614,8 +640,12 @@ function PhotoTab({
   const [selectedLinkId, setSelectedLinkId] = useState<number | "">("");
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  // 一覧の「写真」「カメラ」ボタンで追加する対象: 道中写真 or 到着地点の写真
-  const [addTarget, setAddTarget] = useState<"photo" | "arrival">("photo");
+  // 一覧の「写真」「カメラ」ボタンで追加する対象: 道中写真 / 到着地点の写真 / 屋内出入りの画像
+  const [addTarget, setAddTarget] = useState<"photo" | "arrival" | "indoor">("photo");
+  // 現在地から近い順に並べる機能の状態
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoStatus, setGeoStatus] = useState<"idle" | "pending" | "denied" | "unavailable">("idle");
+  const [sortByDistance, setSortByDistance] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   // 合成エディタで編集中の道中写真（null なら閉じている）
@@ -633,7 +663,14 @@ function PhotoTab({
     setUploading(true);
     setMsg(null);
     try {
-      if (addTarget === "arrival") {
+      if (addTarget === "indoor") {
+        // 屋内出入りの画像は1枚のみ（差し替え）。複数選択時は先頭のみ使う。
+        const form = new FormData();
+        form.append("image", fileList[0]);
+        const updated = await api.links.uploadIndoorImage(linkId, form);
+        onLinkUpdated(updated);
+        setMsg({ type: "ok", text: "屋内出入りの画像を設定しました" });
+      } else if (addTarget === "arrival") {
         // 到着地点の写真として追加し、親のリンク状態を更新（一覧の件数を即反映）。
         const base = link?.arrival_photos?.length ?? 0;
         const added: ArrivalPhoto[] = [];
@@ -715,6 +752,29 @@ function PhotoTab({
   const linkLabel = (l: Link) =>
     `${l.from_node?.name ?? l.from_node_id} → ${l.to_node?.name ?? l.to_node_id}${l.name ? ` (${l.name})` : ""}`;
 
+  // その場で現在地(GPS)を取得し、近い順ソートを有効にする。
+  const locateAndSort = () => {
+    if (!navigator.geolocation) { setGeoStatus("unavailable"); return; }
+    setGeoStatus("pending");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setSortByDistance(true);
+        setGeoStatus("idle");
+      },
+      (err) => setGeoStatus(err.code === err.PERMISSION_DENIED ? "denied" : "unavailable"),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    );
+  };
+
+  // 表示用リンク。近い順ソートが有効なら現在地からの距離で昇順（GPS未登録は末尾、元の順を維持）。
+  const displayLinks = (sortByDistance && userPos)
+    ? links
+        .map((l, i) => ({ l, i, d: linkDistanceM(l, userPos.lat, userPos.lng) }))
+        .sort((a, b) => (a.d !== b.d ? a.d - b.d : a.i - b.i))
+        .map((x) => x.l)
+    : links;
+
   return (
     <div className="adm-list-col">
       {/* 共有の隠しファイル/カメラ入力（一覧の各行から使う） */}
@@ -751,19 +811,45 @@ function PhotoTab({
         >
           到着地点の写真
         </button>
+        <button
+          type="button"
+          className={`add-target-btn${addTarget === "indoor" ? " active" : ""}`}
+          onClick={() => setAddTarget("indoor")}
+        >
+          屋内出入りの画像
+        </button>
       </div>
+
+      {/* 現在地を取得して近い順に並べる */}
+      <div className="add-target-row">
+        <button type="button" className="btn-secondary" onClick={locateAndSort} disabled={geoStatus === "pending"}>
+          {geoStatus === "pending" ? "現在地を取得中..." : "現在地から近い順に並べる"}
+        </button>
+        {sortByDistance && userPos && (
+          <button type="button" className="add-target-btn active" onClick={() => setSortByDistance(false)}>
+            元の順に戻す
+          </button>
+        )}
+        {geoStatus === "denied" && <span className="photo-missing">位置情報が許可されていません</span>}
+        {geoStatus === "unavailable" && <span className="photo-missing">現在地を取得できません</span>}
+        {sortByDistance && userPos && (
+          <span className="hint" style={{ margin: 0 }}>現在地に近い順（両端ノードのGPS）。GPS未登録のリンクは末尾。</span>
+        )}
+      </div>
+
       {links.length === 0 ? (
         <p className="adm-empty">リンクがまだありません</p>
       ) : (
         <table className="adm-table photo-overview">
           <thead>
-            <tr><th>経路</th><th>道中</th><th>到着</th><th>屋内</th><th>写真追加</th></tr>
+            <tr><th>経路</th>{sortByDistance && userPos && <th>距離</th>}<th>道中</th><th>到着</th><th>屋内</th><th>写真追加</th></tr>
           </thead>
           <tbody>
-            {links.map((l) => {
+            {displayLinks.map((l) => {
               const cnt = l.photos?.length ?? 0;
               const arr = l.arrival_photos?.length ?? 0;
               const indoor = !!l.indoor_image_url;
+              const dist = (sortByDistance && userPos) ? linkDistanceM(l, userPos.lat, userPos.lng) : null;
               return (
                 <tr
                   key={l.id}
@@ -775,6 +861,11 @@ function PhotoTab({
                     <strong>{l.from_node?.name ?? l.from_node_id} → {l.to_node?.name ?? l.to_node_id}</strong>
                     {l.name ? <span className="text-muted"> ({l.name})</span> : null}
                   </td>
+                  {dist != null && (
+                    <td className="center">
+                      {isFinite(dist) ? formatDistance(dist) : <span className="text-muted">GPS無</span>}
+                    </td>
+                  )}
                   <td className="center">
                     {cnt === 0 ? <span className="photo-missing">未撮影</span> : `${cnt}枚`}
                   </td>
