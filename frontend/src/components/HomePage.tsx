@@ -368,7 +368,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 {geoStatus === "pending"
                   ? "現在地を特定しています..."
                   : geoStatus === "found"
-                  ? (startNode ? "現在地（自動検出）" : "近くに登録地点がありません")
+                  ? (startNode ? "現在地" : "近くに登録地点がありません")
                   : geoStatus === "denied"
                   ? "位置情報の使用が許可されていません"
                   : "現在地を選択してください"}
@@ -408,20 +408,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 バス停選択
               </button>
             </div>
-            {manualStart && geoStatus === "found" && (
-              <button
-                className="loc-auto-btn"
-                onClick={() => {
-                  setManualStart(false);
-                  if (userLat != null && userLng != null) {
-                    const nearest = nearestNode(nodes, userLat, userLng);
-                    if (nearest) setStartId(nearest.id);
-                  }
-                }}
-              >
-                自動検出に戻す
-              </button>
-            )}
           </div>
         </div>
 
