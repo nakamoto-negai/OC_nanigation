@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail, Setting } from "../types";
+import { IndoorTransition, Link, Node, NodeDetour, RouteResponse, RouteStepDetail, Setting } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { ARNavGuide } from "./ARNavGuide";
@@ -24,14 +24,16 @@ const ARRIVAL_ADVANCE_MS = 1800;
 type GuideCard =
   | { kind: "step"; step: RouteStepDetail; stepIndex: number; incomingDetour: NodeDetour | null }
   | { kind: "detour"; detour: NodeDetour }
-  // 屋内に入る直前のステップ（link.enters_indoors）の直後に挿入する「屋内に入る」案内カード
-  | { kind: "indoor"; step: RouteStepDetail };
+  // 指定リンクペアを連続して通過する2ステップの間に挿入する「屋内に入る」案内カード。
+  // step はペアの手前側ステップ（その to_node が屋内への出入口）。imageUrl があれば表示。
+  | { kind: "indoor"; step: RouteStepDetail; imageUrl: string };
 
 interface Props {
   route: RouteResponse;
   nodes: Node[];
   links: Link[];
   nodeDetours: NodeDetour[];
+  indoorTransitions: IndoorTransition[];
   onClose: () => void;
   settings: Setting;
   onReroute: (newRoute: RouteResponse) => void;
@@ -44,7 +46,7 @@ interface Props {
   compass?: ReturnType<typeof useCompass>;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey, embedded = false, compass }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, indoorTransitions, onClose, settings, onReroute, onOpenSurvey, embedded = false, compass }) => {
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
   // ナビ全体の出発地・目的地。ログに載せて「どこからどこまで」を記録する。
@@ -78,6 +80,27 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     return d && d.detour_node ? d : null;
   }, [route.steps, detourMap]);
 
+  // 屋内案内のリンクペア → 画像URL のルックアップ（順不同でキー化）。
+  const indoorPairMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const it of indoorTransitions) {
+      const a = Math.min(it.link_a_id, it.link_b_id);
+      const b = Math.max(it.link_a_id, it.link_b_id);
+      map.set(`${a}-${b}`, it.image_url);
+    }
+    return map;
+  }, [indoorTransitions]);
+  // 現在ステップ i と次ステップ i+1 のリンクが屋内案内ペアなら、その画像URL（無ければ ""）を返す。
+  const indoorImageBetween = (i: number): string | null => {
+    const cur = route.steps[i];
+    const next = route.steps[i + 1];
+    if (!cur || !next) return null;
+    const a = Math.min(cur.link.id, next.link.id);
+    const b = Math.max(cur.link.id, next.link.id);
+    const key = `${a}-${b}`;
+    return indoorPairMap.has(key) ? (indoorPairMap.get(key) ?? "") : null;
+  };
+
   // スクロールに並べるカード列を構築。
   // 寄り道は既定では「1つ後のステップカード」のヘッダーにプルダウン(incomingDetour)として畳む。
   // 展開された寄り道だけ、ホストカードの直前に独立した detour カードとして挿入する。
@@ -94,9 +117,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       } else {
         list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: incoming });
       }
-      // このステップのリンクが「屋内に入る」なら、直後に屋内案内カードを挿入する。
-      if (s.link.enters_indoors) {
-        list.push({ kind: "indoor", step: s });
+      // このステップと次ステップのリンクが屋内案内ペアなら、その間に屋内案内カードを挿入する。
+      const img = indoorImageBetween(i);
+      if (img !== null) {
+        list.push({ kind: "indoor", step: s, imageUrl: img });
       }
     });
     // 最後のステップの寄り道はゴールカードがホストする。展開時はゴールの直前に挿入。
@@ -104,7 +128,8 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       list.push({ kind: "detour", detour: goalDetour });
     }
     return list;
-  }, [route.steps, detourMap, expandedDetours, goalDetour]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.steps, detourMap, expandedDetours, goalDetour, indoorPairMap]);
 
   // 親からコンパスを渡されればそれを共有し、無ければ自前で用意する。
   // （フックは常に呼ぶ必要があるため ownCompass は常に生成し、使うかどうかだけ切り替える）
@@ -384,9 +409,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
             return (
               <div key={ci} className="rg-step rg-indoor-card">
                 <div className="rg-indoor-inner">
-                  {card.step.link.indoor_image_url ? (
-                    // リンクに登録された画像があればそれを表示
-                    <img className="rg-indoor-photo" src={`${BASE}${card.step.link.indoor_image_url}`} alt="屋内に入る案内" />
+                  {card.imageUrl ? (
+                    // リンクペアに登録された画像があればそれを表示
+                    <img className="rg-indoor-photo" src={`${BASE}${card.imageUrl}`} alt="屋内に入る案内" />
                   ) : (
                     // 未登録なら内蔵SVGイラスト（建物への入館）
                     <svg className="rg-indoor-illust" viewBox="0 0 120 120" role="img" aria-label="屋内に入るイラスト">

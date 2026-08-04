@@ -83,10 +83,17 @@ export interface Link {
   distance: number;
   photos: Photo[];
   arrival_photos?: ArrivalPhoto[];
-  /** この区間を進むと屋内に入る。true のとき道案内でこのカードの直後に屋内案内カードを表示する。 */
-  enters_indoors: boolean;
-  /** 屋内案内カードに表示する画像URL。空なら内蔵SVGイラストを表示する。 */
-  indoor_image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 屋内案内のリンクペア。経路上で link_a_id と link_b_id を連続して通過するとき、
+// その2ステップの間に「屋内に入ります」カードを表示する（画像があればそれ、無ければ内蔵SVG）。
+export interface IndoorTransition {
+  id: number;
+  link_a_id: number;
+  link_b_id: number;
+  image_url: string;
   created_at: string;
   updated_at: string;
 }

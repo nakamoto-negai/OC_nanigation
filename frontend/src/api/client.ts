@@ -1,4 +1,4 @@
-import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -47,14 +47,27 @@ export const api = {
       adminReq<Link>(`/api/links/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/links/${id}`, { method: "DELETE" }),
-    // 屋内案内カードの画像をアップロード（差し替え）／削除。更新後の Link を返す。
-    uploadIndoorImage: (id: number, form: FormData) =>
-      adminFetch(`/api/links/${id}/indoor-image`, { method: "POST", body: form }).then((r) => {
-        if (!r.ok) throw new Error("upload failed");
-        return r.json() as Promise<Link>;
+  },
+  // 屋内案内（リンクペア＋画像）。一覧は公開、登録・更新・削除は管理者のみ。
+  indoorTransitions: {
+    list: () => req<IndoorTransition[]>("/api/indoor-transitions"),
+    create: (form: FormData) =>
+      adminFetch("/api/indoor-transitions", { method: "POST", body: form }).then(async (r) => {
+        if (!r.ok) {
+          let detail = await r.text();
+          try { detail = JSON.parse(detail).error ?? detail; } catch { /* プレーンテキスト */ }
+          throw new Error(detail || "登録に失敗しました");
+        }
+        return r.json() as Promise<IndoorTransition>;
       }),
-    deleteIndoorImage: (id: number) =>
-      adminReq<Link>(`/api/links/${id}/indoor-image`, { method: "DELETE" }),
+    // 画像の差し替え（合成結果の上書きにも使う）。
+    update: (id: number, form: FormData) =>
+      adminFetch(`/api/indoor-transitions/${id}`, { method: "PUT", body: form }).then((r) => {
+        if (!r.ok) throw new Error("update failed");
+        return r.json() as Promise<IndoorTransition>;
+      }),
+    delete: (id: number) =>
+      adminReq<void>(`/api/indoor-transitions/${id}`, { method: "DELETE" }),
   },
   photos: {
     upload: (form: FormData) =>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Category, Destination, Link, MapImage, Node, NodeDetour, RouteResponse, Setting } from "../types";
+import { Category, Destination, IndoorTransition, Link, MapImage, Node, NodeDetour, RouteResponse, Setting } from "../types";
 import { calcRouteToNodes } from "../utils/dijkstra";
 import { api } from "../api/client";
 import { SurveyLauncher } from "./SurveyLauncher";
@@ -25,6 +25,7 @@ interface Props {
   links: Link[];
   destinations: Destination[];
   nodeDetours: NodeDetour[];
+  indoorTransitions: IndoorTransition[];
   settings: Setting;
   /** アプリ内アンケートの質問が無いときのフォールバック先（設定の外部URL）。 */
   surveyUrl?: string;
@@ -55,7 +56,7 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, settings, surveyUrl, onOpenSurvey }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey }) => {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
@@ -461,6 +462,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           nodes={nodes}
           links={links}
           nodeDetours={nodeDetours}
+          indoorTransitions={indoorTransitions}
           settings={settings}
           onReroute={(r) => setRerouteOverride(r)}
           onClose={() => { setDestId(null); setRerouteOverride(null); }}

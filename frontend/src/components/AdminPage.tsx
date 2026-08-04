@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "../utils/congestion";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
@@ -8,7 +8,6 @@ import { ARRecognizer } from "./ARRecognizer";
 import { ARDemoTab } from "./ARDemoTab";
 import { AnnouncementTab } from "./AnnouncementTab";
 import { ArrivalPhotoManager } from "./ArrivalPhotoManager";
-import { LinkIndoorImageManager } from "./LinkIndoorImageManager";
 import { CompositeEditor } from "./CompositeEditor";
 import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
@@ -26,7 +25,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "destination" | "link" | "detour" | "photo" | "overlay" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
+type Tab = "node" | "destination" | "link" | "detour" | "indoor" | "photo" | "overlay" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -403,11 +402,10 @@ interface LinkFormState {
   name: string;
   description: string;
   distance: string;
-  entersIndoors: boolean;
 }
 
 const emptyLink = (): LinkFormState => ({
-  id: null, fromNodeId: "", toNodeId: "", name: "", description: "", distance: "1", entersIndoors: false,
+  id: null, fromNodeId: "", toNodeId: "", name: "", description: "", distance: "1",
 });
 
 function LinkTab({
@@ -426,9 +424,6 @@ function LinkTab({
   const [form, setForm] = useState<LinkFormState>(emptyLink());
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-
-  // 編集中の既存リンク（屋内画像アップローダに渡す。indoor_image_url を持つ最新の Link）
-  const editingLink = form.id != null ? links.find((l) => l.id === form.id) ?? null : null;
 
   const set = (k: keyof LinkFormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -452,7 +447,6 @@ function LinkTab({
         name: form.name.trim(),
         description: form.description.trim(),
         distance: parseFloat(form.distance),
-        enters_indoors: form.entersIndoors,
       };
       if (form.id) {
         const updated = await api.links.update(form.id, data);
@@ -479,7 +473,6 @@ function LinkTab({
       name: l.name,
       description: l.description,
       distance: String(l.distance),
-      entersIndoors: l.enters_indoors ?? false,
     });
     setMsg(null);
   };
@@ -538,20 +531,6 @@ function LinkTab({
             <input type="number" value={form.distance} onChange={set("distance")} min="0.1" step="0.1" />
           </div>
         </div>
-        <div className="adm-field">
-          <label className="adm-checkbox-label">
-            <input
-              type="checkbox"
-              checked={form.entersIndoors}
-              onChange={(e) => setForm((f) => ({ ...f, entersIndoors: e.target.checked }))}
-            />
-            この区間で屋内に入る
-          </label>
-          <p className="hint">オンにすると、道案内でこのカードの直後に「屋内に入ります」の画像付き案内カードが表示されます。</p>
-        </div>
-        {editingLink && (
-          <LinkIndoorImageManager link={editingLink} onUpdated={onUpdated} />
-        )}
         <div className="adm-actions">
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "保存中..." : form.id ? "更新" : "追加"}
@@ -640,8 +619,8 @@ function PhotoTab({
   const [selectedLinkId, setSelectedLinkId] = useState<number | "">("");
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  // 一覧の「写真」「カメラ」ボタンで追加する対象: 道中写真 / 到着地点の写真 / 屋内出入りの画像
-  const [addTarget, setAddTarget] = useState<"photo" | "arrival" | "indoor">("photo");
+  // 一覧の「写真」「カメラ」ボタンで追加する対象: 道中写真 / 到着地点の写真
+  const [addTarget, setAddTarget] = useState<"photo" | "arrival">("photo");
   // 現在地から近い順に並べる機能の状態
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [geoStatus, setGeoStatus] = useState<"idle" | "pending" | "denied" | "unavailable">("idle");
@@ -663,14 +642,7 @@ function PhotoTab({
     setUploading(true);
     setMsg(null);
     try {
-      if (addTarget === "indoor") {
-        // 屋内出入りの画像は1枚のみ（差し替え）。複数選択時は先頭のみ使う。
-        const form = new FormData();
-        form.append("image", fileList[0]);
-        const updated = await api.links.uploadIndoorImage(linkId, form);
-        onLinkUpdated(updated);
-        setMsg({ type: "ok", text: "屋内出入りの画像を設定しました" });
-      } else if (addTarget === "arrival") {
+      if (addTarget === "arrival") {
         // 到着地点の写真として追加し、親のリンク状態を更新（一覧の件数を即反映）。
         const base = link?.arrival_photos?.length ?? 0;
         const added: ArrivalPhoto[] = [];
@@ -811,13 +783,6 @@ function PhotoTab({
         >
           到着地点の写真
         </button>
-        <button
-          type="button"
-          className={`add-target-btn${addTarget === "indoor" ? " active" : ""}`}
-          onClick={() => setAddTarget("indoor")}
-        >
-          屋内出入りの画像
-        </button>
       </div>
 
       {/* 現在地を取得して近い順に並べる */}
@@ -842,13 +807,12 @@ function PhotoTab({
       ) : (
         <table className="adm-table photo-overview">
           <thead>
-            <tr><th>経路</th>{sortByDistance && userPos && <th>距離</th>}<th>道中</th><th>到着</th><th>屋内</th><th>写真追加</th></tr>
+            <tr><th>経路</th>{sortByDistance && userPos && <th>距離</th>}<th>道中</th><th>到着</th><th>写真追加</th></tr>
           </thead>
           <tbody>
             {displayLinks.map((l) => {
               const cnt = l.photos?.length ?? 0;
               const arr = l.arrival_photos?.length ?? 0;
-              const indoor = !!l.indoor_image_url;
               const dist = (sortByDistance && userPos) ? linkDistanceM(l, userPos.lat, userPos.lng) : null;
               return (
                 <tr
@@ -870,7 +834,6 @@ function PhotoTab({
                     {cnt === 0 ? <span className="photo-missing">未撮影</span> : `${cnt}枚`}
                   </td>
                   <td className="center">{arr > 0 ? `${arr}枚` : <span className="text-muted">—</span>}</td>
-                  <td className="center">{indoor ? "✓" : <span className="text-muted">—</span>}</td>
                   <td className="center" onClick={(e) => e.stopPropagation()}>
                     <button className="photo-add-btn" disabled={uploading} onClick={() => openPicker(l.id, false)}>写真</button>
                     <button className="photo-add-btn" disabled={uploading} onClick={() => openPicker(l.id, true)}>カメラ</button>
@@ -1771,6 +1734,134 @@ function CafeteriaTab() {
 }
 
 // 合成素材（到着写真に重ねる「合成用写真」）の管理タブ。
+// 屋内案内タブ: リンクのペアを指定し、その間を通るときに出す屋内カードの画像を登録する。
+function IndoorTransitionTab({ links }: { links: Link[] }) {
+  const [transitions, setTransitions] = useState<IndoorTransition[]>([]);
+  const [linkAId, setLinkAId] = useState<number | "">("");
+  const [linkBId, setLinkBId] = useState<number | "">("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [editing, setEditing] = useState<IndoorTransition | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { api.indoorTransitions.list().then(setTransitions).catch(() => {}); }, []);
+
+  const linkLabel = (id: number) => {
+    const l = links.find((x) => x.id === id);
+    return l
+      ? `${l.from_node?.name ?? l.from_node_id} → ${l.to_node?.name ?? l.to_node_id}${l.name ? ` (${l.name})` : ""}`
+      : `#${id}`;
+  };
+
+  const add = async () => {
+    if (linkAId === "" || linkBId === "") { setMsg({ type: "err", text: "リンクを2つ選択してください" }); return; }
+    if (linkAId === linkBId) { setMsg({ type: "err", text: "同じリンクはペアにできません" }); return; }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("link_a_id", String(linkAId));
+      form.append("link_b_id", String(linkBId));
+      if (file) form.append("image", file);
+      const created = await api.indoorTransitions.create(form);
+      setTransitions((p) => [...p, created]);
+      setLinkAId(""); setLinkBId(""); setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      setMsg({ type: "ok", text: "追加しました" });
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+    finally { setUploading(false); }
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("この屋内案内ペアを削除しますか？")) return;
+    try {
+      await api.indoorTransitions.delete(id);
+      setTransitions((p) => p.filter((t) => t.id !== id));
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>屋内案内を追加</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <p className="hint" style={{ marginBottom: 12 }}>
+          2つのリンクを指定すると、道案内でその2リンクを連続して通過するとき（＝その間を通るとき）に「屋内に入ります」カードが表示されます。画像は任意（未指定なら内蔵イラスト）。順序は問いません。
+        </p>
+        <div className="adm-field">
+          <label>リンクA <span className="req">*</span></label>
+          <select value={linkAId} onChange={(e) => setLinkAId(Number(e.target.value) || "")}>
+            <option value="">選択してください</option>
+            {links.map((l) => <option key={l.id} value={l.id}>{linkLabel(l.id)}</option>)}
+          </select>
+        </div>
+        <div className="adm-field">
+          <label>リンクB <span className="req">*</span></label>
+          <select value={linkBId} onChange={(e) => setLinkBId(Number(e.target.value) || "")}>
+            <option value="">選択してください</option>
+            {links.map((l) => <option key={l.id} value={l.id}>{linkLabel(l.id)}</option>)}
+          </select>
+        </div>
+        <div className="adm-field">
+          <label>画像（任意）</label>
+          <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <button type="button" className="btn-secondary" style={{ marginTop: 8 }} onClick={() => cameraRef.current?.click()}>カメラで撮影</button>
+          {file && <p className="hint">選択中: {file.name}</p>}
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={add} disabled={uploading || linkAId === "" || linkBId === ""}>
+            {uploading ? "追加中..." : "追加"}
+          </button>
+        </div>
+      </div>
+
+      <div className="adm-list-col">
+        <h3>屋内案内一覧 <span className="count-badge">{transitions.length}</span></h3>
+        {transitions.length === 0 ? (
+          <p className="adm-empty">屋内案内がまだありません</p>
+        ) : (
+          <table className="adm-table">
+            <thead><tr><th>リンクA</th><th>リンクB</th><th>画像</th><th></th></tr></thead>
+            <tbody>
+              {transitions.map((t) => (
+                <tr key={t.id}>
+                  <td>{linkLabel(t.link_a_id)}</td>
+                  <td>{linkLabel(t.link_b_id)}</td>
+                  <td className="center">
+                    {t.image_url
+                      ? <img src={`${BASE}${t.image_url}`} alt="" style={{ height: 40, borderRadius: 4 }} />
+                      : <span className="text-muted">内蔵</span>}
+                  </td>
+                  <td className="adm-row-actions">
+                    {t.image_url && <button className="btn-edit" onClick={() => setEditing(t)}>合成</button>}
+                    <button className="btn-del" onClick={() => del(t.id)}>削除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {editing && editing.image_url && (
+        <CompositeEditor
+          baseImageUrl={editing.image_url}
+          title="屋内画像に合成"
+          onClose={() => setEditing(null)}
+          onSave={async (blob) => {
+            const form = new FormData();
+            form.append("image", blob, "composite.jpg");
+            const updated = await api.indoorTransitions.update(editing.id, form);
+            setTransitions((p) => p.map((t) => (t.id === updated.id ? updated : t)));
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 function OverlayImageTab() {
   const [overlays, setOverlays] = useState<OverlayImage[]>([]);
   const [name, setName] = useState("");
@@ -2947,6 +3038,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "destination", label: "目的地", badge: destinations.length },
     { key: "link", label: "リンク", badge: links.length },
     { key: "detour", label: "寄り道" },
+    { key: "indoor", label: "屋内案内" },
     { key: "photo", label: "写真" },
     { key: "overlay", label: "合成素材" },
     { key: "settings", label: "設定" },
@@ -3016,6 +3108,7 @@ export const AdminPage: React.FC<Props> = ({
           />
         )}
         {tab === "detour" && <DetourTab nodes={nodes} />}
+        {tab === "indoor" && <IndoorTransitionTab links={links} />}
         {tab === "photo" && (
           <PhotoTab
             links={links}

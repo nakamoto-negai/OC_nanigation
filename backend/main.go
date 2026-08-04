@@ -43,6 +43,8 @@ func main() {
 	api.GET("/links", handlers.ListLinks)
 	// 到着地点の写真: リンクに紐づく。閲覧は公開（「到着地点を確認する」で表示）。登録・削除は管理者専用
 	api.GET("/links/:id/arrival-photos", handlers.ListArrivalPhotos)
+	// 屋内案内（リンクペア）: 一覧は公開（道案内で判定に使う）
+	api.GET("/indoor-transitions", handlers.ListIndoorTransitions)
 	api.GET("/links/:id", handlers.GetLink)
 	api.GET("/settings", handlers.GetSettings)
 	// 食堂一覧（ヘッダー表示のため公開）
@@ -71,9 +73,11 @@ func main() {
 		admin.POST("/links", handlers.CreateLink)
 		admin.PUT("/links/:id", handlers.UpdateLink)
 		admin.DELETE("/links/:id", handlers.DeleteLink)
-		// 屋内案内カードの画像（リンクごと）: アップロード（差し替え）・削除は管理者のみ
-		admin.POST("/links/:id/indoor-image", handlers.UploadLinkIndoorImage)
-		admin.DELETE("/links/:id/indoor-image", handlers.DeleteLinkIndoorImage)
+
+		// 屋内案内（リンクペア＋画像）: 登録・更新（画像差し替え/合成上書き）・削除は管理者のみ
+		admin.POST("/indoor-transitions", handlers.CreateIndoorTransition)
+		admin.PUT("/indoor-transitions/:id", handlers.UpdateIndoorTransition)
+		admin.DELETE("/indoor-transitions/:id", handlers.DeleteIndoorTransition)
 
 		admin.POST("/photos", handlers.UploadPhoto)
 		admin.DELETE("/photos/:id", handlers.DeletePhoto)

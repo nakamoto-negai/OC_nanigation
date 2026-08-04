@@ -11,7 +11,7 @@ import { AnnouncementPop } from "./components/AnnouncementPop";
 import { CompassPermissionPop } from "./components/CompassPermissionPop";
 import { useUser } from "./hooks/useUser";
 import { useCompassPermission, compassNeedsPermission } from "./hooks/useCompass";
-import { Announcement, Cafeteria, Destination, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
+import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
 
@@ -114,6 +114,7 @@ function UserApp() {
   const [links, setLinks] = useState<Link[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [nodeDetours, setNodeDetours] = useState<NodeDetour[]>([]);
+  const [indoorTransitions, setIndoorTransitions] = useState<IndoorTransition[]>([]);
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   // 初期画面は URL から決める。ただし route はルートデータが無いと表示できないため、
   // コールドロードで /route を開いた場合は home にフォールバックする。
@@ -146,8 +147,8 @@ function UserApp() {
   });
 
   useEffect(() => {
-    Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list(), api.destinations.list()])
-      .then(([n, l, d, dest]) => { setNodes(n); setLinks(l); setNodeDetours(d); setDestinations(dest); })
+    Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list(), api.destinations.list(), api.indoorTransitions.list()])
+      .then(([n, l, d, dest, it]) => { setNodes(n); setLinks(l); setNodeDetours(d); setDestinations(dest); setIndoorTransitions(it); })
       .catch((e) => setLoadError(e.message));
   }, []);
 
@@ -293,6 +294,7 @@ function UserApp() {
           links={links}
           destinations={destinations}
           nodeDetours={nodeDetours}
+          indoorTransitions={indoorTransitions}
           settings={settings}
           surveyUrl={settings.survey_url}
           onOpenSurvey={openSurvey}
@@ -308,6 +310,7 @@ function UserApp() {
           nodes={nodes}
           links={links}
           nodeDetours={nodeDetours}
+          indoorTransitions={indoorTransitions}
           onClose={() => navigate("home")}
           settings={settings}
           onReroute={(newRoute) => setRoute(newRoute)}
