@@ -25,6 +25,8 @@ export interface Destination {
   category_id: number | null;
   category?: Category;
   sort_order: number;
+  /** バス停ラベル。true の目的地は「バス停選択」の地図に出て現在地として選べる。 */
+  is_bus_stop: boolean;
   nodes?: Node[];
   events?: Event[];
   created_at: string;

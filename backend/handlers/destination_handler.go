@@ -16,6 +16,7 @@ type destinationInput struct {
 	Name       string `json:"name"`
 	CategoryID *uint  `json:"category_id"`
 	SortOrder  int    `json:"sort_order"`
+	IsBusStop  bool   `json:"is_bus_stop"`
 	NodeIDs    []uint `json:"node_ids"`
 }
 
@@ -49,7 +50,7 @@ func CreateDestination(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name は必須です"})
 		return
 	}
-	dest := models.Destination{Name: in.Name, CategoryID: in.CategoryID, SortOrder: in.SortOrder}
+	dest := models.Destination{Name: in.Name, CategoryID: in.CategoryID, SortOrder: in.SortOrder, IsBusStop: in.IsBusStop}
 	if err := database.DB.Create(&dest).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -83,6 +84,7 @@ func UpdateDestination(c *gin.Context) {
 	dest.Name = in.Name
 	dest.CategoryID = in.CategoryID
 	dest.SortOrder = in.SortOrder
+	dest.IsBusStop = in.IsBusStop
 	if err := database.DB.Save(&dest).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

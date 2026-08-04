@@ -163,9 +163,9 @@ export const api = {
   },
   destinations: {
     list: () => req<Destination[]>("/api/destinations"),
-    create: (data: { name: string; category_id?: number | null; sort_order?: number; node_ids?: number[] }) =>
+    create: (data: { name: string; category_id?: number | null; sort_order?: number; is_bus_stop?: boolean; node_ids?: number[] }) =>
       adminReq<Destination>("/api/destinations", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: number, data: { name: string; category_id?: number | null; sort_order?: number; node_ids?: number[] }) =>
+    update: (id: number, data: { name: string; category_id?: number | null; sort_order?: number; is_bus_stop?: boolean; node_ids?: number[] }) =>
       adminReq<Destination>(`/api/destinations/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/destinations/${id}`, { method: "DELETE" }),

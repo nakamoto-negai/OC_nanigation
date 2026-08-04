@@ -83,6 +83,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border-radius: 8px; padding: 6px 8px; cursor: pointer; font-weight: 700; text-align: center;
 }
 .loc-map-btn:active { background: #dbeafe; }
+/* 現在地の「地図選択」「バス停選択」を横並びにする */
+.loc-btn-row { display: flex; gap: 6px; }
+.loc-btn-row .loc-map-btn { flex: 1; }
 
 /* 現在地ラベルと再読み込みボタンを横並びにする行 */
 .loc-label-row { display: flex; align-items: center; gap: 8px; }

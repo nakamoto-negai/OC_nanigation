@@ -12,6 +12,8 @@ type Destination struct {
 	CategoryID *uint     `json:"category_id"`
 	Category   *Category `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
 	SortOrder  int       `json:"sort_order" gorm:"not null;default:0"`
+	// バス停ラベル。true の目的地は「バス停選択」の地図に表示され、現在地として選べる。
+	IsBusStop bool `json:"is_bus_stop" gorm:"not null;default:false"`
 	// 所属ノード（多対多）。中間テーブル destination_nodes。
 	Nodes []Node `json:"nodes,omitempty" gorm:"many2many:destination_nodes;"`
 	// この目的地で開催されるイベント（目的地カードに流して表示する）

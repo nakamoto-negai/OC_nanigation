@@ -1960,6 +1960,7 @@ function DestinationTab({
   const [sortOrder, setSortOrder] = useState("0");
   const [selectedNodeIds, setSelectedNodeIds] = useState<number[]>([]);
   const [nodeFilter, setNodeFilter] = useState("");
+  const [isBusStop, setIsBusStop] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -1970,7 +1971,7 @@ function DestinationTab({
 
   const reset = () => {
     setId(null); setName(""); setCategoryId(""); setSortOrder("0");
-    setSelectedNodeIds([]); setNodeFilter("");
+    setSelectedNodeIds([]); setNodeFilter(""); setIsBusStop(false);
   };
 
   const addCategory = async () => {
@@ -1995,6 +1996,7 @@ function DestinationTab({
     setSortOrder(String(d.sort_order));
     setSelectedNodeIds((d.nodes ?? []).map((n) => n.id));
     setNodeFilter("");
+    setIsBusStop(d.is_bus_stop ?? false);
     setMsg(null);
   };
 
@@ -2007,6 +2009,7 @@ function DestinationTab({
         name: name.trim(),
         category_id: categoryId !== "" ? Number(categoryId) : null,
         sort_order: Number(sortOrder) || 0,
+        is_bus_stop: isBusStop,
         node_ids: selectedNodeIds,
       };
       if (id) {
@@ -2072,6 +2075,13 @@ function DestinationTab({
           <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="0" />
         </div>
         <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input type="checkbox" checked={isBusStop} onChange={(e) => setIsBusStop(e.target.checked)} />
+            バス停にする
+          </label>
+          <p className="hint">オンにすると、ホーム画面の「バス停選択」の地図に表示され、現在地として選べます。</p>
+        </div>
+        <div className="adm-field">
           <label>所属ノード <span className="req">*</span></label>
           <p className="hint">この目的地に含める地点（ノード）を選びます。複数選ぶと、現在地から最も近いノードが案内先になります。</p>
           <input value={nodeFilter} onChange={(e) => setNodeFilter(e.target.value)} placeholder="ノード名で絞り込み" />
@@ -2107,13 +2117,14 @@ function DestinationTab({
           <p className="adm-empty">目的地がまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>名前</th><th>カテゴリ</th><th>所属ノード</th><th>並び順</th><th></th></tr></thead>
+            <thead><tr><th>名前</th><th>カテゴリ</th><th>所属ノード</th><th>バス停</th><th>並び順</th><th></th></tr></thead>
             <tbody>
               {destinations.map((d) => (
                 <tr key={d.id} className={id === d.id ? "editing" : ""}>
                   <td><strong>{d.name}</strong></td>
                   <td>{d.category?.name ?? <span className="text-muted">—</span>}</td>
                   <td>{d.nodes && d.nodes.length > 0 ? d.nodes.map((n) => n.name).join("、") : <span className="text-muted">—</span>}</td>
+                  <td className="center">{d.is_bus_stop ? "✓" : <span className="text-muted">—</span>}</td>
                   <td className="num">{d.sort_order}</td>
                   <td className="adm-row-actions">
                     <button className="btn-edit" onClick={() => startEdit(d)}>編集</button>
