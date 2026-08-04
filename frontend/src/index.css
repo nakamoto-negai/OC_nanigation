@@ -873,7 +873,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-step-title { font-size: 15px; font-weight: 700; color: #1e293b; flex: 0 1 auto; }
 /* 経路名の真横に出す到着確認の案内文（AR カード表示中のみ表示） */
 .rg-ar-inline-hint {
-  font-size: 12px; font-weight: 700; color: #0f172a;
+  font-size: 12px; font-weight: 700; color: #ef4444;
   flex: 0 1 auto; line-height: 1.3;
 }
 

@@ -390,7 +390,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
               ))}
             </select>
             <button type="button" className="loc-map-btn" onClick={() => setStartPickerOpen(true)}>
-              地図から選択
+              地図選択
             </button>
             {manualStart && geoStatus === "found" && (
               <button
