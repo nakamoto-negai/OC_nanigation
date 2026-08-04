@@ -72,23 +72,27 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .loc-manual-select {
   padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px;
   background: white; font-size: 13px; min-width: 180px;
+  box-sizing: border-box; min-height: 36px;
 }
 .loc-auto-btn {
   font-size: 11px; color: #3b82f6; background: none; border: none;
   cursor: pointer; text-decoration: underline; padding: 0;
 }
 .loc-auto-btn:hover { color: #1d4ed8; }
-.loc-map-btn {
-  font-size: 12px; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe;
-  border-radius: 8px; padding: 6px 8px; cursor: pointer; font-weight: 700; text-align: center;
+/* 現在地・目的地の下部に並べる選択手段ボタン（地図選択 / バス停選択 / イベント選択）。両バナー共通。 */
+.loc-mode-btns { display: flex; gap: 6px; }
+.loc-mode-btn {
+  flex: 1; padding: 8px 0; border: 1px solid #bfdbfe; border-radius: 8px;
+  background: #eff6ff; color: #2563eb; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-align: center; white-space: nowrap;
 }
-.loc-map-btn:active { background: #dbeafe; }
-/* 現在地の「地図選択」「バス停選択」を横並びにする */
-.loc-btn-row { display: flex; gap: 6px; }
-.loc-btn-row .loc-map-btn { flex: 1; }
+.loc-mode-btn:active { background: #dbeafe; }
 
-/* 現在地ラベルと再読み込みボタンを横並びにする行 */
-.loc-label-row { display: flex; align-items: center; gap: 8px; }
+/* ラベル行（現在地は再読み込みボタンを右に置く）。両バナーで同じ高さにして配置を揃える。 */
+.loc-label-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 26px;
+}
 
 /* 現在地の再読み込みボタン（ラベルの横に置く小さいボタン。アイコン＋文字で用途を明示） */
 .loc-reload-btn {
@@ -172,10 +176,6 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .loc-dest-row .loc-manual-select { min-width: 0; width: 100%; }
-
-/* 現在地バナー内の「セレクト＋自動検出に戻す」をまとめる箱 */
-.loc-select-group { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
-.loc-dest-row .loc-select-group .loc-auto-btn { text-align: left; }
 
 @media (max-width: 360px) {
   .loc-dest-row > .location-banner,
@@ -1328,14 +1328,6 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   margin-top: 4px; padding: 6px 14px; background: #3b82f6; color: white;
   border: none; border-radius: 8px; cursor: pointer; font-size: 13px; width: fit-content;
 }
-
-/* ── 目的地プルダウン直下の選択手段ボタン（地図選択 / イベント選択） ── */
-.dest-mode-btns { display: flex; gap: 6px; width: 100%; }
-.dest-mode-btn {
-  flex: 1; padding: 8px 0; border: 1px solid #bfdbfe; border-radius: 8px;
-  background: #eff6ff; color: #2563eb; font-size: 13px; font-weight: 700; cursor: pointer;
-}
-.dest-mode-btn:active { background: #dbeafe; }
 
 /* ── ユーザー向けマップ選択（マップ画像＋タップ可能なマーカー） ── */
 .map-selector { width: 100%; }

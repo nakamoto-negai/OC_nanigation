@@ -360,63 +360,51 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
 
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
-        {/* 現在地バナー（先に表示する） */}
+        {/* 現在地バナー（先に表示する）。目的地バナーと同じ3段構成（ラベル / セレクタ / 選択ボタン2つ）で揃える。 */}
         <div className={`location-banner ${geoStatus}`}>
-          <div className="loc-text">
-            <div className="loc-label-row">
-              <span className="loc-label">
-                {geoStatus === "pending"
-                  ? "現在地を特定しています..."
-                  : geoStatus === "found"
-                  ? (startNode ? "現在地" : "近くに登録地点がありません")
-                  : geoStatus === "denied"
-                  ? "位置情報の使用が許可されていません"
-                  : "現在地を選択してください"}
-              </span>
-              <button
-                type="button"
-                className="loc-reload-btn"
-                onClick={reloadLocation}
-                disabled={geoStatus === "pending"}
-                aria-label="現在地を再読み込み"
-                title="現在地を再読み込み"
-              >
-                <span className="loc-reload-icon">↻</span>
-                <span className="loc-reload-text">再読み込み</span>
-              </button>
-            </div>
-          </div>
-          <div className="loc-select-group">
-            <select
-              className="loc-manual-select"
-              value={startId ?? ""}
-              onChange={(e) => {
-                setStartId(Number(e.target.value) || null);
-                setManualStart(true);
-              }}
+          <div className="loc-label-row">
+            <span className="loc-label">現在地を選択</span>
+            <button
+              type="button"
+              className="loc-reload-btn"
+              onClick={reloadLocation}
+              disabled={geoStatus === "pending"}
+              aria-label="現在地を再読み込み"
+              title="現在地を再読み込み"
             >
-              <option value="">現在地を選択...</option>
-              {nodes.map((n) => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
-            </select>
-            <div className="loc-btn-row">
-              <button type="button" className="loc-map-btn" onClick={() => setStartPickerOpen(true)}>
-                地図選択
-              </button>
-              <button type="button" className="loc-map-btn" onClick={() => setBusStopPickerOpen(true)}>
-                バス停選択
-              </button>
-            </div>
+              <span className="loc-reload-icon">↻</span>
+              <span className="loc-reload-text">再読み込み</span>
+            </button>
+          </div>
+          <select
+            className="loc-manual-select"
+            value={startId ?? ""}
+            onChange={(e) => {
+              setStartId(Number(e.target.value) || null);
+              setManualStart(true);
+            }}
+          >
+            <option value="">現在地を選択...</option>
+            {nodes.map((n) => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+          <div className="loc-mode-btns">
+            <button type="button" className="loc-mode-btn" onClick={() => setStartPickerOpen(true)}>
+              地図選択
+            </button>
+            <button type="button" className="loc-mode-btn" onClick={() => setBusStopPickerOpen(true)}>
+              バス停選択
+            </button>
           </div>
         </div>
 
         {/* 現在地 → 目的地 の矢印 */}
         <div className="loc-dest-arrow" aria-hidden="true">→</div>
 
-        {/* 目的地バナー */}
+        {/* 目的地バナー（現在地バナーと同じ3段構成） */}
         <div className="dest-banner">
-          <div className="loc-text">
+          <div className="loc-label-row">
             <span className="loc-label">目的地を選択</span>
           </div>
           <button
@@ -428,17 +416,17 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
             <span className="dest-picker-caret">▼</span>
           </button>
           {/* プルダウン直下の選択手段ボタン。地図選択＝地図、イベント選択＝リスト（イベント表示付き）。 */}
-          <div className="dest-mode-btns">
+          <div className="loc-mode-btns">
             <button
               type="button"
-              className="dest-mode-btn"
+              className="loc-mode-btn"
               onClick={() => { setDestTab("map"); setDestPickerOpen(true); }}
             >
               地図選択
             </button>
             <button
               type="button"
-              className="dest-mode-btn"
+              className="loc-mode-btn"
               onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
             >
               イベント選択

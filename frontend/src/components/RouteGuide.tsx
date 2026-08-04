@@ -458,6 +458,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
               <div className="rg-step-content">
               <div className="rg-step-header">
                 <div className="rg-step-number">{s.step_number}</div>
+                <div className="rg-step-title">ルート{s.step_number}</div>
                 {/* AR カード表示中は到着確認の案内文を出す */}
                 {arCardIndex === ci && (
                   <span className="rg-ar-inline-hint">到着地点を確認してスクロール</span>
