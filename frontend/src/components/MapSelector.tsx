@@ -17,13 +17,15 @@ interface Props {
   onSelect: (id: number) => void;
   /** マップ画像が無いときに出す文言 */
   emptyText?: string;
+  /** true のときマーカーの地点名ラベルを表示しない（現在地選択などで使う） */
+  hideLabels?: boolean;
 }
 
 /**
  * マップ画像の上に地点マーカーを重ね、タップで選択させる（現在地・目的地の地図選択に使う）。
  * 座標は画像のピクセル座標(x,y)を naturalWidth/Height に対する割合で配置する（MapPicker と同方式）。
  */
-export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, onSelect, emptyText }) => {
+export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, onSelect, emptyText, hideLabels }) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const [naturalW, setNaturalW] = useState(mapImage?.width || 0);
   const [naturalH, setNaturalH] = useState(mapImage?.height || 0);
@@ -56,7 +58,7 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
             onClick={() => onSelect(m.id)}
           >
             <span className="map-marker-dot" />
-            <span className="map-marker-label">{m.label}</span>
+            {!hideLabels && <span className="map-marker-label">{m.label}</span>}
           </button>
         ))}
       </div>

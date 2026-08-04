@@ -535,6 +535,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 mapImage={mapImage}
                 markers={startMarkers}
                 selectedId={startId}
+                hideLabels
                 onSelect={(id) => {
                   setStartId(id);
                   setManualStart(true);
