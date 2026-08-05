@@ -193,25 +193,29 @@ export const ARNavGuide: React.FC<Props> = ({
 
         <div className="arnav-overlay">
           {hasHeading ? (
-            <svg
-              ref={arrowRef}
-              className={`arnav-arrow arnav-${status}`}
-              viewBox="0 0 100 100"
-            >
-              <polygon points="50,8 80,72 50,56 20,72" />
-            </svg>
+            <>
+              <svg
+                ref={arrowRef}
+                className={`arnav-arrow arnav-${status}`}
+                viewBox="0 0 100 100"
+              >
+                <polygon points="50,8 80,72 50,56 20,72" />
+              </svg>
+              <div className={`arnav-label arnav-${status}-text`}>{label}</div>
+            </>
+          ) : permission === "unsupported" ? (
+            <div className="arnav-need-compass"><span>コンパス非対応の端末です</span></div>
           ) : (
-            <div className="arnav-need-compass">
-              {permission === "unsupported" ? (
-                <span>コンパス非対応の端末です</span>
-              ) : (
-                <button className="cg-enable-btn" onClick={onRequestPermission}>
-                  コンパスを有効にする
-                </button>
-              )}
-            </div>
+            // コンパス未取得時: 灰色のコンパス（静的）と、被らない位置（下）に許可ボタンを出す。
+            <>
+              <svg className="arnav-arrow arnav-idle" viewBox="0 0 100 100" role="img" aria-label="コンパス未取得">
+                <polygon points="50,8 80,72 50,56 20,72" />
+              </svg>
+              <button className="cg-enable-btn arnav-enable-btn" onClick={onRequestPermission}>
+                コンパスを有効にする
+              </button>
+            </>
           )}
-          <div className={`arnav-label arnav-${status}-text`}>{label}</div>
         </div>
 
         {/* ボタンを押したら、到着地点の登録写真をオーバーレイ表示する */}

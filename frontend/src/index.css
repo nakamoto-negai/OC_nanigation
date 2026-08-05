@@ -1449,6 +1449,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .arnav-arrow.arnav-ok polygon   { fill: #22c55e; }
 .arnav-arrow.arnav-warn polygon { fill: #f59e0b; }
 .arnav-arrow.arnav-ng polygon   { fill: #ef4444; }
+/* コンパス未取得時の灰色コンパス（静的・回転しない）とその下の許可ボタン */
+.arnav-arrow.arnav-idle polygon { fill: #94a3b8; }
+.arnav-enable-btn { pointer-events: auto; }
 .arnav-label {
   background: rgba(15, 23, 42, 0.7); color: #fff;
   font-size: 18px; font-weight: 800; padding: 6px 16px; border-radius: 20px;
