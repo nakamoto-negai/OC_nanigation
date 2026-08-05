@@ -95,6 +95,8 @@ export interface IndoorTransition {
   id: number;
   link_a_id: number;
   link_b_id: number;
+  // "indoor"=屋内に入る / "outdoor"=屋外に出る
+  kind: "indoor" | "outdoor";
   image_url: string;
   created_at: string;
   updated_at: string;

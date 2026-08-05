@@ -49,6 +49,14 @@ func saveIndoorImage(c *gin.Context) (string, error) {
 	return "/uploads/" + filename, nil
 }
 
+// normalizeIndoorKind は種別を "indoor"（屋内に入る）か "outdoor"（屋外に出る）に正規化する。
+func normalizeIndoorKind(kind string) string {
+	if kind == "outdoor" {
+		return "outdoor"
+	}
+	return "indoor"
+}
+
 func removeIndoorImage(url string) {
 	if url == "" {
 		return
@@ -83,6 +91,7 @@ func CreateIndoorTransition(c *gin.Context) {
 	it := models.IndoorTransition{
 		LinkAID:  uint(linkAID),
 		LinkBID:  uint(linkBID),
+		Kind:     normalizeIndoorKind(c.PostForm("kind")),
 		ImageURL: imageURL,
 	}
 	if err := database.DB.Create(&it).Error; err != nil {
@@ -111,6 +120,10 @@ func UpdateIndoorTransition(c *gin.Context) {
 	if imageURL != "" {
 		removeIndoorImage(it.ImageURL) // 旧画像を削除して差し替え
 		it.ImageURL = imageURL
+	}
+	// 種別（屋内に入る/屋外に出る）の切替。指定があれば更新する。
+	if kind := c.PostForm("kind"); kind != "" {
+		it.Kind = normalizeIndoorKind(kind)
 	}
 
 	database.DB.Save(&it)

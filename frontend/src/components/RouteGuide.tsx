@@ -24,9 +24,10 @@ const ARRIVAL_ADVANCE_MS = 1800;
 type GuideCard =
   | { kind: "step"; step: RouteStepDetail; stepIndex: number; incomingDetour: NodeDetour | null }
   | { kind: "detour"; detour: NodeDetour }
-  // 指定リンクペアを連続して通過する2ステップの間に挿入する「屋内に入る」案内カード。
-  // step はペアの手前側ステップ（その to_node が屋内への出入口）。imageUrl があれば表示。
-  | { kind: "indoor"; step: RouteStepDetail; imageUrl: string };
+  // 指定リンクペアを連続して通過する2ステップの間に挿入する屋内/屋外の案内カード。
+  // step はペアの手前側ステップ（その to_node が出入口）。imageUrl があれば表示。
+  // dir="indoor"=屋内に入る / dir="outdoor"=屋外に出る。
+  | { kind: "indoor"; step: RouteStepDetail; imageUrl: string; dir: "indoor" | "outdoor" };
 
 interface Props {
   route: RouteResponse;
@@ -82,23 +83,22 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
 
   // 屋内案内のリンクペア → 画像URL のルックアップ（順不同でキー化）。
   const indoorPairMap = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { imageUrl: string; kind: "indoor" | "outdoor" }>();
     for (const it of indoorTransitions) {
       const a = Math.min(it.link_a_id, it.link_b_id);
       const b = Math.max(it.link_a_id, it.link_b_id);
-      map.set(`${a}-${b}`, it.image_url);
+      map.set(`${a}-${b}`, { imageUrl: it.image_url, kind: it.kind });
     }
     return map;
   }, [indoorTransitions]);
-  // 現在ステップ i と次ステップ i+1 のリンクが屋内案内ペアなら、その画像URL（無ければ ""）を返す。
-  const indoorImageBetween = (i: number): string | null => {
+  // 現在ステップ i と次ステップ i+1 のリンクが屋内/屋外案内ペアなら、その情報を返す（無ければ null）。
+  const indoorBetween = (i: number): { imageUrl: string; kind: "indoor" | "outdoor" } | null => {
     const cur = route.steps[i];
     const next = route.steps[i + 1];
     if (!cur || !next) return null;
     const a = Math.min(cur.link.id, next.link.id);
     const b = Math.max(cur.link.id, next.link.id);
-    const key = `${a}-${b}`;
-    return indoorPairMap.has(key) ? (indoorPairMap.get(key) ?? "") : null;
+    return indoorPairMap.get(`${a}-${b}`) ?? null;
   };
 
   // スクロールに並べるカード列を構築。
@@ -117,10 +117,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       } else {
         list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: incoming });
       }
-      // このステップと次ステップのリンクが屋内案内ペアなら、その間に屋内案内カードを挿入する。
-      const img = indoorImageBetween(i);
-      if (img !== null) {
-        list.push({ kind: "indoor", step: s, imageUrl: img });
+      // このステップと次ステップのリンクが屋内/屋外案内ペアなら、その間に案内カードを挿入する。
+      const indoor = indoorBetween(i);
+      if (indoor !== null) {
+        list.push({ kind: "indoor", step: s, imageUrl: indoor.imageUrl, dir: indoor.kind });
       }
     });
     // 最後のステップの寄り道はゴールカードがホストする。展開時はゴールの直前に挿入。
@@ -404,17 +404,24 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
             );
           }
 
-          // 「屋内に入る」案内カード。画像（建物への入館イラスト）で屋内に入ることを明示する。
+          // 屋内に入る／屋外に出る 案内カード。イラストで建物への出入りを明示する。
           if (card.kind === "indoor") {
+            const outdoor = card.dir === "outdoor";
             return (
               <div key={ci} className="rg-step rg-indoor-card">
                 <div className="rg-indoor-inner">
                   {card.imageUrl ? (
                     // リンクペアに登録された画像があればそれを表示
-                    <img className="rg-indoor-photo" src={`${BASE}${card.imageUrl}`} alt="屋内に入る案内" />
+                    <img className="rg-indoor-photo" src={`${BASE}${card.imageUrl}`} alt={outdoor ? "屋外に出る案内" : "屋内に入る案内"} />
                   ) : (
-                    // 未登録なら内蔵SVGイラスト（建物への入館）
-                    <svg className="rg-indoor-illust" viewBox="0 0 120 120" role="img" aria-label="屋内に入るイラスト">
+                    // 未登録なら内蔵SVGイラスト（建物）。屋外に出る場合は左右反転で「出る」向きにする。
+                    <svg
+                      className="rg-indoor-illust"
+                      viewBox="0 0 120 120"
+                      role="img"
+                      aria-label={outdoor ? "屋外に出るイラスト" : "屋内に入るイラスト"}
+                      style={outdoor ? { transform: "scaleX(-1)" } : undefined}
+                    >
                       {/* 建物 */}
                       <rect x="20" y="26" width="80" height="74" rx="4" fill="#3b82f6" />
                       <rect x="20" y="26" width="80" height="16" rx="4" fill="#1d4ed8" />
@@ -424,16 +431,18 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       {/* 入口（開いたドア） */}
                       <rect x="50" y="66" width="20" height="34" rx="2" fill="#e0f2fe" />
                       <rect x="50" y="66" width="20" height="34" rx="2" fill="none" stroke="#1d4ed8" strokeWidth="2" />
-                      {/* 入る方向の矢印 */}
+                      {/* 入る方向の矢印（屋外に出る場合は SVG 全体を反転して出る向きに見せる） */}
                       <g stroke="#f59e0b" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none">
                         <line x1="34" y1="83" x2="60" y2="83" />
                         <polyline points="52,75 62,83 52,91" />
                       </g>
                     </svg>
                   )}
-                  <div className="rg-indoor-title">屋内に入ります</div>
+                  <div className="rg-indoor-title">{outdoor ? "屋外に出ます" : "屋内に入ります"}</div>
                   {card.step.to_node.name && (
-                    <div className="rg-indoor-sub">「{card.step.to_node.name}」から建物の中へ進みます</div>
+                    <div className="rg-indoor-sub">
+                      「{card.step.to_node.name}」から{outdoor ? "建物の外へ出ます" : "建物の中へ進みます"}
+                    </div>
                   )}
                   <p className="rg-scroll-hint">スクロールして案内を続ける</p>
                 </div>

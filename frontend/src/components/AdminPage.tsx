@@ -1738,6 +1738,7 @@ function CafeteriaTab() {
 // 屋内案内タブ: リンクのペアを指定し、その間を通るときに出す屋内カードの画像を登録する。
 function IndoorTransitionTab({ links }: { links: Link[] }) {
   const [transitions, setTransitions] = useState<IndoorTransition[]>([]);
+  const [kind, setKind] = useState<"indoor" | "outdoor">("indoor");
   const [linkAId, setLinkAId] = useState<number | "">("");
   const [linkBId, setLinkBId] = useState<number | "">("");
   const [file, setFile] = useState<File | null>(null);
@@ -1764,6 +1765,7 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
       const form = new FormData();
       form.append("link_a_id", String(linkAId));
       form.append("link_b_id", String(linkBId));
+      form.append("kind", kind);
       if (file) form.append("image", file);
       const created = await api.indoorTransitions.create(form);
       setTransitions((p) => [...p, created]);
@@ -1782,14 +1784,34 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
     } catch (e: any) { setMsg({ type: "err", text: e.message }); }
   };
 
+  // 種別（屋内に入る ⇄ 屋外に出る）を切り替える。
+  const toggleKind = async (t: IndoorTransition) => {
+    try {
+      const form = new FormData();
+      form.append("kind", t.kind === "indoor" ? "outdoor" : "indoor");
+      const updated = await api.indoorTransitions.update(t.id, form);
+      setTransitions((p) => p.map((x) => (x.id === updated.id ? updated : x)));
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  const kindLabel = (k: string) => (k === "outdoor" ? "屋外に出る" : "屋内に入る");
+
   return (
     <div className="adm-layout">
       <div className="adm-form-col">
         <h3>屋内案内を追加</h3>
         {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
         <p className="hint" style={{ marginBottom: 12 }}>
-          2つのリンクを指定すると、道案内でその2リンクを連続して通過するとき（＝その間を通るとき）に「屋内に入ります」カードが表示されます。画像は任意（未指定なら内蔵イラスト）。順序は問いません。
+          2つのリンクを指定すると、道案内でその2リンクを連続して通過するとき（＝その間を通るとき）にカードが表示されます。
+          種別スイッチで「屋内に入る」／「屋外に出る」を選べます。画像は任意（未指定なら内蔵イラスト）。順序は問いません。
         </p>
+        <div className="adm-field">
+          <label>種別</label>
+          <div className="sv-view-switch">
+            <button type="button" className={kind === "indoor" ? "active" : ""} onClick={() => setKind("indoor")}>屋内に入る</button>
+            <button type="button" className={kind === "outdoor" ? "active" : ""} onClick={() => setKind("outdoor")}>屋外に出る</button>
+          </div>
+        </div>
         <div className="adm-field">
           <label>リンクA <span className="req">*</span></label>
           <select value={linkAId} onChange={(e) => setLinkAId(Number(e.target.value) || "")}>
@@ -1824,10 +1846,20 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
           <p className="adm-empty">屋内案内がまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>リンクA</th><th>リンクB</th><th>画像</th><th></th></tr></thead>
+            <thead><tr><th>種別</th><th>リンクA</th><th>リンクB</th><th>画像</th><th></th></tr></thead>
             <tbody>
               {transitions.map((t) => (
                 <tr key={t.id}>
+                  <td className="center">
+                    <button
+                      type="button"
+                      className="btn-edit"
+                      title="タップで屋内/屋外を切り替え"
+                      onClick={() => toggleKind(t)}
+                    >
+                      {kindLabel(t.kind)}
+                    </button>
+                  </td>
                   <td>{linkLabel(t.link_a_id)}</td>
                   <td>{linkLabel(t.link_b_id)}</td>
                   <td className="center">
