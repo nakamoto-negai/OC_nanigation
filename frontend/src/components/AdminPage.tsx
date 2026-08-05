@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SuperCategory, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "../utils/congestion";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
@@ -1534,22 +1534,34 @@ function DetourTab({ nodes }: { nodes: Node[] }) {
 
 function CategoryTab() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [superCats, setSuperCats] = useState<SuperCategory[]>([]);
   const [name, setName] = useState("");
+  const [superCatId, setSuperCatId] = useState<number | "">("");
   const [sortOrder, setSortOrder] = useState("0");
   const [isOpenDefault, setIsOpenDefault] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  // 大カテゴリー追加用
+  const [newSuperName, setNewSuperName] = useState("");
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch(() => {});
+    api.superCategories.list().then(setSuperCats).catch(() => {});
   }, []);
 
-  const reset = () => { setName(""); setSortOrder("0"); setIsOpenDefault(true); setEditingId(null); };
+  const superName = (id: number | null) => superCats.find((s) => s.id === id)?.name ?? "（未設定）";
+
+  const reset = () => { setName(""); setSuperCatId(""); setSortOrder("0"); setIsOpenDefault(true); setEditingId(null); };
 
   const save = async () => {
     if (!name.trim()) { setMsg({ type: "err", text: "名前は必須です" }); return; }
     try {
-      const data = { name: name.trim(), sort_order: Number(sortOrder) || 0, is_open_default: isOpenDefault };
+      const data = {
+        name: name.trim(),
+        super_category_id: superCatId === "" ? null : Number(superCatId),
+        sort_order: Number(sortOrder) || 0,
+        is_open_default: isOpenDefault,
+      };
       if (editingId) {
         const updated = await api.categories.update(editingId, data);
         setCategories((p) => p.map((c) => c.id === editingId ? updated : c));
@@ -1564,7 +1576,8 @@ function CategoryTab() {
   };
 
   const startEdit = (c: Category) => {
-    setEditingId(c.id); setName(c.name); setSortOrder(String(c.sort_order)); setIsOpenDefault(c.is_open_default);
+    setEditingId(c.id); setName(c.name); setSuperCatId(c.super_category_id ?? "");
+    setSortOrder(String(c.sort_order)); setIsOpenDefault(c.is_open_default);
     setMsg(null);
   };
 
@@ -1577,14 +1590,60 @@ function CategoryTab() {
     } catch (e: any) { setMsg({ type: "err", text: e.message }); }
   };
 
+  // 大カテゴリーの追加・削除
+  const addSuper = async () => {
+    if (!newSuperName.trim()) { setMsg({ type: "err", text: "大カテゴリー名を入力してください" }); return; }
+    try {
+      const created = await api.superCategories.create({ name: newSuperName.trim(), sort_order: superCats.length, is_open_default: true });
+      setSuperCats((p) => [...p, created]);
+      setNewSuperName("");
+      setMsg({ type: "ok", text: `大カテゴリー「${created.name}」を追加しました` });
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+  const delSuper = async (id: number, nm: string) => {
+    if (!window.confirm(`大カテゴリー「${nm}」を削除しますか？\n属するカテゴリは「未設定」に戻ります。`)) return;
+    try {
+      await api.superCategories.delete(id);
+      setSuperCats((p) => p.filter((s) => s.id !== id));
+      setCategories((p) => p.map((c) => (c.super_category_id === id ? { ...c, super_category_id: null } : c)));
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
   return (
     <div className="adm-layout">
       <div className="adm-form-col">
-        <h3>{editingId ? "カテゴリを編集" : "カテゴリを追加"}</h3>
         {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+
+        {/* 大カテゴリー（カテゴリを束ねる上位分類）の管理 */}
+        <h3>大カテゴリー <span className="count-badge">{superCats.length}</span></h3>
+        <p className="hint" style={{ marginBottom: 8 }}>カテゴリを束ねる上位分類です。イベント選択画面で最上位の見出しになります。</p>
+        <div className="adm-field" style={{ flexDirection: "row", gap: 8 }}>
+          <input value={newSuperName} onChange={(e) => setNewSuperName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addSuper(); }} placeholder="例: 学部エリア、体験コーナー" />
+          <button className="btn-primary" onClick={addSuper}>追加</button>
+        </div>
+        {superCats.length > 0 && (
+          <div className="demo-overlay-list" style={{ marginBottom: 16 }}>
+            {superCats.map((s) => (
+              <div key={s.id} className="demo-overlay-item">
+                <span className="demo-overlay-name" style={{ flex: 1 }}>{s.name}</span>
+                <button className="btn-del" onClick={() => delSuper(s.id, s.name)}>削除</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h3>{editingId ? "カテゴリを編集" : "カテゴリを追加"}</h3>
         <div className="adm-field">
           <label>名前 <span className="req">*</span></label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 教室、トイレ、食堂" />
+        </div>
+        <div className="adm-field">
+          <label>大カテゴリー</label>
+          <select value={superCatId} onChange={(e) => setSuperCatId(Number(e.target.value) || "")}>
+            <option value="">（未設定）</option>
+            {superCats.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
         </div>
         <div className="adm-field">
           <label>並び順（小さいほど上）</label>
@@ -1609,12 +1668,13 @@ function CategoryTab() {
         ) : (
           <table className="adm-table">
             <thead>
-              <tr><th>名前</th><th>並び順</th><th>初期状態</th><th></th></tr>
+              <tr><th>名前</th><th>大カテゴリー</th><th>並び順</th><th>初期状態</th><th></th></tr>
             </thead>
             <tbody>
               {categories.map((c) => (
                 <tr key={c.id} className={editingId === c.id ? "editing" : ""}>
                   <td><strong>{c.name}</strong></td>
+                  <td>{c.super_category_id ? superName(c.super_category_id) : <span className="text-muted">未設定</span>}</td>
                   <td className="num">{c.sort_order}</td>
                   <td className="center">{c.is_open_default ? "開く" : <span className="text-muted">閉じる</span>}</td>
                   <td className="adm-row-actions">

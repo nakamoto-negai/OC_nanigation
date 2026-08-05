@@ -1,4 +1,4 @@
-import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SuperCategory, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -155,6 +155,15 @@ export const api = {
       adminReq<Category>(`/api/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) =>
       adminReq<void>(`/api/categories/${id}`, { method: "DELETE" }),
+  },
+  superCategories: {
+    list: () => req<SuperCategory[]>("/api/super-categories"),
+    create: (data: Partial<SuperCategory>) =>
+      adminReq<SuperCategory>("/api/super-categories", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<SuperCategory>) =>
+      adminReq<SuperCategory>(`/api/super-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      adminReq<void>(`/api/super-categories/${id}`, { method: "DELETE" }),
   },
   events: {
     list: (destinationId?: number) =>

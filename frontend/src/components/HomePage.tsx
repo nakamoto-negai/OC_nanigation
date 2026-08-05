@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Category, Destination, IndoorTransition, Link, MapImage, Node, NodeDetour, RouteResponse, Setting } from "../types";
+import { Category, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, RouteResponse, Setting, SuperCategory } from "../types";
 import { calcRouteToNodes } from "../utils/dijkstra";
 import { api } from "../api/client";
 import { SurveyLauncher } from "./SurveyLauncher";
@@ -75,6 +75,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [busStopPickerOpen, setBusStopPickerOpen] = useState(false);
   // マップ選択用の背景画像（アクティブなマップ）
   const [mapImage, setMapImage] = useState<MapImage | null>(null);
+  // 大カテゴリー（イベント選択の最上位見出し用）
+  const [superCats, setSuperCats] = useState<SuperCategory[]>([]);
   const [error, setError] = useState("");
 
   // コンパス（方位）許可。ホーム画面で先に取得しておき、埋め込み道案内へ共有する。
@@ -86,6 +88,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   // マップ選択用に、アクティブなマップ画像を取得する。
   useEffect(() => {
     api.mapImages.getActive().then(setMapImage).catch(() => setMapImage(null));
+    api.superCategories.list().then(setSuperCats).catch(() => setSuperCats([]));
   }, []);
 
   // 位置情報の取得・監視
@@ -341,6 +344,98 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       </div>
     );
 
+  // ── イベント選択ビュー用の構造（大カテゴリー → カテゴリー → イベント → 目的地）────────
+  // 各イベントを選択肢とし、その下にイベントが開催される目的地を表示する。
+  type EventEntry = { event: Event; dest: Destination };
+  type EventCatGroup = { key: string; label: string; sort: number; catId: number; entries: EventEntry[] };
+  type EventSuperGroup = { key: string; label: string; sort: number; supId: number; cats: EventCatGroup[] };
+
+  const eventSuperGroups = useMemo<EventSuperGroup[]>(() => {
+    const sups = new Map<number, EventSuperGroup>();
+    const ensureSup = (sup: SuperCategory | null): EventSuperGroup => {
+      const id = sup?.id ?? -1;
+      if (!sups.has(id)) {
+        sups.set(id, {
+          key: `evt-sup-${id}`, label: sup?.name ?? "その他",
+          sort: sup?.sort_order ?? Number.POSITIVE_INFINITY, supId: id, cats: [],
+        });
+      }
+      return sups.get(id)!;
+    };
+    const ensureCat = (sg: EventSuperGroup, cat: Category | null): EventCatGroup => {
+      const id = cat?.id ?? -1;
+      let cg = sg.cats.find((c) => c.catId === id);
+      if (!cg) {
+        cg = { key: `evt-cat-${id}`, label: cat?.name ?? "その他", sort: cat?.sort_order ?? Number.POSITIVE_INFINITY, catId: id, entries: [] };
+        sg.cats.push(cg);
+      }
+      return cg;
+    };
+    for (const d of visibleDestinations) {
+      if (!d.events || d.events.length === 0) continue;
+      const cat = d.category ?? null;
+      const supId = cat?.super_category_id ?? null;
+      const sup = supId != null ? (superCats.find((s) => s.id === supId) ?? null) : null;
+      const sg = ensureSup(sup);
+      const cg = ensureCat(sg, cat);
+      for (const e of d.events) cg.entries.push({ event: e, dest: d });
+    }
+    const groups = [...sups.values()];
+    groups.sort((a, b) => a.sort - b.sort || a.supId - b.supId);
+    for (const g of groups) {
+      g.cats.sort((a, b) => a.sort - b.sort || a.catId - b.catId);
+      for (const c of g.cats) c.entries.sort((a, b) => (a.event.sort_order - b.event.sort_order) || (a.event.id - b.event.id));
+    }
+    return groups;
+  }, [visibleDestinations, superCats]);
+
+  // イベント選択の本体（大カテゴリー → カテゴリー → イベント（選択肢）→ その下に目的地）
+  const eventSelectionBody =
+    eventSuperGroups.length === 0 ? (
+      <p className="dest-empty">開催イベントが登録された目的地がありません</p>
+    ) : (
+      <div className="dest-groups">
+        {eventSuperGroups.map((sg) => (
+          <div key={sg.key} className="dest-group evt-super">
+            <button className="dest-group-heading evt-super-heading" onClick={() => toggleGroup(sg.key)}>
+              <span>{sg.label}</span>
+              <span className="dest-group-arrow">{isOpen(sg.key) ? "▲" : "▼"}</span>
+            </button>
+            {isOpen(sg.key) && (
+              <div className="evt-super-body">
+                {sg.cats.map((cg) => (
+                  <div key={cg.key} className="dest-group evt-cat">
+                    <button className="dest-group-heading evt-cat-heading" onClick={() => toggleGroup(cg.key)}>
+                      <span>{cg.label}</span>
+                      <span className="dest-group-arrow">{isOpen(cg.key) ? "▲" : "▼"}</span>
+                    </button>
+                    {isOpen(cg.key) && (
+                      <div className="evt-list">
+                        {cg.entries.map((en) => (
+                          <button
+                            key={`${cg.key}-${en.event.id}`}
+                            className={`evt-card${destId === en.dest.id ? " selected" : ""}`}
+                            onClick={() => chooseDest(en.dest.id)}
+                          >
+                            <div className="evt-card-name">{en.event.name}</div>
+                            <div className="evt-card-dest">
+                              <span className="evt-card-dest-label">目的地</span>
+                              <span className="evt-card-dest-name">{en.dest.name}</span>
+                              <span className="evt-card-arrow">→</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+
   return (
     <div className={`home-page${activeRoute ? " guiding" : ""}`}>
       {/* 行きたい目的地の選択を促す案内。ヘッダー直下に表示する。
@@ -481,7 +576,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         <div className="dest-modal-overlay" onClick={() => setDestPickerOpen(false)}>
           <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
             <div className="dest-modal-head">
-              <h2 className="dest-heading">目的地を選んでください</h2>
+              <h2 className="dest-heading">{destTab === "list" ? "イベントから選ぶ" : "目的地を選んでください"}</h2>
               <button
                 className="dest-modal-close"
                 onClick={() => setDestPickerOpen(false)}
@@ -492,7 +587,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
             </div>
             <div className="dest-modal-body">
               {destTab === "list" ? (
-                destListBody
+                eventSelectionBody
               ) : (
                 <MapSelector
                   mapImage={mapImage}

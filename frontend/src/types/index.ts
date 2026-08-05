@@ -1,6 +1,18 @@
+// 大カテゴリー。複数のカテゴリーを束ねる上位分類（イベント選択の最上位見出し）。
+export interface SuperCategory {
+  id: number;
+  name: string;
+  sort_order: number;
+  is_open_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Category {
   id: number;
   name: string;
+  // 所属する大カテゴリー（未設定なら「その他」）
+  super_category_id: number | null;
   sort_order: number;
   is_open_default: boolean;
   created_at: string;

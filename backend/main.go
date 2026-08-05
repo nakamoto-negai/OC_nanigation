@@ -64,6 +64,7 @@ func main() {
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 	api.GET("/node-detours", handlers.ListNodeDetours)
 	api.GET("/categories", handlers.ListCategories)
+	api.GET("/super-categories", handlers.ListSuperCategories)
 	api.GET("/destinations", handlers.ListDestinations)
 	api.GET("/ar-features/matchset", handlers.ListARFeaturesForMatch)
 	api.GET("/ar-objects", handlers.ListARObjects)
@@ -140,6 +141,10 @@ func main() {
 		admin.POST("/categories", handlers.CreateCategory)
 		admin.PUT("/categories/:id", handlers.UpdateCategory)
 		admin.DELETE("/categories/:id", handlers.DeleteCategory)
+
+		admin.POST("/super-categories", handlers.CreateSuperCategory)
+		admin.PUT("/super-categories/:id", handlers.UpdateSuperCategory)
+		admin.DELETE("/super-categories/:id", handlers.DeleteSuperCategory)
 
 		// 食堂の登録・編集・削除（管理者のみ）。混雑度だけの更新は上の限定エンドポイント。
 		admin.POST("/cafeterias", handlers.CreateCafeteria)
