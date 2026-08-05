@@ -128,10 +128,9 @@ function UserApp() {
   const [popDismissed, setPopDismissed] = useState(false);
   // お知らせの取得が完了したか（完了後にコンパス許可ポップアップの表示判定を行う）
   const [announcementChecked, setAnnouncementChecked] = useState(false);
-  // コンパス許可ポップアップを閉じた（＝一度選択した）か。次回以降は出さないよう localStorage に記録。
-  const [compassPopDismissed, setCompassPopDismissed] = useState(
-    () => localStorage.getItem("compass_pop_dismissed") === "1",
-  );
+  // コンパス許可ポップアップを今のホーム滞在中に閉じたか（＝一時的に隠すだけ）。
+  // 永続保存はしない。ホーム画面に来るたびにリセットして、コンパスがオンになるまで再表示する。
+  const [compassPopDismissed, setCompassPopDismissed] = useState(false);
   // コンパス許可状態を購読（iOS 未許可のときだけポップアップを出すため）
   const compass = useCompassPermission();
   // アンケートをアプリ内操作で開いたか（true のとき閉じるは履歴を戻す）
@@ -169,16 +168,21 @@ function UserApp() {
 
   const dismissPop = () => setPopDismissed(true);
 
-  // お知らせPOPが閉じていて、iOSで方位センサー未許可、かつ未提示のときだけコンパス許可ポップアップを出す。
+  // ホーム画面かつ、お知らせPOPが閉じていて、iOSで方位センサー未許可（prompt）で、
+  // この滞在中にまだ閉じていないときにコンパス許可ポップアップを出す。
+  // コンパスがオン（granted）になれば permission が prompt でなくなり自動的に出なくなる。
   const announcementOpen = !!announcement && !popDismissed;
   const showCompassPop =
-    announcementChecked && !announcementOpen &&
+    screen === "home" && announcementChecked && !announcementOpen &&
     compassNeedsPermission() && compass.permission === "prompt" && !compassPopDismissed;
 
-  const closeCompassPop = () => {
-    setCompassPopDismissed(true);
-    localStorage.setItem("compass_pop_dismissed", "1");
-  };
+  // ホーム画面に来るたびに一時非表示をリセットし、オンにされていない限り再表示する。
+  useEffect(() => {
+    if (screen === "home") setCompassPopDismissed(false);
+  }, [screen]);
+
+  // 閉じるのはこの滞在中だけ隠す（次にホームへ来たら再表示される）。
+  const closeCompassPop = () => setCompassPopDismissed(true);
   const enableCompass = () => {
     // このクリックはユーザー操作なので、ここで iOS のコンパス許可要求を発火できる。
     compass.requestPermission();
