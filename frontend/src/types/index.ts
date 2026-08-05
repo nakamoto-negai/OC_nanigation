@@ -25,6 +25,8 @@ export interface Destination {
   category_id: number | null;
   category?: Category;
   sort_order: number;
+  /** バス停ラベル。true の目的地は「バス停選択」の地図に出て現在地として選べる。 */
+  is_bus_stop: boolean;
   nodes?: Node[];
   events?: Event[];
   created_at: string;
@@ -83,6 +85,17 @@ export interface Link {
   distance: number;
   photos: Photo[];
   arrival_photos?: ArrivalPhoto[];
+  created_at: string;
+  updated_at: string;
+}
+
+// 屋内案内のリンクペア。経路上で link_a_id と link_b_id を連続して通過するとき、
+// その2ステップの間に「屋内に入ります」カードを表示する（画像があればそれ、無ければ内蔵SVG）。
+export interface IndoorTransition {
+  id: number;
+  link_a_id: number;
+  link_b_id: number;
+  image_url: string;
   created_at: string;
   updated_at: string;
 }

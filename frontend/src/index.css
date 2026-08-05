@@ -72,15 +72,27 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .loc-manual-select {
   padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px;
   background: white; font-size: 13px; min-width: 180px;
+  box-sizing: border-box; min-height: 36px;
 }
 .loc-auto-btn {
   font-size: 11px; color: #3b82f6; background: none; border: none;
   cursor: pointer; text-decoration: underline; padding: 0;
 }
 .loc-auto-btn:hover { color: #1d4ed8; }
+/* 現在地・目的地の下部に並べる選択手段ボタン（地図選択 / バス停選択 / イベント選択）。両バナー共通。 */
+.loc-mode-btns { display: flex; gap: 6px; }
+.loc-mode-btn {
+  flex: 1; padding: 8px 0; border: 1px solid #bfdbfe; border-radius: 8px;
+  background: #eff6ff; color: #2563eb; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-align: center; white-space: nowrap;
+}
+.loc-mode-btn:active { background: #dbeafe; }
 
-/* 現在地ラベルと再読み込みボタンを横並びにする行 */
-.loc-label-row { display: flex; align-items: center; gap: 8px; }
+/* ラベル行（現在地は再読み込みボタンを右に置く）。両バナーで同じ高さにして配置を揃える。 */
+.loc-label-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 26px;
+}
 
 /* 現在地の再読み込みボタン（ラベルの横に置く小さいボタン。アイコン＋文字で用途を明示） */
 .loc-reload-btn {
@@ -137,7 +149,7 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   background: none; border: none; font-size: 26px; line-height: 1;
   color: #94a3b8; cursor: pointer; padding: 0 4px;
 }
-.dest-modal-body { padding: 16px 20px; overflow-y: auto; }
+.dest-modal-body { padding: 16px 20px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 @media (min-width: 560px) {
   .dest-modal-overlay { align-items: center; }
   .dest-modal { border-radius: 16px; }
@@ -164,10 +176,6 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .loc-dest-row .loc-manual-select { min-width: 0; width: 100%; }
-
-/* 現在地バナー内の「セレクト＋自動検出に戻す」をまとめる箱 */
-.loc-select-group { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
-.loc-dest-row .loc-select-group .loc-auto-btn { text-align: left; }
 
 @media (max-width: 360px) {
   .loc-dest-row > .location-banner,
@@ -600,6 +608,31 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   flex: 1; padding: 3px; background: #fef2f2; color: #2563eb;
   border: 1px solid #bfdbfe; border-radius: 5px; cursor: pointer; font-size: 12px;
 }
+.photo-card-composite {
+  flex: 1; padding: 3px; background: #eff6ff; color: #2563eb;
+  border: 1px solid #bfdbfe; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 700;
+}
+/* リンク写真カバレッジ一覧: 道中写真が未撮影の行を強調 */
+.photo-overview tr.no-photo td { background: #fef2f2; }
+.photo-overview tr.editing td { background: #eff6ff; }
+.photo-missing { color: #ef4444; font-weight: 700; }
+/* ノード一覧: GPS座標が未登録の行を強調 */
+.adm-table tr.no-gps td { background: #fef2f2; }
+/* リンク写真一覧: 各行から写真/カメラで直接追加するボタン */
+.photo-add-btn {
+  padding: 4px 8px; margin: 1px; border: 1px solid #bfdbfe; border-radius: 6px;
+  background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap;
+}
+.photo-add-btn:disabled { opacity: 0.5; cursor: default; }
+/* 追加先（道中写真 / 到着地点の写真）の切替 */
+.add-target-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.add-target-label { font-size: 13px; font-weight: 700; color: #475569; }
+.add-target-btn {
+  padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #f8fafc; color: #64748b; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.add-target-btn.active { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
 .hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
 /* ── Layout ── */
@@ -816,6 +849,22 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-step-content { padding: 12px; }
 .rg-step:last-of-type { border-bottom: none; }
 
+/* 「屋内に入る」案内カード（画像で屋内に入ることを明示） */
+.rg-indoor-card { background: #eff6ff; }
+.rg-indoor-inner {
+  height: 100%; box-sizing: border-box; padding: 20px 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  text-align: center;
+}
+.rg-indoor-illust { width: 45%; max-width: 180px; height: auto; }
+.rg-indoor-photo {
+  width: 100%; max-width: 360px; max-height: 45vh; height: auto;
+  object-fit: contain; border-radius: 12px;
+}
+.rg-indoor-title { font-size: 22px; font-weight: 800; color: #1d4ed8; }
+.rg-indoor-sub { font-size: 15px; font-weight: 600; color: #1e293b; }
+.rg-indoor-card .rg-scroll-hint { margin-top: 4px; }
+
 .rg-step-header {
   display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
 }
@@ -827,14 +876,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .rg-step-title { font-size: 15px; font-weight: 700; color: #1e293b; flex: 0 1 auto; }
 /* 経路名の真横に出す到着確認の案内文（AR カード表示中のみ表示） */
 .rg-ar-inline-hint {
-  font-size: 12px; font-weight: 700; color: #0f172a;
+  font-size: 12px; font-weight: 700; color: #ef4444;
   flex: 0 1 auto; line-height: 1.3;
-}
-.rg-photo-badge {
-  font-size: 11px; color: #64748b;
-  background: #f1f5f9; border-radius: 10px;
-  padding: 2px 7px; white-space: nowrap; flex-shrink: 0;
-  margin-left: auto;
 }
 
 .rg-arrow { color: #94a3b8; margin: 0 4px; }
@@ -1057,6 +1100,31 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 .cafeteria-choice:active { transform: scale(0.97); }
 .cafeteria-choice:disabled { opacity: 0.6; cursor: default; }
 
+/* 起動時のコンパス許可ポップアップ */
+.compass-pop-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.compass-pop {
+  width: 100%; max-width: 360px;
+  background: #fff; border-radius: 16px; padding: 22px 20px;
+  text-align: center; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
+}
+.compass-pop-icon { width: 76px; height: 76px; margin: 0 auto 10px; display: block; }
+.compass-pop-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: #1e293b; }
+.compass-pop-text { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #475569; }
+.compass-pop-actions { display: flex; flex-direction: column; gap: 10px; }
+.compass-pop-enable {
+  padding: 13px 0; border: none; border-radius: 10px; cursor: pointer;
+  background: #3b82f6; color: #fff; font-size: 16px; font-weight: 800;
+}
+.compass-pop-enable:active { background: #2563eb; }
+.compass-pop-later {
+  padding: 11px 0; border: none; border-radius: 10px; cursor: pointer;
+  background: transparent; color: #64748b; font-size: 14px; font-weight: 600;
+}
+
 .blocked-btn-bar {
   padding: 6px 10px;
   background: #fff;
@@ -1260,6 +1328,30 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   margin-top: 4px; padding: 6px 14px; background: #3b82f6; color: white;
   border: none; border-radius: 8px; cursor: pointer; font-size: 13px; width: fit-content;
 }
+
+/* ── ユーザー向けマップ選択（マップ画像＋タップ可能なマーカー） ── */
+.map-selector { width: 100%; }
+.map-selector-inner {
+  position: relative; border-radius: 10px; overflow: hidden;
+  border: 1px solid #e2e8f0; user-select: none; line-height: 0;
+}
+.map-selector-inner img { width: 100%; display: block; }
+.map-marker {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.map-marker-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #3b82f6; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.map-marker-label {
+  font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.2;
+  background: rgba(255,255,255,0.9); border-radius: 6px; padding: 1px 5px;
+  max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.map-marker.selected .map-marker-dot { background: #ef4444; width: 22px; height: 22px; }
+.map-marker.selected .map-marker-label { color: #b91c1c; }
 
 /* ── Map Picker ── */
 .map-picker {

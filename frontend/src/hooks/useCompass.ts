@@ -27,6 +27,14 @@ export function armCompassAutoRequest() {
   autoRequestArmed = true;
 }
 
+// iOS 13+ のように、方位センサーの利用に明示的な許可要求（ユーザー操作内）が必要か。
+// true のとき、起動時のコンパス許可ポップアップを出す対象になる（Android/PC は false）。
+export function compassNeedsPermission(): boolean {
+  return typeof window !== "undefined"
+    && typeof (window as any).DeviceOrientationEvent !== "undefined"
+    && typeof (DeviceOrientationEvent as any).requestPermission === "function";
+}
+
 const permSubs = new Set<(p: CompassPermission) => void>();
 const headSubs = new Set<(h: number | null) => void>();
 

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Node, NodeDetour, RouteResponse, RouteStepDetail, Setting } from "../types";
+import { IndoorTransition, Link, Node, NodeDetour, RouteResponse, RouteStepDetail, Setting } from "../types";
 import { PhotoSlider } from "./PhotoSlider";
 import { CompassGuide } from "./CompassGuide";
 import { ARNavGuide } from "./ARNavGuide";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { useCompass } from "../hooks/useCompass";
+import { useSharedCamera } from "../hooks/useSharedCamera";
 import { useRouteWS } from "../hooks/useRouteWS";
 import { calcRoute } from "../utils/dijkstra";
 import { gpsDistance } from "../utils/bearing";
@@ -22,13 +23,17 @@ const ARRIVAL_ADVANCE_MS = 1800;
 // stepIndex は元になるステップの番号（WS送信・到着判定の基準）。
 type GuideCard =
   | { kind: "step"; step: RouteStepDetail; stepIndex: number; incomingDetour: NodeDetour | null }
-  | { kind: "detour"; detour: NodeDetour };
+  | { kind: "detour"; detour: NodeDetour }
+  // 指定リンクペアを連続して通過する2ステップの間に挿入する「屋内に入る」案内カード。
+  // step はペアの手前側ステップ（その to_node が屋内への出入口）。imageUrl があれば表示。
+  | { kind: "indoor"; step: RouteStepDetail; imageUrl: string };
 
 interface Props {
   route: RouteResponse;
   nodes: Node[];
   links: Link[];
   nodeDetours: NodeDetour[];
+  indoorTransitions: IndoorTransition[];
   onClose: () => void;
   settings: Setting;
   onReroute: (newRoute: RouteResponse) => void;
@@ -41,7 +46,7 @@ interface Props {
   compass?: ReturnType<typeof useCompass>;
 }
 
-export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, onClose, settings, onReroute, onOpenSurvey, embedded = false, compass }) => {
+export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, indoorTransitions, onClose, settings, onReroute, onOpenSurvey, embedded = false, compass }) => {
   const mapNorthOffset = settings.map_north_offset;
   const last = route.node_path[route.node_path.length - 1];
   // ナビ全体の出発地・目的地。ログに載せて「どこからどこまで」を記録する。
@@ -75,6 +80,27 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     return d && d.detour_node ? d : null;
   }, [route.steps, detourMap]);
 
+  // 屋内案内のリンクペア → 画像URL のルックアップ（順不同でキー化）。
+  const indoorPairMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const it of indoorTransitions) {
+      const a = Math.min(it.link_a_id, it.link_b_id);
+      const b = Math.max(it.link_a_id, it.link_b_id);
+      map.set(`${a}-${b}`, it.image_url);
+    }
+    return map;
+  }, [indoorTransitions]);
+  // 現在ステップ i と次ステップ i+1 のリンクが屋内案内ペアなら、その画像URL（無ければ ""）を返す。
+  const indoorImageBetween = (i: number): string | null => {
+    const cur = route.steps[i];
+    const next = route.steps[i + 1];
+    if (!cur || !next) return null;
+    const a = Math.min(cur.link.id, next.link.id);
+    const b = Math.max(cur.link.id, next.link.id);
+    const key = `${a}-${b}`;
+    return indoorPairMap.has(key) ? (indoorPairMap.get(key) ?? "") : null;
+  };
+
   // スクロールに並べるカード列を構築。
   // 寄り道は既定では「1つ後のステップカード」のヘッダーにプルダウン(incomingDetour)として畳む。
   // 展開された寄り道だけ、ホストカードの直前に独立した detour カードとして挿入する。
@@ -91,18 +117,26 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       } else {
         list.push({ kind: "step", step: s, stepIndex: i, incomingDetour: incoming });
       }
+      // このステップと次ステップのリンクが屋内案内ペアなら、その間に屋内案内カードを挿入する。
+      const img = indoorImageBetween(i);
+      if (img !== null) {
+        list.push({ kind: "indoor", step: s, imageUrl: img });
+      }
     });
     // 最後のステップの寄り道はゴールカードがホストする。展開時はゴールの直前に挿入。
     if (goalDetour && expandedDetours.has(goalDetour.id)) {
       list.push({ kind: "detour", detour: goalDetour });
     }
     return list;
-  }, [route.steps, detourMap, expandedDetours, goalDetour]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.steps, detourMap, expandedDetours, goalDetour, indoorPairMap]);
 
   // 親からコンパスを渡されればそれを共有し、無ければ自前で用意する。
   // （フックは常に呼ぶ必要があるため ownCompass は常に生成し、使うかどうかだけ切り替える）
   const ownCompass = useCompass();
   const { heading, permission, requestPermission } = compass ?? ownCompass;
+  // 道案内中は背面カメラを1本だけ保持して各 AR カードで使い回す（スクロールごとの再要求を防ぐ）。
+  const sharedCamera = useSharedCamera();
   const { sendPosition, sendGoalReached, sendAction, ready: wsReady } = useRouteWS();
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
@@ -112,6 +146,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   const [visibleCardIndex, setVisibleCardIndex] = useState(0);
   // どのカードを AR 表示中か（ステップカードのみ。null は通常＝画像表示）
   const [arCardIndex, setArCardIndex] = useState<number | null>(null);
+  // ユーザーが「画像案内に変更」を選んだか。true の間はスクロールしても AR を自動で開かず、
+  // 画像案内を維持する。「ARで案内する」を押すと false に戻る。
+  const [preferImageGuide, setPreferImageGuide] = useState(false);
   // 位置情報で到着したカード（その ARNavGuide に「到着しました」を表示する）
   const [arrivedCardIndex, setArrivedCardIndex] = useState<number | null>(null);
   // 現在カードの目的ノードまでの距離(m)。AR の「到着まで◯m」表示に使う（GPS が無ければ null）
@@ -125,6 +162,11 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   // 到着の自動遷移タイマー内から最新の arCardIndex を読むためのミラー
   const arCardIndexRef = useRef<number | null>(null);
   useEffect(() => { arCardIndexRef.current = arCardIndex; }, [arCardIndex]);
+
+  // AR カードが表示されたら共有カメラを一度だけ起動する（start は取得済みなら何もしない）。
+  useEffect(() => {
+    if (arCardIndex !== null) sharedCamera.start();
+  }, [arCardIndex, sharedCamera.start]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -143,6 +185,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     setArCardIndex(null);
     setArrivedCardIndex(null);
     setExpandedDetours(new Set());
+    setPreferImageGuide(false);
     handledArrivalRef.current.clear();
     autoAdvanceArRef.current = null;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -164,14 +207,14 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   }, [visibleCardIndex, arCardIndex, embedded]);
 
   // 埋め込み時は、表示中のステップカードを初めから AR 表示にする（「ARで案内する」を押さなくてよい）。
-  // 依存に arCardIndex を入れないので、ユーザーが「画像案内に戻る」で閉じた場合は
-  // カードを移動する（visibleCardIndex が変わる）までは画像案内のまま維持される。
+  // ただし「画像案内に変更」を選んでいる間（preferImageGuide）は、スクロールしても AR を
+  // 自動で開かず画像案内を維持する。「ARで案内する」を押すと preferImageGuide が false に戻る。
   // 表示中の 1 枚だけカメラを起動するため、カメラの多重起動は起きない。
   useEffect(() => {
     if (!embedded) return;
     const card = visibleCardIndex < cards.length ? cards[visibleCardIndex] : null;
-    setArCardIndex(card && card.kind === "step" ? visibleCardIndex : null);
-  }, [embedded, visibleCardIndex, cards]);
+    setArCardIndex(card && card.kind === "step" && !preferImageGuide ? visibleCardIndex : null);
+  }, [embedded, visibleCardIndex, cards, preferImageGuide]);
 
   // 現在地（GPS）を監視。到着判定に使う。
   // 権限を永久拒否している場合は watchPosition を呼ぶとコンソールエラーになるため、事前に確認する。
@@ -361,6 +404,43 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
             );
           }
 
+          // 「屋内に入る」案内カード。画像（建物への入館イラスト）で屋内に入ることを明示する。
+          if (card.kind === "indoor") {
+            return (
+              <div key={ci} className="rg-step rg-indoor-card">
+                <div className="rg-indoor-inner">
+                  {card.imageUrl ? (
+                    // リンクペアに登録された画像があればそれを表示
+                    <img className="rg-indoor-photo" src={`${BASE}${card.imageUrl}`} alt="屋内に入る案内" />
+                  ) : (
+                    // 未登録なら内蔵SVGイラスト（建物への入館）
+                    <svg className="rg-indoor-illust" viewBox="0 0 120 120" role="img" aria-label="屋内に入るイラスト">
+                      {/* 建物 */}
+                      <rect x="20" y="26" width="80" height="74" rx="4" fill="#3b82f6" />
+                      <rect x="20" y="26" width="80" height="16" rx="4" fill="#1d4ed8" />
+                      {/* 窓 */}
+                      <rect x="30" y="52" width="14" height="14" rx="2" fill="#bfdbfe" />
+                      <rect x="76" y="52" width="14" height="14" rx="2" fill="#bfdbfe" />
+                      {/* 入口（開いたドア） */}
+                      <rect x="50" y="66" width="20" height="34" rx="2" fill="#e0f2fe" />
+                      <rect x="50" y="66" width="20" height="34" rx="2" fill="none" stroke="#1d4ed8" strokeWidth="2" />
+                      {/* 入る方向の矢印 */}
+                      <g stroke="#f59e0b" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                        <line x1="34" y1="83" x2="60" y2="83" />
+                        <polyline points="52,75 62,83 52,91" />
+                      </g>
+                    </svg>
+                  )}
+                  <div className="rg-indoor-title">屋内に入ります</div>
+                  {card.step.to_node.name && (
+                    <div className="rg-indoor-sub">「{card.step.to_node.name}」から建物の中へ進みます</div>
+                  )}
+                  <p className="rg-scroll-hint">スクロールして案内を続ける</p>
+                </div>
+              </div>
+            );
+          }
+
           const s = card.step;
           return (
             <div key={ci} className="rg-step">
@@ -378,17 +458,10 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
               <div className="rg-step-content">
               <div className="rg-step-header">
                 <div className="rg-step-number">{s.step_number}</div>
-                <div className="rg-step-title">
-                  <span className="rg-from">{s.from_node.name}</span>
-                  <span className="rg-arrow">→</span>
-                  <span className="rg-to">{s.to_node.name}</span>
-                </div>
-                {/* AR カード表示中は、経路名の真横に到着確認の案内文を出す */}
+                <div className="rg-step-title">ルート{s.step_number}</div>
+                {/* AR カード表示中は到着確認の案内文を出す */}
                 {arCardIndex === ci && (
                   <span className="rg-ar-inline-hint">到着地点を確認してスクロール</span>
-                )}
-                {s.link.photos && s.link.photos.length > 0 && (
-                  <span className="rg-photo-badge">📷 {s.link.photos.length}</span>
                 )}
               </div>
               {/* 埋め込み(AR)カードでは AR 側に情報を集約するため、リンク名・距離・コンパス文言は出さない */}
@@ -418,10 +491,12 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                   userLat={null}
                   userLng={null}
                   mapNorthOffset={mapNorthOffset}
-                  onClose={() => setArCardIndex(null)}
+                  onClose={() => { setArCardIndex(null); setPreferImageGuide(true); }}
                   onNext={() => goToNextCard(ci)}
                   arrived={arrivedCardIndex === ci}
                   distance={distanceToTarget}
+                  externalStream={sharedCamera.stream}
+                  externalError={sharedCamera.error}
                   onConfirmArrival={() =>
                     sendAction("arrival_view", s.step_number, route.steps.length, s.from_node.name, s.to_node.name, originName, destName)
                   }
@@ -439,6 +514,7 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
                       onClick={() => {
                         // ボタン押下はユーザー操作なので、ここで iOS のコンパス許可も要求する
                         if (permission === "prompt") requestPermission();
+                        setPreferImageGuide(false);
                         setArCardIndex(ci);
                         sendAction("ar_start", s.step_number, route.steps.length, s.from_node.name, s.to_node.name, originName, destName);
                       }}

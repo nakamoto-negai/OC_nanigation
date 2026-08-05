@@ -69,6 +69,66 @@ func UploadPhoto(c *gin.Context) {
 	c.JSON(http.StatusCreated, photo)
 }
 
+// ReplacePhoto は既存の道中写真の画像を差し替える（合成結果の上書き保存に使う。管理者のみ）。
+// multipart/form-data: photo（必須）。レコード（link_id, sort_order, caption）は保持し、URL だけ更新。
+func ReplacePhoto(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var photo models.Photo
+	if err := database.DB.First(&photo, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "photo not found"})
+		return
+	}
+
+	file, header, err := c.Request.FormFile("photo")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no photo file"})
+		return
+	}
+	defer file.Close()
+
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "./uploads"
+	}
+	_ = os.MkdirAll(uploadDir, 0755)
+
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+	filename := fmt.Sprintf("%d_%d%s", photo.LinkID, time.Now().UnixNano(), ext)
+	dst := filepath.Join(uploadDir, filename)
+
+	out, err := os.Create(dst)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		return
+	}
+	defer out.Close()
+	buf := make([]byte, 4*1024*1024)
+	for {
+		n, readErr := file.Read(buf)
+		if n > 0 {
+			out.Write(buf[:n])
+		}
+		if readErr != nil {
+			break
+		}
+	}
+
+	oldURL := photo.URL
+	photo.URL = "/uploads/" + filename
+	if err := database.DB.Save(&photo).Error; err != nil {
+		_ = os.Remove(dst)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if oldURL != "" && oldURL != photo.URL {
+		_ = os.Remove(filepath.Join(uploadDir, filepath.Base(oldURL)))
+	}
+	c.JSON(http.StatusOK, photo)
+}
+
 func DeletePhoto(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var photo models.Photo

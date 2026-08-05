@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrivalPhoto } from "../types";
 import { api } from "../api/client";
-import { ArrivalCompositeEditor } from "./ArrivalCompositeEditor";
+import { CompositeEditor } from "./CompositeEditor";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -119,10 +119,16 @@ export const ArrivalPhotoManager: React.FC<Props> = ({ linkId, initialPhotos, on
       )}
 
       {editing && (
-        <ArrivalCompositeEditor
-          photo={editing}
+        <CompositeEditor
+          baseImageUrl={editing.url}
+          title="到着写真に合成"
           onClose={() => setEditing(null)}
-          onSaved={(updated) => apply(photos.map((p) => (p.id === updated.id ? updated : p)))}
+          onSave={async (blob) => {
+            const form = new FormData();
+            form.append("photo", blob, "composite.jpg");
+            const updated = await api.arrivalPhotos.replace(editing.id, form);
+            apply(photos.map((p) => (p.id === updated.id ? updated : p)));
+          }}
         />
       )}
 

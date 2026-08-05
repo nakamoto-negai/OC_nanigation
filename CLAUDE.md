@@ -99,10 +99,11 @@ docker compose up -d --build
 | モデル | 内容 |
 |---|---|
 | `Node` | 地点。名前・説明・マップ座標(x,y)・GPS座標(lat,lng)・混雑度・待ち時間。中継地点も含む純粋な地図上の点 |
-| `Destination` | 目的地。ユーザーが選ぶ「行き先」の単位。1つの目的地に複数ノードを多対多(`destination_nodes`)で登録でき、経路案内では現在地から最も近い所属ノードへ案内する。カテゴリ・イベントは目的地に紐づく |
+| `Destination` | 目的地。ユーザーが選ぶ「行き先」の単位。1つの目的地に複数ノードを多対多(`destination_nodes`)で登録でき、経路案内では現在地から最も近い所属ノードへ案内する。カテゴリ・イベントは目的地に紐づく。is_bus_stop=true の目的地はホームの「バス停選択」地図に出て現在地として選べる |
 | `Category` | 目的地のカテゴリ。目的地選択画面のグループ見出しに使う |
 | `Event` | 目的地で開催されるイベント。`destination_id` で目的地に紐づく |
 | `Link` | ノード間の経路。距離・双方向フラグ・写真複数枚 |
+| `IndoorTransition` | 屋内案内のリンクペア。経路上で link_a_id と link_b_id を連続して通過するとき、その2ステップの間に「屋内に入ります」カードを挿入する（image_url があればそれ、無ければ内蔵SVG）。順不同で一致。管理画面「屋内案内」タブで登録 |
 | `Photo` | リンクに紐付く道中写真。道案内中のスライダー表示に使う。sort_order で順序管理 |
 | `ArrivalPhoto` | リンクに紐付く「到着地点の写真」。管理者が写真タブでリンクごとに登録し、道案内の「到着地点を確認する」でユーザー閲覧専用に表示される（道中の Photo とは別系統）。合成エディタで合成後は同レコードを上書き（PUT で URL 差し替え） |
 | `OverlayImage` | 到着写真に重ねる「合成用写真」（ステッカー等）。管理画面「合成素材」タブで事前登録し、写真タブの各到着写真の「合成」ボタンからブラウザ側 canvas で合成→1枚に平坦化して上書き保存する |
@@ -123,13 +124,16 @@ docker compose up -d --build
 /api/links          GET/POST
 /api/links/:id      GET/PUT/DELETE
 /api/links/:id/arrival-photos  GET   — リンクの到着地点写真一覧（公開・閲覧のみ）
+/api/indoor-transitions        GET          — 屋内案内リンクペア一覧（公開・道案内の判定用）
+/api/indoor-transitions        POST         — 屋内案内ペア登録（管理者のみ。link_a_id/link_b_id/image）
+/api/indoor-transitions/:id    PUT/DELETE   — 画像差し替え（合成上書き）・削除（管理者のみ）
 /api/arrival-photos       POST       — リンクに到着地点写真を登録（管理者のみ）
 /api/arrival-photos/:id   PUT        — 到着地点写真の画像を差し替え＝合成結果の上書き（管理者のみ）
 /api/arrival-photos/:id   DELETE     — 到着地点写真を削除（管理者のみ）
 /api/overlay-images       GET/POST         — 合成用写真の一覧・登録（管理者のみ）
 /api/overlay-images/:id   DELETE           — 合成用写真の削除（管理者のみ）
 /api/photos         POST
-/api/photos/:id     DELETE
+/api/photos/:id     PUT/DELETE   — PUT は道中写真の画像差し替え（合成結果の上書き。管理者のみ）
 /api/photos/reorder PUT
 /api/destinations       GET          — 目的地一覧（公開）
 /api/destinations       POST         — 目的地登録（管理者のみ。node_ids で所属ノードを指定）

@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Category, Destination, Link, Node, NodeDetour, RouteResponse, Setting } from "../types";
+import { Category, Destination, IndoorTransition, Link, MapImage, Node, NodeDetour, RouteResponse, Setting } from "../types";
 import { calcRouteToNodes } from "../utils/dijkstra";
+import { api } from "../api/client";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
+import { MapSelector, MapMarker } from "./MapSelector";
 import { useCompassPermission } from "../hooks/useCompass";
 
 // 目的地の所属ノードID一覧。
@@ -23,6 +25,7 @@ interface Props {
   links: Link[];
   destinations: Destination[];
   nodeDetours: NodeDetour[];
+  indoorTransitions: IndoorTransition[];
   settings: Setting;
   /** アプリ内アンケートの質問が無いときのフォールバック先（設定の外部URL）。 */
   surveyUrl?: string;
@@ -53,7 +56,7 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, settings, surveyUrl, onOpenSurvey }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey }) => {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
@@ -64,6 +67,14 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [destId, setDestId] = useState<number | null>(null);
   // 目的地セレクト（プルダウン）を押したときに開く、カテゴリ別リストのオーバーレイ。
   const [destPickerOpen, setDestPickerOpen] = useState(false);
+  // 目的地オーバーレイのタブ（既存のリスト or マップ）
+  const [destTab, setDestTab] = useState<"list" | "map">("list");
+  // 現在地を地図から選ぶオーバーレイ
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
+  // バス停から現在地を選ぶオーバーレイ
+  const [busStopPickerOpen, setBusStopPickerOpen] = useState(false);
+  // マップ選択用の背景画像（アクティブなマップ）
+  const [mapImage, setMapImage] = useState<MapImage | null>(null);
   const [error, setError] = useState("");
 
   // コンパス（方位）許可。ホーム画面で先に取得しておき、埋め込み道案内へ共有する。
@@ -71,6 +82,11 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   // 許可状態だけを購読する（heading の 60fps 更新で HomePage を再レンダリングしない）。
   // heading は埋め込み道案内(RouteGuide)側が useCompass で購読する。
   const compass = useCompassPermission();
+
+  // マップ選択用に、アクティブなマップ画像を取得する。
+  useEffect(() => {
+    api.mapImages.getActive().then(setMapImage).catch(() => setMapImage(null));
+  }, []);
 
   // 位置情報の取得・監視
   useEffect(() => {
@@ -194,6 +210,23 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     const ids = destNodeIds(d);
     return ids.length > 0 && !ids.every((nid) => nid === startId);
   });
+
+  // マップ選択のマーカー。現在地は全ノード、目的地は各目的地の代表ノード位置に置く。
+  const startMarkers: MapMarker[] = nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, label: n.name }));
+  const destMarkers: MapMarker[] = visibleDestinations
+    .map((d) => {
+      const rep = representativeNode(d);
+      return rep ? { id: d.id, x: rep.x, y: rep.y, label: d.name } : null;
+    })
+    .filter((m): m is MapMarker => m !== null);
+  // バス停マーカー: is_bus_stop の目的地の代表ノード位置。id はノードID（現在地に設定するため）。
+  const busStopMarkers: MapMarker[] = destinations
+    .filter((d) => d.is_bus_stop)
+    .map((d) => {
+      const rep = representativeNode(d);
+      return rep ? { id: rep.id, x: rep.x, y: rep.y, label: d.name } : null;
+    })
+    .filter((m): m is MapMarker => m !== null);
 
   // カテゴリ別グループ（Category オブジェクト使用、sort_order 昇順、未設定は末尾）
   type Group = { key: string; label: string; cat: Category | null; items: Destination[] };
@@ -327,79 +360,78 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
 
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
-        {/* 現在地バナー（先に表示する） */}
+        {/* 現在地バナー（先に表示する）。目的地バナーと同じ3段構成（ラベル / セレクタ / 選択ボタン2つ）で揃える。 */}
         <div className={`location-banner ${geoStatus}`}>
-          <div className="loc-text">
-            <div className="loc-label-row">
-              <span className="loc-label">
-                {geoStatus === "pending"
-                  ? "現在地を特定しています..."
-                  : geoStatus === "found"
-                  ? (startNode ? "現在地（自動検出）" : "近くに登録地点がありません")
-                  : geoStatus === "denied"
-                  ? "位置情報の使用が許可されていません"
-                  : "現在地を選択してください"}
-              </span>
-              <button
-                type="button"
-                className="loc-reload-btn"
-                onClick={reloadLocation}
-                disabled={geoStatus === "pending"}
-                aria-label="現在地を再読み込み"
-                title="現在地を再読み込み"
-              >
-                <span className="loc-reload-icon">↻</span>
-                <span className="loc-reload-text">再読み込み</span>
-              </button>
-            </div>
-          </div>
-          <div className="loc-select-group">
-            <select
-              className="loc-manual-select"
-              value={startId ?? ""}
-              onChange={(e) => {
-                setStartId(Number(e.target.value) || null);
-                setManualStart(true);
-              }}
+          <div className="loc-label-row">
+            <span className="loc-label">現在地を選択</span>
+            <button
+              type="button"
+              className="loc-reload-btn"
+              onClick={reloadLocation}
+              disabled={geoStatus === "pending"}
+              aria-label="現在地を再読み込み"
+              title="現在地を再読み込み"
             >
-              <option value="">現在地を選択...</option>
-              {nodes.map((n) => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
-            </select>
-            {manualStart && geoStatus === "found" && (
-              <button
-                className="loc-auto-btn"
-                onClick={() => {
-                  setManualStart(false);
-                  if (userLat != null && userLng != null) {
-                    const nearest = nearestNode(nodes, userLat, userLng);
-                    if (nearest) setStartId(nearest.id);
-                  }
-                }}
-              >
-                自動検出に戻す
-              </button>
-            )}
+              <span className="loc-reload-icon">↻</span>
+              <span className="loc-reload-text">再読み込み</span>
+            </button>
+          </div>
+          <select
+            className="loc-manual-select"
+            value={startId ?? ""}
+            onChange={(e) => {
+              setStartId(Number(e.target.value) || null);
+              setManualStart(true);
+            }}
+          >
+            <option value="">現在地を選択...</option>
+            {nodes.map((n) => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+          <div className="loc-mode-btns">
+            <button type="button" className="loc-mode-btn" onClick={() => setStartPickerOpen(true)}>
+              地図選択
+            </button>
+            <button type="button" className="loc-mode-btn" onClick={() => setBusStopPickerOpen(true)}>
+              バス停選択
+            </button>
           </div>
         </div>
 
         {/* 現在地 → 目的地 の矢印 */}
         <div className="loc-dest-arrow" aria-hidden="true">→</div>
 
-        {/* 目的地バナー */}
+        {/* 目的地バナー（現在地バナーと同じ3段構成） */}
         <div className="dest-banner">
-          <div className="loc-text">
+          <div className="loc-label-row">
             <span className="loc-label">目的地を選択</span>
           </div>
           <button
             type="button"
             className="loc-manual-select dest-picker-btn"
-            onClick={() => setDestPickerOpen(true)}
+            onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
           >
             <span>{destDestination ? destDestination.name : "目的地を選択..."}</span>
             <span className="dest-picker-caret">▼</span>
           </button>
+          {/* プルダウン直下の選択手段ボタン。地図選択＝地図、イベント選択＝リスト（イベント表示付き）。 */}
+          <div className="loc-mode-btns">
+            <button
+              type="button"
+              className="loc-mode-btn"
+              onClick={() => { setDestTab("map"); setDestPickerOpen(true); }}
+            >
+              地図選択
+            </button>
+            <button
+              type="button"
+              className="loc-mode-btn"
+              onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
+            >
+              イベント選択
+            </button>
+          </div>
         </div>
       </div>
 
@@ -419,6 +451,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           nodes={nodes}
           links={links}
           nodeDetours={nodeDetours}
+          indoorTransitions={indoorTransitions}
           settings={settings}
           onReroute={(r) => setRerouteOverride(r)}
           onClose={() => { setDestId(null); setRerouteOverride(null); }}
@@ -442,7 +475,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </>
       )}
 
-      {/* 目的地プルダウンを押したときのオーバーレイ（目的地選択画面と同じリスト） */}
+      {/* 目的地選択オーバーレイ。destTab（イベント選択=リスト / 地図選択=マップ）で表示を切替。
+          モードはプルダウン直下の「地図選択」「イベント選択」ボタンで指定して開く。 */}
       {destPickerOpen && (
         <div className="dest-modal-overlay" onClick={() => setDestPickerOpen(false)}>
           <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
@@ -456,7 +490,86 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 ×
               </button>
             </div>
-            <div className="dest-modal-body">{destListBody}</div>
+            <div className="dest-modal-body">
+              {destTab === "list" ? (
+                destListBody
+              ) : (
+                <MapSelector
+                  mapImage={mapImage}
+                  markers={destMarkers}
+                  selectedId={destId}
+                  onSelect={(id) => chooseDest(id)}
+                  emptyText="マップ画像が未登録です。イベント選択から選んでください。"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 現在地を地図から選ぶオーバーレイ */}
+      {startPickerOpen && (
+        <div className="dest-modal-overlay" onClick={() => setStartPickerOpen(false)}>
+          <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dest-modal-head">
+              <h2 className="dest-heading">現在地を地図から選択</h2>
+              <button
+                className="dest-modal-close"
+                onClick={() => setStartPickerOpen(false)}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <div className="dest-modal-body">
+              <MapSelector
+                mapImage={mapImage}
+                markers={startMarkers}
+                selectedId={startId}
+                hideLabels
+                onSelect={(id) => {
+                  setStartId(id);
+                  setManualStart(true);
+                  setStartPickerOpen(false);
+                }}
+                emptyText="マップ画像が未登録です。上の一覧から選択してください。"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* バス停から現在地を選ぶオーバーレイ（is_bus_stop の目的地だけを地図に表示） */}
+      {busStopPickerOpen && (
+        <div className="dest-modal-overlay" onClick={() => setBusStopPickerOpen(false)}>
+          <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dest-modal-head">
+              <h2 className="dest-heading">バス停から現在地を選択</h2>
+              <button
+                className="dest-modal-close"
+                onClick={() => setBusStopPickerOpen(false)}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <div className="dest-modal-body">
+              {busStopMarkers.length === 0 ? (
+                <p className="dest-empty">バス停が登録されていません（管理画面の目的地で「バス停にする」をONにしてください）。</p>
+              ) : (
+                <MapSelector
+                  mapImage={mapImage}
+                  markers={busStopMarkers}
+                  selectedId={startId}
+                  onSelect={(nodeId) => {
+                    setStartId(nodeId);
+                    setManualStart(true);
+                    setBusStopPickerOpen(false);
+                  }}
+                  emptyText="マップ画像が未登録です。"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

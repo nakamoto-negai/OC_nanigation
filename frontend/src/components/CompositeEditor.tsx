@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrivalPhoto, OverlayImage } from "../types";
+import { OverlayImage } from "../types";
 import { api } from "../api/client";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 interface Props {
-  /** 合成のベースになる既存の到着地点写真 */
-  photo: ArrivalPhoto;
+  /** 合成のベースになる既存画像のURL（/uploads/... など） */
+  baseImageUrl: string;
+  /** モーダル見出し（例:「到着写真に合成」） */
+  title?: string;
   onClose: () => void;
-  /** 上書き保存が成功したとき、更新後の写真を親へ返す */
-  onSaved: (updated: ArrivalPhoto) => void;
+  /** 合成して平坦化した画像（JPEG Blob）を保存する。保存先は呼び出し側が決める。 */
+  onSave: (blob: Blob) => Promise<void>;
 }
 
 // 画像を読み込んで <img> 要素を返す（キャンバス合成用）。
@@ -26,11 +28,11 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
- * 到着地点写真に「合成用写真」を重ねて1枚に合成し、上書き保存するエディタ（管理者のみ）。
+ * 既存画像に「合成用写真」を重ねて1枚に合成し、保存するエディタ（管理者のみ）。
  * 合成用写真は事前に「合成素材」タブで登録しておき、ここで選んで移動・拡大縮小できる。
- * 保存するとキャンバスで平坦化し、同じ到着写真レコードを差し替える（上書き）。
+ * 保存するとキャンバスで平坦化し、onSave に JPEG Blob を渡す（上書きは呼び出し側で行う）。
  */
-export const ArrivalCompositeEditor: React.FC<Props> = ({ photo, onClose, onSaved }) => {
+export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像に合成", onClose, onSave }) => {
   const [overlays, setOverlays] = useState<OverlayImage[]>([]);
   const [selected, setSelected] = useState<OverlayImage | null>(null);
   // 重ねる写真の中心位置（ベースに対する 0..1 の割合）と大きさ（ベース幅に対する割合）。
@@ -86,7 +88,7 @@ export const ArrivalCompositeEditor: React.FC<Props> = ({ photo, onClose, onSave
     setMsg(null);
     try {
       const [baseImg, ovImg] = await Promise.all([
-        loadImage(`${BASE}${photo.url}`),
+        loadImage(`${BASE}${baseImageUrl}`),
         loadImage(`${BASE}${selected.url}`),
       ]);
       const canvas = document.createElement("canvas");
@@ -107,31 +109,28 @@ export const ArrivalCompositeEditor: React.FC<Props> = ({ photo, onClose, onSave
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("画像の書き出しに失敗しました"))), "image/jpeg", 0.9),
       );
 
-      const form = new FormData();
-      form.append("photo", blob, "composite.jpg");
-      const updated = await api.arrivalPhotos.replace(photo.id, form);
-      onSaved(updated);
+      await onSave(blob);
       onClose();
     } catch (e: any) {
       setMsg(e?.message ?? "保存に失敗しました");
     } finally {
       setSaving(false);
     }
-  }, [selected, scale, cx, cy, photo, onSaved, onClose]);
+  }, [selected, scale, cx, cy, baseImageUrl, onSave, onClose]);
 
   return (
     <div className="composite-overlay" onClick={onClose}>
       <div className="composite-modal" onClick={(e) => e.stopPropagation()}>
         <div className="composite-head">
-          <h3>到着写真に合成</h3>
+          <h3>{title}</h3>
           <button className="dest-modal-close" onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
         {msg && <div className="adm-msg err" onClick={() => setMsg(null)}>{msg} ✕</div>}
 
-        {/* プレビュー（ベース写真＋重ねる写真）。重ねる写真はドラッグで移動できる。 */}
+        {/* プレビュー（ベース画像＋重ねる写真）。重ねる写真はドラッグで移動できる。 */}
         <div className="composite-stage" ref={stageRef}>
-          <img className="composite-base" src={`${BASE}${photo.url}`} alt="" draggable={false} />
+          <img className="composite-base" src={`${BASE}${baseImageUrl}`} alt="" draggable={false} />
           {selected && (
             <img
               className="composite-ov"
