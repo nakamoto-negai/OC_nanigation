@@ -27,6 +27,10 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+// baseImageUrl は /uploads の相対パス（サーバー画像）だけでなく、ローカルで選んだ画像の
+// blob:/data:/絶対URL も受け取れるようにする。相対のときだけ BASE を前置する。
+const resolveUrl = (u: string) => (/^(blob:|data:|https?:)/i.test(u) ? u : `${BASE}${u}`);
+
 /**
  * 既存画像に「合成用写真」を重ねて1枚に合成し、保存するエディタ（管理者のみ）。
  * 合成用写真は事前に「合成素材」タブで登録しておき、ここで選んで移動・拡大縮小できる。
@@ -88,8 +92,8 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
     setMsg(null);
     try {
       const [baseImg, ovImg] = await Promise.all([
-        loadImage(`${BASE}${baseImageUrl}`),
-        loadImage(`${BASE}${selected.url}`),
+        loadImage(resolveUrl(baseImageUrl)),
+        loadImage(resolveUrl(selected.url)),
       ]);
       const canvas = document.createElement("canvas");
       canvas.width = baseImg.naturalWidth;
@@ -130,7 +134,7 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
 
         {/* プレビュー（ベース画像＋重ねる写真）。重ねる写真はドラッグで移動できる。 */}
         <div className="composite-stage" ref={stageRef}>
-          <img className="composite-base" src={`${BASE}${baseImageUrl}`} alt="" draggable={false} />
+          <img className="composite-base" src={resolveUrl(baseImageUrl)} alt="" draggable={false} />
           {selected && (
             <img
               className="composite-ov"

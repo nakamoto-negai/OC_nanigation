@@ -9,6 +9,7 @@ import { ARDemoTab } from "./ARDemoTab";
 import { AnnouncementTab } from "./AnnouncementTab";
 import { ArrivalPhotoManager } from "./ArrivalPhotoManager";
 import { CompositeEditor } from "./CompositeEditor";
+import { CompositeTab } from "./CompositeTab";
 import { toCsv, downloadCsv, csvTimestamp } from "../utils/csv";
 
 interface Props {
@@ -25,7 +26,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "destination" | "link" | "detour" | "indoor" | "photo" | "overlay" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
+type Tab = "node" | "destination" | "link" | "detour" | "indoor" | "photo" | "overlay" | "composite" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -3052,6 +3053,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "indoor", label: "屋内案内" },
     { key: "photo", label: "写真" },
     { key: "overlay", label: "合成素材" },
+    { key: "composite", label: "画像合成" },
     { key: "settings", label: "設定" },
     { key: "category", label: "カテゴリ", badge: categories.length },
     { key: "cafeteria", label: "食堂" },
@@ -3139,6 +3141,7 @@ export const AdminPage: React.FC<Props> = ({
           />
         )}
         {tab === "overlay" && <OverlayImageTab />}
+        {tab === "composite" && <CompositeTab links={links} />}
         {tab === "cafeteria" && <CafeteriaTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
