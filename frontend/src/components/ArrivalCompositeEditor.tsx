@@ -48,14 +48,10 @@ export const ArrivalCompositeEditor: React.FC<Props> = ({ photo, onClose, onSave
     api.overlayImages.list().then(setOverlays).catch(() => setOverlays([]));
   }, []);
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (!selected) return;
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { px: e.clientX, py: e.clientY, cx, cy };
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
+  // ドラッグ中の移動は window で拾う。setPointerCapture はブラウザによっては例外を投げたり
+  // 途中でキャプチャが外れたりして「動かない」原因になりやすいため使わない。
+  // window リスナーなら、ポインタが画像の外に出ても確実に追従できる。
+  const onWindowMove = useCallback((e: PointerEvent) => {
     const d = dragRef.current;
     const stage = stageRef.current;
     if (!d || !stage) return;
@@ -63,12 +59,26 @@ export const ArrivalCompositeEditor: React.FC<Props> = ({ photo, onClose, onSave
     if (rect.width === 0 || rect.height === 0) return;
     setCx(clamp(d.cx + (e.clientX - d.px) / rect.width, 0, 1));
     setCy(clamp(d.cy + (e.clientY - d.py) / rect.height, 0, 1));
+  }, []);
+
+  const endDrag = useCallback(() => {
+    dragRef.current = null;
+    window.removeEventListener("pointermove", onWindowMove);
+    window.removeEventListener("pointerup", endDrag);
+    window.removeEventListener("pointercancel", endDrag);
+  }, [onWindowMove]);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!selected) return;
+    e.preventDefault();
+    dragRef.current = { px: e.clientX, py: e.clientY, cx, cy };
+    window.addEventListener("pointermove", onWindowMove);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
   };
 
-  const onPointerUp = (e: React.PointerEvent) => {
-    dragRef.current = null;
-    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
-  };
+  // アンマウント時にドラッグ監視を確実に解除する
+  useEffect(() => () => endDrag(), [endDrag]);
 
   const save = useCallback(async () => {
     if (!selected) { setMsg("重ねる合成用写真を選んでください"); return; }
@@ -134,9 +144,6 @@ export const ArrivalCompositeEditor: React.FC<Props> = ({ photo, onClose, onSave
                 width: `${scale * 100}%`,
               }}
               onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
             />
           )}
         </div>

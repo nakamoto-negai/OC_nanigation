@@ -10,6 +10,7 @@ import (
 	"github.com/oc-navigation/backend/database"
 	"github.com/oc-navigation/backend/handlers"
 	"github.com/oc-navigation/backend/middleware"
+	"github.com/oc-navigation/backend/network"
 	"github.com/oc-navigation/backend/ws"
 )
 
@@ -17,6 +18,12 @@ func main() {
 	if err := database.Connect(); err != nil {
 		log.Fatal(err)
 	}
+
+	// 経路ネットワークの2層を組み立てて注入する。
+	//   Store(GormStore)     … DB からノード・リンクを読み出す（「DBからネットワークを作成する部分」）
+	//   Provider(NewProvider) … その Store を使ってフロント配信用に組み立てる
+	// ハンドラは Provider（さらに内部で Store）というインターフェース越しに使うので実装差し替えが可能。
+	handlers.Network = network.NewProvider(network.NewGormStore(database.DB))
 
 	go ws.GlobalHub.Run()
 
@@ -41,6 +48,8 @@ func main() {
 	api.GET("/nodes", handlers.ListNodes)
 	api.GET("/nodes/:id", handlers.GetNode)
 	api.GET("/links", handlers.ListLinks)
+	// 経路ネットワーク一式（ノード＋リンク）を1回で返す。フロントはこれで Dijkstra 計算する
+	api.GET("/route-network", handlers.GetRouteNetwork)
 	// 到着地点の写真: リンクに紐づく。閲覧は公開（「到着地点を確認する」で表示）。登録・削除は管理者専用
 	api.GET("/links/:id/arrival-photos", handlers.ListArrivalPhotos)
 	api.GET("/links/:id", handlers.GetLink)

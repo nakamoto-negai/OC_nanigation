@@ -10,9 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// ListNodes は経路ネットワークのノード一覧を返す。取得元は Network（インターフェース）経由。
 func ListNodes(c *gin.Context) {
-	var nodes []models.Node
-	database.DB.Find(&nodes)
+	nodes, err := Network.Nodes()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, nodes)
 }
 

@@ -48,6 +48,11 @@ export const api = {
     delete: (id: number) =>
       adminReq<void>(`/api/links/${id}`, { method: "DELETE" }),
   },
+  // 経路ネットワーク（ノード＋リンク）を1回で取得する。フロントはこれをクライアント側
+  // Dijkstra に渡す。バックエンドは network.Provider インターフェース越しに配信する。
+  routeNetwork: {
+    get: () => req<{ nodes: Node[]; links: Link[] }>("/api/route-network"),
+  },
   photos: {
     upload: (form: FormData) =>
       adminFetch("/api/photos", { method: "POST", body: form }).then((r) => {

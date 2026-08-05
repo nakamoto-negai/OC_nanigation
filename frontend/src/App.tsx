@@ -137,8 +137,9 @@ function UserApp() {
   });
 
   useEffect(() => {
-    Promise.all([api.nodes.list(), api.links.list(), api.nodeDetours.list(), api.destinations.list()])
-      .then(([n, l, d, dest]) => { setNodes(n); setLinks(l); setNodeDetours(d); setDestinations(dest); })
+    // 経路ネットワーク（ノード＋リンク）はインターフェース化した専用エンドポイントで一括取得する
+    Promise.all([api.routeNetwork.get(), api.nodeDetours.list(), api.destinations.list()])
+      .then(([net, d, dest]) => { setNodes(net.nodes); setLinks(net.links); setNodeDetours(d); setDestinations(dest); })
       .catch((e) => setLoadError(e.message));
   }, []);
 

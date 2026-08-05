@@ -18,12 +18,13 @@ func arrivalPhotosOrdered(db *gorm.DB) *gorm.DB {
 	return db.Order("sort_order asc")
 }
 
+// ListLinks は経路ネットワークのリンク一覧を返す。取得元は Network（インターフェース）経由。
 func ListLinks(c *gin.Context) {
-	var links []models.Link
-	database.DB.Preload("Photos", photosOrdered).
-		Preload("ArrivalPhotos", arrivalPhotosOrdered).
-		Preload("FromNode").Preload("ToNode").
-		Find(&links)
+	links, err := Network.Links()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, links)
 }
 
