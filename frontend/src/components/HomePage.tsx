@@ -510,14 +510,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </button>
       )}
 
-      {/* コンパス（方位）許可の案内。まだ許可していない間だけ表示し、タップで許可要求する。
-          ここで許可しておくと、道案内カメラでコンパスを再度有効にする必要がなくなる。 */}
-      {compass.permission === "prompt" && (
-        <button className="home-compass-enable" onClick={compass.requestPermission}>
-          コンパス（方位）を有効にすると、より正確に道案内できます → 有効にする
-        </button>
-      )}
-
       {/* 現在地と目的地を横並び（並列）で表示する */}
       <div className="loc-dest-row">
         {/* 現在地バナー（先に表示する）。目的地バナーと同じ3段構成（ラベル / セレクタ / 選択ボタン2つ）で揃える。 */}
