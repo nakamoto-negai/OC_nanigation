@@ -455,7 +455,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           <div key={sg.key} className="dest-group evt-super">
             <button className="dest-group-heading evt-super-heading" onClick={() => toggleEventGroup(sg.key)}>
               <span className="evt-heading-label">{sg.label}</span>
-              <span className="evt-heading-meta">大カテゴリ</span>
               <span className="dest-group-arrow">{isEventOpen(sg.key) ? "▲" : "▼"}</span>
             </button>
             {isEventOpen(sg.key) && (
@@ -464,7 +463,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                   <div key={cg.key} className="dest-group evt-cat">
                     <button className="dest-group-heading evt-cat-heading" onClick={() => toggleEventGroup(cg.key)}>
                       <span className="evt-heading-label">{cg.label}</span>
-                      <span className="evt-heading-meta">カテゴリ</span>
                       <span className="dest-group-arrow">{isEventOpen(cg.key) ? "▲" : "▼"}</span>
                     </button>
                     {isEventOpen(cg.key) && (

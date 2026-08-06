@@ -88,48 +88,13 @@ function startListening() {
 // iOS ではユーザー操作内で呼ぶ必要がある。Android/PC は許可不要でそのまま開始。
 export function requestCompassPermission() {
   const req = (DeviceOrientationEvent as any)?.requestPermission;
-  if (typeof req !== "function") {
-    startListening();
-    return;
-  }
-
-  emitPermission("prompt");
+  if (typeof req !== "function") { startListening(); return; }
   Promise.resolve(req.call(DeviceOrientationEvent))
     .then((result: string) => {
-      if (result === "granted") {
-        startListening();
-        emitPermission("granted");
-      } else {
-        emitPermission("denied");
-      }
+      if (result === "granted") startListening();
+      else emitPermission("denied");
     })
-    .catch(() => {
-      emitPermission("denied");
-    });
-
-  if (typeof window !== "undefined") {
-    window.setTimeout(() => {
-      if (permissionState !== "granted") {
-        try {
-          const current = (DeviceOrientationEvent as any)?.requestPermission;
-          if (typeof current === "function") {
-            Promise.resolve(current.call(DeviceOrientationEvent))
-              .then((result: string) => {
-                if (result === "granted") {
-                  startListening();
-                  emitPermission("granted");
-                } else {
-                  emitPermission("denied");
-                }
-              })
-              .catch(() => emitPermission("denied"));
-          }
-        } catch {
-          // noop
-        }
-      }
-    }, 400);
-  }
+    .catch(() => emitPermission("denied"));
 }
 
 function ensureInit() {
