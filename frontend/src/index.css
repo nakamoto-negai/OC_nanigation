@@ -144,6 +144,11 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   animation: loc-pop-pulse 1.2s ease-out infinite;
 }
 .loc-pop-name { font-size: 15px; font-weight: 700; color: #1e293b; margin-top: 8px; }
+.loc-pop-next {
+  margin-top: 14px; width: 100%; padding: 13px 0; border: none; border-radius: 10px;
+  background: #3b82f6; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;
+}
+.loc-pop-next:active { background: #2563eb; }
 @keyframes loc-pop-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes loc-pop-in { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes loc-pop-drop { from { transform: translate(-50%, -140%); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
