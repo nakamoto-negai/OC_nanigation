@@ -85,16 +85,24 @@ function startListening() {
   emitPermission("granted");
 }
 
+// 許可要求が進行中か（iOS は requestPermission を二重に呼ぶと reject して「拒否」に倒れるため防ぐ）
+let requestInFlight = false;
+
 // iOS ではユーザー操作内で呼ぶ必要がある。Android/PC は許可不要でそのまま開始。
 export function requestCompassPermission() {
+  // 既に許可済みなら購読開始を確実にして終了（2回目以降のボタン押下でも安全）。
+  if (permissionState === "granted") { startListening(); return; }
   const req = (DeviceOrientationEvent as any)?.requestPermission;
   if (typeof req !== "function") { startListening(); return; }
+  if (requestInFlight) return; // 同時多重要求を防ぐ
+  requestInFlight = true;
   Promise.resolve(req.call(DeviceOrientationEvent))
     .then((result: string) => {
       if (result === "granted") startListening();
       else emitPermission("denied");
     })
-    .catch(() => emitPermission("denied"));
+    .catch(() => emitPermission("denied"))
+    .finally(() => { requestInFlight = false; });
 }
 
 function ensureInit() {

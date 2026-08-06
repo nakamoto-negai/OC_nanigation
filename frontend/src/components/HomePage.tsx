@@ -6,7 +6,8 @@ import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
 import { MapSelector, MapMarker } from "./MapSelector";
 import { LocatedPopup } from "./LocatedPopup";
-import { useCompassPermission } from "../hooks/useCompass";
+import { CompassPermissionPop } from "./CompassPermissionPop";
+import { useCompassPermission, compassNeedsPermission } from "../hooks/useCompass";
 import { requestCameraPermission } from "../utils/cameraPermission";
 
 // 目的地の所属ノードID一覧。
@@ -84,6 +85,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [locatedNodeId, setLocatedNodeId] = useState<number | null>(null);
   // ポップアップを毎回リマウントさせてアニメを頭から再生するためのキー
   const [locatedTick, setLocatedTick] = useState(0);
+  // 「現在地を特定しました」の「次へ」を押した後に出す、コンパス許可の「有効にする」ポップアップ
+  const [compassPopOpen, setCompassPopOpen] = useState(false);
   // 大カテゴリー（イベント選択の最上位見出し用）
   const [superCats, setSuperCats] = useState<SuperCategory[]>([]);
   const [error, setError] = useState("");
@@ -725,7 +728,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       )}
 
       {/* GPSで現在地を特定したとき、地図上の位置を示すポップアップ。「次へ」を押すと閉じる。
-          「次へ」はユーザー操作なので、このタイミングでカメラ許可を先取りする（以降のARで再プロンプトを出さない）。 */}
+          「次へ」はユーザー操作なので、このタイミングでカメラ許可を先取りし（以降のARで再プロンプトを出さない）、
+          続けてコンパス許可の「有効にする」ポップアップを出す（未許可のときだけ）。 */}
       {locatedNodeId != null && mapImage && (() => {
         const node = nodes.find((n) => n.id === locatedNodeId);
         return node ? (
@@ -733,10 +737,25 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
             key={locatedTick}
             mapImage={mapImage}
             node={node}
-            onDone={() => { requestCameraPermission(); setLocatedNodeId(null); }}
+            onDone={() => {
+              requestCameraPermission();
+              setLocatedNodeId(null);
+              // まだコンパス未許可（iOS で prompt）なら、続けて「有効にする」ポップアップを出す。
+              if (compassNeedsPermission() && compass.permission === "prompt") {
+                setCompassPopOpen(true);
+              }
+            }}
           />
         ) : null;
       })()}
+
+      {/* 現在地確認の「次へ」後に出すコンパス許可ポップアップ。「有効にする」タップを起点に許可要求する。 */}
+      {compassPopOpen && (
+        <CompassPermissionPop
+          onEnable={() => { compass.requestPermission(); setCompassPopOpen(false); }}
+          onDismiss={() => setCompassPopOpen(false)}
+        />
+      )}
     </div>
   );
 };

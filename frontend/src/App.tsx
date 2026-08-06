@@ -10,7 +10,6 @@ import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
 import { useUser } from "./hooks/useUser";
 import { useButtonLogger } from "./hooks/useButtonLogger";
-import { armCompassAutoRequest } from "./hooks/useCompass";
 import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
@@ -165,18 +164,15 @@ function UserApp() {
 
   const dismissPop = () => setPopDismissed(true);
 
-  // コンパス許可の前置きポップアップは廃止。iOS でもブラウザ標準の許可ダイアログが必ず出るため、
-  // お知らせを閉じたあとの「最初のユーザー操作（タップ）」を起点に、その標準ダイアログを1回だけ
-  // 自動で出す（armCompassAutoRequest → useCompass の gesture ハンドラが requestPermission を発火）。
+  // コンパス許可の前置きポップアップは廃止。iOS の方位センサー許可は、道案内画面の
+  // 「コンパスを有効にする」ボタンを押した“そのタップ”を起点にネイティブダイアログを出す
+  // （＝ユーザーの明示操作なので確実に許可を取れる）。ここでは自動要求は行わない。
+  // ※以前は「最初のタップで自動要求」していたが、ユーザーが意図せず拒否すると iOS では
+  //   再プロンプトできず、以降ボタンを押しても有効化できない問題があったため廃止した。
   const announcementOpen = !!announcement && !popDismissed;
 
   // 位置情報は、お知らせを閉じてから取得する（前置きポップアップが無くなったため待つのはお知らせだけ）。
   const locationAllowed = announcementChecked && !announcementOpen;
-
-  // お知らせを閉じたら、以降の最初のタップでコンパス許可要求を出せるように解禁する。
-  useEffect(() => {
-    if (announcementChecked && !announcementOpen) armCompassAutoRequest();
-  }, [announcementChecked, announcementOpen]);
 
   // 初期表示が URL と食い違う場合は URL 側を画面に合わせる（例: コールドロードの /route → home）
   useEffect(() => {
