@@ -1210,8 +1210,6 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   text-align: center; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
 }
 .compass-pop-icon { width: 76px; height: 76px; margin: 0 auto 10px; display: block; }
-.perm-pop-icons { display: flex; justify-content: center; align-items: center; gap: 14px; }
-.perm-pop-icons .compass-pop-icon { width: 64px; height: 64px; margin: 0 0 10px; }
 .compass-pop-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: #1e293b; }
 .compass-pop-text { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #475569; }
 .compass-pop-actions { display: flex; flex-direction: column; gap: 10px; }
