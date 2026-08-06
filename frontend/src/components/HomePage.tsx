@@ -7,6 +7,7 @@ import { RouteGuide } from "./RouteGuide";
 import { MapSelector, MapMarker } from "./MapSelector";
 import { LocatedPopup } from "./LocatedPopup";
 import { useCompassPermission } from "../hooks/useCompass";
+import { requestCameraPermission } from "../utils/cameraPermission";
 
 // 目的地の所属ノードID一覧。
 function destNodeIds(d: Destination): number[] {
@@ -695,11 +696,17 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </div>
       )}
 
-      {/* GPSで現在地を特定したとき、地図上の位置を一瞬だけ示すポップアップ（すぐ消える） */}
+      {/* GPSで現在地を特定したとき、地図上の位置を示すポップアップ。「次へ」を押すと閉じる。
+          「次へ」はユーザー操作なので、このタイミングでカメラ許可を先取りする（以降のARで再プロンプトを出さない）。 */}
       {locatedNodeId != null && mapImage && (() => {
         const node = nodes.find((n) => n.id === locatedNodeId);
         return node ? (
-          <LocatedPopup key={locatedTick} mapImage={mapImage} node={node} onDone={() => setLocatedNodeId(null)} />
+          <LocatedPopup
+            key={locatedTick}
+            mapImage={mapImage}
+            node={node}
+            onDone={() => { requestCameraPermission(); setLocatedNodeId(null); }}
+          />
         ) : null;
       })()}
     </div>
