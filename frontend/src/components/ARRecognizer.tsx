@@ -236,6 +236,13 @@ export const ARRecognizer: React.FC = () => {
     }
   };
 
+  // 画面表示時にカメラを自動起動する（起動許可は事前のポップアップで取得済み）
+  useEffect(() => {
+    startCamera();
+    // startCamera はマウント時に一度だけ呼ぶ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const stopCamera = () => {
     stopRef.current = true;
     if (timerRef.current != null) clearTimeout(timerRef.current);
@@ -301,7 +308,7 @@ export const ARRecognizer: React.FC = () => {
               ? "準備中（OpenCVを読み込み中）..."
               : status === "error"
               ? "読み込みに失敗しました"
-              : "「カメラ起動」を押してください"}
+              : "カメラを起動しています…"}
           </div>
         )}
 
@@ -353,13 +360,6 @@ export const ARRecognizer: React.FC = () => {
       </div>
 
       <div className="ar-recognizer-bar">
-        {!cameraOn ? (
-          <button className="btn-primary" onClick={startCamera}>
-            カメラ起動
-          </button>
-        ) : (
-          <button className="btn-secondary" onClick={stopCamera}>カメラ停止</button>
-        )}
         <span className="ar-recognizer-status">
           {status === "loading"
             ? "準備中..."

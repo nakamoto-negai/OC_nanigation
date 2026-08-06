@@ -8,9 +8,10 @@ import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
-import { CompassPermissionPop } from "./components/CompassPermissionPop";
+import { PermissionPop } from "./components/PermissionPop";
 import { useUser } from "./hooks/useUser";
 import { useCompassPermission, compassNeedsPermission } from "./hooks/useCompass";
+import { useCameraPermission } from "./hooks/useCameraPermission";
 import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
@@ -128,11 +129,12 @@ function UserApp() {
   const [popDismissed, setPopDismissed] = useState(false);
   // お知らせの取得が完了したか（完了後にコンパス許可ポップアップの表示判定を行う）
   const [announcementChecked, setAnnouncementChecked] = useState(false);
-  // コンパス許可ポップアップを今のホーム滞在中に閉じたか（＝一時的に隠すだけ）。
-  // 永続保存はしない。ホーム画面に来るたびにリセットして、コンパスがオンになるまで再表示する。
-  const [compassPopDismissed, setCompassPopDismissed] = useState(false);
-  // コンパス許可状態を購読（iOS 未許可のときだけポップアップを出すため）
+  // 許可ポップアップ（カメラ＋方位センサー）を今のホーム滞在中に閉じたか（＝一時的に隠すだけ）。
+  // 永続保存はしない。ホーム画面に来るたびにリセットして、許可が済むまで再表示する。
+  const [permPopDismissed, setPermPopDismissed] = useState(false);
+  // カメラ・コンパスの許可状態を購読（未許可のときだけポップアップを出すため）
   const compass = useCompassPermission();
+  const camera = useCameraPermission();
   // アンケートをアプリ内操作で開いたか（true のとき閉じるは履歴を戻す）
   const openedSurveyInApp = useRef(false);
   const [loadError, setLoadError] = useState("");
@@ -168,25 +170,32 @@ function UserApp() {
 
   const dismissPop = () => setPopDismissed(true);
 
-  // ホーム画面かつ、お知らせPOPが閉じていて、iOSで方位センサー未許可（prompt）で、
-  // この滞在中にまだ閉じていないときにコンパス許可ポップアップを出す。
-  // コンパスがオン（granted）になれば permission が prompt でなくなり自動的に出なくなる。
+  // ホーム画面かつ、お知らせPOPが閉じていて、カメラor方位センサーが未許可（prompt）で、
+  // この滞在中にまだ閉じていないときに許可ポップアップ（カメラ＋コンパス）を出す。
+  // 許可（granted）されれば prompt でなくなり自動的に出なくなる。
+  // ※iOS は方位センサーの許可要求が必要な端末のみコンパスを対象にする（Android/PC は不要）。
   const announcementOpen = !!announcement && !popDismissed;
-  const showCompassPop =
+  const compassPending = compassNeedsPermission() && compass.permission === "prompt";
+  const cameraPending = camera.state === "prompt";
+  const showPermPop =
     screen === "home" && announcementChecked && !announcementOpen &&
-    compassNeedsPermission() && compass.permission === "prompt" && !compassPopDismissed;
+    !permPopDismissed && (compassPending || cameraPending);
 
-  // ホーム画面に来るたびに一時非表示をリセットし、オンにされていない限り再表示する。
+  // 位置情報は、お知らせを閉じて許可の選択（有効にする／今はしない）が済んでから取得する。
+  const locationAllowed = announcementChecked && !announcementOpen && !showPermPop;
+
+  // ホーム画面に来るたびに一時非表示をリセットし、許可されていない限り再表示する。
   useEffect(() => {
-    if (screen === "home") setCompassPopDismissed(false);
+    if (screen === "home") setPermPopDismissed(false);
   }, [screen]);
 
   // 閉じるのはこの滞在中だけ隠す（次にホームへ来たら再表示される）。
-  const closeCompassPop = () => setCompassPopDismissed(true);
-  const enableCompass = () => {
-    // このクリックはユーザー操作なので、ここで iOS のコンパス許可要求を発火できる。
-    compass.requestPermission();
-    closeCompassPop();
+  const closePermPop = () => setPermPopDismissed(true);
+  const enablePermissions = () => {
+    // このクリックはユーザー操作なので、ここでカメラ・コンパスの許可要求を発火できる。
+    if (compassPending) compass.requestPermission();
+    if (cameraPending) camera.request();
+    closePermPop();
   };
 
   // 初期表示が URL と食い違う場合は URL 側を画面に合わせる（例: コールドロードの /route → home）
@@ -248,9 +257,9 @@ function UserApp() {
         <AnnouncementPop announcement={announcement} onClose={dismissPop} />
       )}
 
-      {/* お知らせを閉じた直後、iOSで方位センサー未許可のときだけコンパス許可ポップアップを出す */}
-      {showCompassPop && (
-        <CompassPermissionPop onEnable={enableCompass} onDismiss={closeCompassPop} />
+      {/* お知らせを閉じた直後、カメラ or 方位センサーが未許可のとき許可ポップアップを出す */}
+      {showPermPop && (
+        <PermissionPop onEnable={enablePermissions} onDismiss={closePermPop} />
       )}
 
       <header className="app-header">
@@ -304,6 +313,7 @@ function UserApp() {
           settings={settings}
           surveyUrl={settings.survey_url}
           onOpenSurvey={openSurvey}
+          allowLocation={locationAllowed}
         />
       )}
 

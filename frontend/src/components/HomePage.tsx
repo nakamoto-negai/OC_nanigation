@@ -32,6 +32,8 @@ interface Props {
   surveyUrl?: string;
   /** アプリ内アンケート（/survey）へ遷移する。 */
   onOpenSurvey: () => void;
+  /** お知らせ・コンパス許可の選択が済んで、位置情報を取得してよいか。 */
+  allowLocation: boolean;
 }
 
 type GeoStatus = "pending" | "found" | "denied" | "unavailable";
@@ -57,8 +59,9 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey }) => {
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>("unavailable");
+export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey, allowLocation }) => {
+  // 初期は待機中（コンパス選択が済むまで取得しない）。中立な見た目にするため "pending"。
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("pending");
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [startId, setStartId] = useState<number | null>(null);
@@ -78,6 +81,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [mapImage, setMapImage] = useState<MapImage | null>(null);
   // 「現在地を特定しました」ポップアップの対象ノード（null で非表示）
   const [locatedNodeId, setLocatedNodeId] = useState<number | null>(null);
+  // ポップアップを毎回リマウントさせてアニメを頭から再生するためのキー
+  const [locatedTick, setLocatedTick] = useState(0);
   // 大カテゴリー（イベント選択の最上位見出し用）
   const [superCats, setSuperCats] = useState<SuperCategory[]>([]);
   const [error, setError] = useState("");
@@ -94,15 +99,17 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     api.superCategories.list().then(setSuperCats).catch(() => setSuperCats([]));
   }, []);
 
-  // 位置情報の取得・監視
+  // 位置情報の取得（起動時に1回だけ）。ただしコンパス許可の選択が済むまで（allowLocation）待つ。
+  // 以降は「再読み込み」を押さない限り取得しない。
+  const geoStartedRef = useRef(false);
   useEffect(() => {
+    if (!allowLocation || geoStartedRef.current) return;
+    geoStartedRef.current = true;
     if (!navigator.geolocation) { setGeoStatus("unavailable"); return; }
 
-    let watchId: number | null = null;
-
-    const startWatching = () => {
+    const locateOnce = () => {
       setGeoStatus("pending");
-      watchId = navigator.geolocation.watchPosition(
+      navigator.geolocation.getCurrentPosition(
         (pos) => {
           setUserLat(pos.coords.latitude);
           setUserLng(pos.coords.longitude);
@@ -116,29 +123,35 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     };
 
     if (navigator.permissions) {
-      navigator.permissions.query({ name: "geolocation" as PermissionName }).then((result) => {
-        if (result.state === "denied") { setGeoStatus("denied"); return; }
-        startWatching();
-        result.onchange = () => { if (result.state === "denied") setGeoStatus("denied"); };
-      });
+      navigator.permissions.query({ name: "geolocation" as PermissionName })
+        .then((result) => {
+          if (result.state === "denied") { setGeoStatus("denied"); return; }
+          locateOnce();
+          result.onchange = () => { if (result.state === "denied") setGeoStatus("denied"); };
+        })
+        .catch(() => locateOnce());
     } else {
-      startWatching();
+      locateOnce();
     }
+  }, [allowLocation]);
 
-    return () => { if (watchId != null) navigator.geolocation.clearWatch(watchId); };
-  }, []);
+  // 「現在地を特定しました」ポップアップを出す（毎回リマウントしてアニメを頭から再生）。
+  const showLocated = (nodeId: number) => {
+    setLocatedNodeId(nodeId);
+    setLocatedTick((t) => t + 1);
+  };
+  // 初回の位置特定でだけ自動でポップアップを出す（再読み込み時は reloadLocation 側で必ず出す）。
+  const pendingLocateRef = useRef(true);
 
-  // GPS 更新時に最近傍ノードを自動設定（手動変更していない場合）。
-  // 検出ノードが変わったら「現在地を特定しました」ポップアップを一瞬だけ出す。
-  const lastLocatedRef = useRef<number | null>(null);
+  // GPS 取得時に最近傍ノードを自動設定（手動変更していない場合）。初回はポップアップも出す。
   useEffect(() => {
     if (manualStart || userLat == null || userLng == null) return;
     const nearest = nearestNode(nodes, userLat, userLng);
     if (!nearest) return;
     setStartId(nearest.id);
-    if (lastLocatedRef.current !== nearest.id) {
-      lastLocatedRef.current = nearest.id;
-      setLocatedNodeId(nearest.id);
+    if (pendingLocateRef.current) {
+      pendingLocateRef.current = false;
+      showLocated(nearest.id);
     }
   }, [userLat, userLng, nodes, manualStart]);
 
@@ -169,6 +182,9 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         setUserLat(pos.coords.latitude);
         setUserLng(pos.coords.longitude);
         setGeoStatus("found");
+        // 再読み込み時は同じ地点でも必ずアニメーションを表示する
+        const nearest = nearestNode(nodes, pos.coords.latitude, pos.coords.longitude);
+        if (nearest) { setStartId(nearest.id); showLocated(nearest.id); }
       },
       (err) => {
         setGeoStatus(err.code === err.PERMISSION_DENIED ? "denied" : "unavailable");
@@ -683,7 +699,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       {locatedNodeId != null && mapImage && (() => {
         const node = nodes.find((n) => n.id === locatedNodeId);
         return node ? (
-          <LocatedPopup mapImage={mapImage} node={node} onDone={() => setLocatedNodeId(null)} />
+          <LocatedPopup key={locatedTick} mapImage={mapImage} node={node} onDone={() => setLocatedNodeId(null)} />
         ) : null;
       })()}
     </div>
