@@ -189,6 +189,7 @@ function UserApp() {
   const closeCompassPop = () => setCompassPopDismissed(true);
   const enableCompass = () => {
     // このクリックはユーザー操作なので、ここで iOS のコンパス許可要求を発火できる。
+    // 直後にポップアップを閉じて、許可結果が出るまで UI をすぐに切り替えられるようにする。
     compass.requestPermission();
     closeCompassPop();
   };
