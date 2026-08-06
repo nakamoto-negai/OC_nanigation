@@ -2043,7 +2043,7 @@ function fmtBytes(b: number): string {
 // お知らせ・屋内案内など）に一律で効く。
 function ImageOptimizeTab() {
   const [stats, setStats] = useState<{ count: number; total_bytes: number; items: ImageStat[] } | null>(null);
-  const [maxEdge, setMaxEdge] = useState(1600);
+  const [maxEdge, setMaxEdge] = useState(512);
   const [quality, setQuality] = useState(82);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ImageOptimizeResult | null>(null);
@@ -2090,7 +2090,8 @@ function ImageOptimizeTab() {
         <div className="adm-field">
           <label>長辺の最大ピクセル</label>
           <select value={maxEdge} onChange={(e) => setMaxEdge(Number(e.target.value))}>
-            <option value={1024}>1024px（最小・軽量）</option>
+            <option value={512}>512px（最小・軽量）</option>
+            <option value={1024}>1024px</option>
             <option value={1280}>1280px</option>
             <option value={1600}>1600px（推奨）</option>
             <option value={2048}>2048px（高精細）</option>
