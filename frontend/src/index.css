@@ -1463,16 +1463,20 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border: 1px solid #e2e8f0; user-select: none; line-height: 0;
 }
 .map-selector-inner img { width: 100%; display: block; }
+/* ボタン自体をドットのサイズにし、ドットの中心が座標(left/top)にぴったり乗るようにする。
+   ラベルは絶対配置でドットの下にぶら下げ、ドットの中心位置に影響させない（ずれ防止）。 */
 .map-marker {
   position: absolute; transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: block; line-height: 0;
   background: none; border: none; padding: 0; cursor: pointer;
 }
 .map-marker-dot {
+  display: block;
   width: 18px; height: 18px; border-radius: 50%;
   background: #3b82f6; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 .map-marker-label {
+  position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%);
   font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.2;
   background: rgba(255,255,255,0.9); border-radius: 6px; padding: 1px 5px;
   max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

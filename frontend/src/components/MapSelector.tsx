@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MapImage } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -29,6 +29,17 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
   const imgRef = useRef<HTMLImageElement>(null);
   const [naturalW, setNaturalW] = useState(mapImage?.width || 0);
   const [naturalH, setNaturalH] = useState(mapImage?.height || 0);
+
+  // キャッシュ済み画像は onLoad が発火しないことがあり、その場合 DB 由来の初期値
+  // （実サイズと食い違うことがある）のままになりピンがずれる。マウント時／URL変更時に
+  // complete を確認して、実際の naturalWidth/Height を読み直す。
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setNaturalW(img.naturalWidth);
+      setNaturalH(img.naturalHeight);
+    }
+  }, [mapImage?.url]);
 
   if (!mapImage) {
     return <p className="dest-empty">{emptyText ?? "マップ画像が登録されていません"}</p>;
