@@ -8,9 +8,8 @@ import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
-import { CompassPermissionPop } from "./components/CompassPermissionPop";
 import { useUser } from "./hooks/useUser";
-import { useCompassPermission, compassNeedsPermission } from "./hooks/useCompass";
+import { armCompassAutoRequest } from "./hooks/useCompass";
 import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
@@ -126,13 +125,8 @@ function UserApp() {
   // お知らせPOP（アプリを開いた最初に、カメラ/コンパス許可より前に表示）
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [popDismissed, setPopDismissed] = useState(false);
-  // お知らせの取得が完了したか（完了後にコンパス許可ポップアップの表示判定を行う）
+  // お知らせの取得が完了したか（完了後に位置情報取得・コンパス許可の解禁判定を行う）
   const [announcementChecked, setAnnouncementChecked] = useState(false);
-  // コンパス許可ポップアップを今のホーム滞在中に閉じたか（＝一時的に隠すだけ）。
-  // 永続保存はしない。ホーム画面に来るたびにリセットして、許可が済むまで再表示する。
-  const [compassPopDismissed, setCompassPopDismissed] = useState(false);
-  // コンパス許可状態を購読（iOS 未許可のときだけポップアップを出すため）
-  const compass = useCompassPermission();
   // アンケートをアプリ内操作で開いたか（true のとき閉じるは履歴を戻す）
   const openedSurveyInApp = useRef(false);
   const [loadError, setLoadError] = useState("");
@@ -168,31 +162,18 @@ function UserApp() {
 
   const dismissPop = () => setPopDismissed(true);
 
-  // ホーム画面かつ、お知らせPOPが閉じていて、iOSで方位センサー未許可（prompt）で、
-  // この滞在中にまだ閉じていないときにコンパス許可ポップアップを出す。
-  // コンパスがオン（granted）になれば permission が prompt でなくなり自動的に出なくなる。
-  // ※カメラはブラウザ標準ダイアログが必ず出るため前置きは出さず、実際に使う場面で1回だけ許可を求める。
+  // コンパス許可の前置きポップアップは廃止。iOS でもブラウザ標準の許可ダイアログが必ず出るため、
+  // お知らせを閉じたあとの「最初のユーザー操作（タップ）」を起点に、その標準ダイアログを1回だけ
+  // 自動で出す（armCompassAutoRequest → useCompass の gesture ハンドラが requestPermission を発火）。
   const announcementOpen = !!announcement && !popDismissed;
-  const showCompassPop =
-    screen === "home" && announcementChecked && !announcementOpen &&
-    compassNeedsPermission() && compass.permission === "prompt" && !compassPopDismissed;
 
-  // 位置情報は、お知らせを閉じてコンパス許可の選択（有効にする／今はしない）が済んでから取得する。
-  const locationAllowed = announcementChecked && !announcementOpen && !showCompassPop;
+  // 位置情報は、お知らせを閉じてから取得する（前置きポップアップが無くなったため待つのはお知らせだけ）。
+  const locationAllowed = announcementChecked && !announcementOpen;
 
-  // ホーム画面に来るたびに一時非表示をリセットし、オンにされていない限り再表示する。
+  // お知らせを閉じたら、以降の最初のタップでコンパス許可要求を出せるように解禁する。
   useEffect(() => {
-    if (screen === "home") setCompassPopDismissed(false);
-  }, [screen]);
-
-  // 閉じるのはこの滞在中だけ隠す（次にホームへ来たら再表示される）。
-  const closeCompassPop = () => setCompassPopDismissed(true);
-  const enableCompass = () => {
-    // このクリックはユーザー操作なので、ここで iOS のコンパス許可要求を発火できる。
-    // 直後にポップアップを閉じて、許可結果が出るまで UI をすぐに切り替えられるようにする。
-    compass.requestPermission();
-    closeCompassPop();
-  };
+    if (announcementChecked && !announcementOpen) armCompassAutoRequest();
+  }, [announcementChecked, announcementOpen]);
 
   // 初期表示が URL と食い違う場合は URL 側を画面に合わせる（例: コールドロードの /route → home）
   useEffect(() => {
@@ -251,11 +232,6 @@ function UserApp() {
       {/* お知らせPOP（最初に表示。カメラ/コンパス許可より前） */}
       {announcement && !popDismissed && (
         <AnnouncementPop announcement={announcement} onClose={dismissPop} />
-      )}
-
-      {/* お知らせを閉じた直後、iOSで方位センサー未許可のときだけコンパス許可ポップアップを出す */}
-      {showCompassPop && (
-        <CompassPermissionPop onEnable={enableCompass} onDismiss={closeCompassPop} />
       )}
 
       <header className="app-header">
