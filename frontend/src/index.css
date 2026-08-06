@@ -112,6 +112,46 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   color: #dc2626; padding: 10px 20px; font-size: 13px; cursor: pointer;
 }
 
+/* 「現在地を特定しました」ポップアップ（地図上の位置をピン＋パルスで一瞬だけ表示） */
+.loc-pop-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(15, 23, 42, 0.35);
+  animation: loc-pop-fade 0.2s ease;
+}
+.loc-pop {
+  width: 100%; max-width: 340px;
+  background: #fff; border-radius: 16px; padding: 14px; text-align: center;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.32);
+  animation: loc-pop-in 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.loc-pop-title { font-size: 14px; font-weight: 800; color: #1d4ed8; margin-bottom: 8px; }
+.loc-pop-map {
+  position: relative; border-radius: 10px; overflow: hidden;
+  border: 1px solid #e2e8f0; line-height: 0;
+}
+.loc-pop-map img { width: 100%; display: block; }
+.loc-pop-pin { position: absolute; width: 0; height: 0; }
+.loc-pop-dot {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #ef4444; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  animation: loc-pop-drop 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.loc-pop-pulse {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+  width: 16px; height: 16px; border-radius: 50%; background: rgba(239, 68, 68, 0.5);
+  animation: loc-pop-pulse 1.2s ease-out infinite;
+}
+.loc-pop-name { font-size: 15px; font-weight: 700; color: #1e293b; margin-top: 8px; }
+@keyframes loc-pop-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes loc-pop-in { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes loc-pop-drop { from { transform: translate(-50%, -140%); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+@keyframes loc-pop-pulse {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(3.6); opacity: 0; }
+}
+
 /* 目的地バナー（現在地バナーと同じ画面上部に並べる） */
 .dest-banner {
   display: flex; align-items: center; gap: 14px;

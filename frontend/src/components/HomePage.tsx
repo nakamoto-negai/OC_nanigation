@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { SurveyLauncher } from "./SurveyLauncher";
 import { RouteGuide } from "./RouteGuide";
 import { MapSelector, MapMarker } from "./MapSelector";
+import { LocatedPopup } from "./LocatedPopup";
 import { useCompassPermission } from "../hooks/useCompass";
 
 // 目的地の所属ノードID一覧。
@@ -75,6 +76,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [busStopPickerOpen, setBusStopPickerOpen] = useState(false);
   // マップ選択用の背景画像（アクティブなマップ）
   const [mapImage, setMapImage] = useState<MapImage | null>(null);
+  // 「現在地を特定しました」ポップアップの対象ノード（null で非表示）
+  const [locatedNodeId, setLocatedNodeId] = useState<number | null>(null);
   // 大カテゴリー（イベント選択の最上位見出し用）
   const [superCats, setSuperCats] = useState<SuperCategory[]>([]);
   const [error, setError] = useState("");
@@ -125,11 +128,18 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     return () => { if (watchId != null) navigator.geolocation.clearWatch(watchId); };
   }, []);
 
-  // GPS 更新時に最近傍ノードを自動設定（手動変更していない場合）
+  // GPS 更新時に最近傍ノードを自動設定（手動変更していない場合）。
+  // 検出ノードが変わったら「現在地を特定しました」ポップアップを一瞬だけ出す。
+  const lastLocatedRef = useRef<number | null>(null);
   useEffect(() => {
     if (manualStart || userLat == null || userLng == null) return;
     const nearest = nearestNode(nodes, userLat, userLng);
-    if (nearest) setStartId(nearest.id);
+    if (!nearest) return;
+    setStartId(nearest.id);
+    if (lastLocatedRef.current !== nearest.id) {
+      lastLocatedRef.current = nearest.id;
+      setLocatedNodeId(nearest.id);
+    }
   }, [userLat, userLng, nodes, manualStart]);
 
   // 管理画面で設定したデフォルト目的地を、起動時に一度だけ初期選択する。
@@ -668,6 +678,14 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           </div>
         </div>
       )}
+
+      {/* GPSで現在地を特定したとき、地図上の位置を一瞬だけ示すポップアップ（すぐ消える） */}
+      {locatedNodeId != null && mapImage && (() => {
+        const node = nodes.find((n) => n.id === locatedNodeId);
+        return node ? (
+          <LocatedPopup mapImage={mapImage} node={node} onDone={() => setLocatedNodeId(null)} />
+        ) : null;
+      })()}
     </div>
   );
 };
