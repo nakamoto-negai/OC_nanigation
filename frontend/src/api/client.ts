@@ -144,6 +144,25 @@ export const api = {
   logs: {
     list: (device_id?: string) =>
       adminReq<UserLog[]>(`/api/logs${device_id ? `?device_id=${encodeURIComponent(device_id)}` : ""}`),
+    // 行動ログ（ボタン押下など）を記録する。公開・fire-and-forget（失敗は無視）。
+    record: (data: {
+      action: string; label?: string; screen?: string;
+      origin_node?: string; dest_node?: string; from_node?: string; to_node?: string;
+      step?: number; total_steps?: number;
+    }) => {
+      try {
+        // device_id は useUser が起動時に localStorage へ保存済み（未登録なら送らない）。
+        const device_id = localStorage.getItem("nav_device_id");
+        if (!device_id) return;
+        const body = JSON.stringify({ device_id, ...data });
+        void fetch(`${BASE}/api/logs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => { /* ログ送信失敗は無視 */ });
+      } catch { /* device_id 取得失敗などは無視 */ }
+    },
   },
   mapImages: {
     list: () => adminReq<MapImage[]>("/api/map-images"),

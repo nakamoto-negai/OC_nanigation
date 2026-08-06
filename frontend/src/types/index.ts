@@ -166,6 +166,9 @@ export interface UserLog {
   id: number;
   device_id: string;
   action: string;
+  // ボタン押下ログの識別名（ボタン文言など）と、押下時の画面パス。
+  label: string;
+  screen: string;
   origin_node: string;
   dest_node: string;
   from_node: string;

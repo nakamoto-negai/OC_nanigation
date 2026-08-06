@@ -2487,6 +2487,7 @@ const ACTION_LABEL: Record<string, string> = {
   reroute_congestion: "迂回:混雑",
   reroute_other:      "迂回:その他",
   survey_submit:      "アンケート回答",
+  button_click:       "ボタン",
 };
 const ACTION_COLOR: Record<string, string> = {
   app_open:           "#3b82f6",
@@ -2500,6 +2501,7 @@ const ACTION_COLOR: Record<string, string> = {
   reroute_congestion: "#a855f7",
   reroute_other:      "#94a3b8",
   survey_submit:      "#0ea5e9",
+  button_click:       "#6366f1",
 };
 
 function LogsTab() {
@@ -2559,10 +2561,12 @@ function LogsTab() {
 
   // 表示中（絞り込み後）のログを CSV でダウンロードする
   const exportCsv = () => {
-    const header = ["日時", "アクション", "デバイスID", "出発地", "目的地", "区間出発", "区間到着", "ステップ", "総ステップ"];
+    const header = ["日時", "アクション", "ボタン/ラベル", "画面", "デバイスID", "出発地", "目的地", "区間出発", "区間到着", "ステップ", "総ステップ"];
     const rows = displayed.map((l) => [
       new Date(l.created_at).toLocaleString("ja-JP"),
       ACTION_LABEL[l.action] ?? l.action,
+      l.label ?? "",
+      l.screen ?? "",
       l.device_id,
       l.origin_node,
       l.dest_node,
@@ -2657,6 +2661,12 @@ function LogsTab() {
                     </span>
                     <span className="log-time">{fmt(log.created_at)}</span>
                     <span className="log-device" title={log.device_id}>{log.device_id.slice(0, 8)}…</span>
+                    {log.label && (
+                      <span className="log-route">
+                        <strong>{log.label}</strong>
+                        {log.screen && <span className="log-segment" style={{ marginLeft: 6 }}>{log.screen}</span>}
+                      </span>
+                    )}
                     {(log.origin_node || log.dest_node) ? (
                       <span className="log-route">{log.origin_node || "?"} <strong>→</strong> {log.dest_node || "?"}</span>
                     ) : log.from_node ? (

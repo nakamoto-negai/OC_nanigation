@@ -146,6 +146,7 @@ docker compose up -d --build
 /api/cafeterias/:id             PUT/DELETE   — 食堂の更新・削除（管理者のみ）
 /api/cafeterias/:id/congestion  PUT          — 食堂の混雑度だけを更新（食堂編集用アカウント or 管理者）
 /api/users/register POST
+/api/logs           POST         — 行動ログ1件を記録（公開・全画面から。ボタン押下ログ等）。GET は管理者のみ（一覧）
 /api/users          GET
 /api/map-images     GET/POST
 /api/map-images/active         GET
@@ -216,6 +217,7 @@ main()
 | `useRouteWS.ts` | `/ws/user` に接続。スナップスクロール変化時に現在ステップを送信 |
 | `useAdminWS.ts` | `/ws/admin` に接続。全ユーザーの位置情報を受信して返す |
 | `useCompass.ts` | `DeviceOrientationEvent` / `webkitCompassHeading` でコンパス値を取得。指数平滑化あり |
+| `useButtonLogger.ts` | ユーザーアプリ全体のボタン押下を記録。`document` のキャプチャフェーズで click を拾い、押された button/a/role=button を特定して `POST /api/logs`（action=`button_click`, label=ボタン文言, screen=画面パス）を送る。個別ボタンの改修不要。UserApp で一度だけ呼ぶ |
 
 ### ユーティリティ（`frontend/src/utils/bearing.ts`）
 

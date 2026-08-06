@@ -9,6 +9,7 @@ import { RouteGuide } from "./components/RouteGuide";
 import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
 import { useUser } from "./hooks/useUser";
+import { useButtonLogger } from "./hooks/useButtonLogger";
 import { armCompassAutoRequest } from "./hooks/useCompass";
 import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
@@ -109,6 +110,8 @@ function pathToScreen(path: string): Screen {
 
 function UserApp() {
   useUser();
+  // アプリ内のあらゆるボタン押下を記録する（グローバルロガー）
+  useButtonLogger();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);

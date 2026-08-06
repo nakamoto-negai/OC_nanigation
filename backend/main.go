@@ -61,6 +61,8 @@ func main() {
 	// 食堂の混雑度だけを更新する限定エンドポイント（食堂編集用アカウント or 管理者）
 	api.PUT("/cafeterias/:id/congestion", middleware.CafeteriaAuth(), handlers.UpdateCafeteriaCongestion)
 	api.POST("/users/register", handlers.RegisterUser)
+	// 行動ログ（ボタン押下など）を記録（公開・全画面から）
+	api.POST("/logs", handlers.CreateLog)
 	api.GET("/map-images/active", handlers.GetActiveMapImage)
 	api.GET("/node-detours", handlers.ListNodeDetours)
 	api.GET("/categories", handlers.ListCategories)
