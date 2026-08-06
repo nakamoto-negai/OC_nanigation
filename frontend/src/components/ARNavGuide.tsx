@@ -60,6 +60,62 @@ export const ARNavGuide: React.FC<Props> = ({
   const displayErr = externalMode ? (externalError ?? "") : err;
   // 「到着地点を確認する」で、到着地点(終着ノード)の登録写真をオーバーレイ表示するか
   const [showArrival, setShowArrival] = useState(false);
+  const arrivalScrollRef = useRef<HTMLDivElement>(null);
+
+  // 到着地点オーバーレイのスクロールが最下部に達した後、さらに下へスクロールしたら
+  // 「カードのスクロール」として扱い、次のカードへ送る（到着写真を読み終えてそのまま次へ進める）。
+  useEffect(() => {
+    if (!showArrival) return;
+    const el = arrivalScrollRef.current;
+    if (!el) return;
+
+    const EPS = 2;
+    const atBottom = () => el.scrollTop + el.clientHeight >= el.scrollHeight - EPS;
+    const THRESHOLD = 56; // 最下部到達後、この量を超えて続けて下スクロールしたら次カードへ
+    let accum = 0;
+    let fired = false;
+    const advance = () => {
+      if (fired) return;
+      fired = true;
+      onNext();
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY > 0 && atBottom()) {
+        e.preventDefault();
+        accum += e.deltaY;
+        if (accum > THRESHOLD) advance();
+      } else {
+        accum = 0;
+      }
+    };
+    let lastY = 0;
+    const onTouchStart = (e: TouchEvent) => { lastY = e.touches[0].clientY; accum = 0; fired = false; };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0].clientY;
+      const dy = lastY - y; // >0: 指を上へ動かす＝下方向スクロール（次カードへ）
+      lastY = y;
+      if (dy > 0 && atBottom()) {
+        e.preventDefault(); // 内側のラバーバンドを止めてカード送りに使う
+        accum += dy;
+        if (accum > THRESHOLD) advance();
+      } else if (dy < 0) {
+        accum = 0; // 上方向に戻したら積算をリセット
+      }
+    };
+    const onTouchEnd = () => { accum = 0; fired = false; };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [showArrival, onNext]);
 
   // 目標方位（CompassGuide と同じロジック）
   const { targetBearing, method } = (() => {
@@ -231,7 +287,7 @@ export const ARNavGuide: React.FC<Props> = ({
                 ×
               </button>
             </div>
-            <div className="arnav-arrival-scroll">
+            <div className="arnav-arrival-scroll" ref={arrivalScrollRef}>
               <ArrivalPhotoGallery
                 linkId={step.link.id}
                 initialPhotos={step.link.arrival_photos}
