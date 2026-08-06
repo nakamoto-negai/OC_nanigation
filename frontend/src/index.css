@@ -1653,6 +1653,12 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
 /* オーバーレイ内では写真エリアの見出しを白系に上書きする */
 .arnav-arrival-scroll .goal-photos-title { color: #d1fae5; }
 .arnav-arrival-scroll .goal-photos-empty { color: #cbd5e1; }
+/* 最下部の案内（ここでさらにスクロールすると次カードへ進む） */
+.arnav-arrival-more {
+  flex-shrink: 0; width: 100%; text-align: center;
+  margin-top: 14px; padding: 10px 0 4px;
+  font-size: 12px; font-weight: 700; color: #cbd5e1;
+}
 
 /* 到着直前にカメラ上部へ重ねる「到着まで◯m」表示 */
 .arnav-distance {

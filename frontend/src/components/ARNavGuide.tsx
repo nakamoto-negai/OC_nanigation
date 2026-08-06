@@ -61,6 +61,13 @@ export const ARNavGuide: React.FC<Props> = ({
   // 「到着地点を確認する」で、到着地点(終着ノード)の登録写真をオーバーレイ表示するか
   const [showArrival, setShowArrival] = useState(false);
   const arrivalScrollRef = useRef<HTMLDivElement>(null);
+  // onNext は毎レンダリング新しい関数になるので ref に退避する。これを使うことで、
+  // 下のスクロール監視 useEffect の依存を showArrival だけにでき、AR中にコンパス heading の
+  // 更新で ARNavGuide が高頻度に再レンダリングされてもリスナーと積算値(accum)が張り替わらない。
+  // （以前はここに onNext を依存に入れていたため、指ドラッグ中に効果が作り直されて accum が
+  //   毎フレーム 0 に戻り、しきい値に届かず「次カードへ送り」が発火しなかった。）
+  const onNextRef = useRef(onNext);
+  useEffect(() => { onNextRef.current = onNext; }, [onNext]);
 
   // 到着地点オーバーレイのスクロールが最下部に達した後、さらに下へスクロールしたら
   // 「カードのスクロール」として扱い、次のカードへ送る（到着写真を読み終えてそのまま次へ進める）。
@@ -71,13 +78,14 @@ export const ARNavGuide: React.FC<Props> = ({
 
     const EPS = 2;
     const atBottom = () => el.scrollTop + el.clientHeight >= el.scrollHeight - EPS;
-    const THRESHOLD = 56; // 最下部到達後、この量を超えて続けて下スクロールしたら次カードへ
+    const THRESHOLD = 48; // 最下部到達後、この量を超えて続けて下スクロールしたら次カードへ
     let accum = 0;
     let fired = false;
     const advance = () => {
       if (fired) return;
       fired = true;
-      onNext();
+      onNextRef.current();      // 次のカードへスナップ移動（RouteGuide 側の goToNextCard）
+      setShowArrival(false);    // この到着オーバーレイは閉じて、次カードへ移る
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -85,13 +93,14 @@ export const ARNavGuide: React.FC<Props> = ({
         e.preventDefault();
         accum += e.deltaY;
         if (accum > THRESHOLD) advance();
-      } else {
+      } else if (e.deltaY < 0) {
         accum = 0;
       }
     };
-    let lastY = 0;
+    let lastY: number | null = null;
     const onTouchStart = (e: TouchEvent) => { lastY = e.touches[0].clientY; accum = 0; fired = false; };
     const onTouchMove = (e: TouchEvent) => {
+      if (lastY == null) lastY = e.touches[0].clientY;
       const y = e.touches[0].clientY;
       const dy = lastY - y; // >0: 指を上へ動かす＝下方向スクロール（次カードへ）
       lastY = y;
@@ -103,7 +112,7 @@ export const ARNavGuide: React.FC<Props> = ({
         accum = 0; // 上方向に戻したら積算をリセット
       }
     };
-    const onTouchEnd = () => { accum = 0; fired = false; };
+    const onTouchEnd = () => { accum = 0; fired = false; lastY = null; };
 
     el.addEventListener("wheel", onWheel, { passive: false });
     el.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -115,7 +124,7 @@ export const ARNavGuide: React.FC<Props> = ({
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [showArrival, onNext]);
+  }, [showArrival]);
 
   // 目標方位（CompassGuide と同じロジック）
   const { targetBearing, method } = (() => {
@@ -293,6 +302,8 @@ export const ARNavGuide: React.FC<Props> = ({
                 initialPhotos={step.link.arrival_photos}
                 emptyText="このリンクの到着地点写真はまだ登録されていません"
               />
+              {/* 最下部の案内。ここでさらに下へスクロールすると次のカードへ進む。 */}
+              <div className="arnav-arrival-more">↓ さらに下にスクロールで次のカードへ</div>
             </div>
           </div>
         )}
