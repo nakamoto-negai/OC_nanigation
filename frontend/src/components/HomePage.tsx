@@ -472,7 +472,14 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           目的地未選択のとき、またはデフォルト目的地が自動選択されているだけのときは表示を維持し、
           ユーザーが自分で目的地を選ぶ（デフォルト以外を選ぶ）と非表示になる。 */}
       {(!activeRoute || destId === settings.default_destination_id) && (
-        <p className="home-dest-prompt">自分の行きたい目的地を選択してください</p>
+        <button
+          type="button"
+          className="home-dest-prompt home-dest-prompt-cta"
+          onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
+        >
+          <span className="home-dest-prompt-text">行きたいイベントを選択して道案内をスタート!!</span>
+          <span className="home-dest-prompt-arrow">▶</span>
+        </button>
       )}
 
       {/* コンパス（方位）許可の案内。まだ許可していない間だけ表示し、タップで許可要求する。
