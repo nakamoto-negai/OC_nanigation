@@ -313,7 +313,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     // 説明・混雑度は最小型モデルではノード側にあるため、代表ノード（先頭）の値を表示する。
     const rep = representativeNode(d);
     return (
-      <button className={`dest-card${destId === d.id ? " selected" : ""}`} onClick={() => chooseDest(d.id)}>
+      <button className={`dest-card${destId === d.id ? " selected" : ""}`} data-log={`目的地選択: ${d.name}`} onClick={() => chooseDest(d.id)}>
         <div className="dest-card-inner">
           <div className="dest-card-icon">▶</div>
           <div className="dest-card-info">
@@ -474,6 +474,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                           <button
                             key={`${cg.key}-${en.event.id}`}
                             className={`evt-card${destId === en.dest.id ? " selected" : ""}`}
+                            data-log={`イベント選択: ${en.event.name}（目的地: ${en.dest.name}）`}
                             onClick={() => chooseDest(en.dest.id)}
                           >
                             <div className="evt-card-name">{en.event.name}</div>
@@ -651,6 +652,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                   mapImage={mapImage}
                   markers={destMarkers}
                   selectedId={destId}
+                  logPrefix="目的地地図選択"
                   onSelect={(id) => chooseDest(id)}
                   emptyText="マップ画像が未登録です。イベント選択から選んでください。"
                 />
@@ -680,6 +682,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 markers={startMarkers}
                 selectedId={startId}
                 hideLabels
+                logPrefix="現在地地図選択"
                 onSelect={(id) => {
                   setStartId(id);
                   setManualStart(true);
@@ -714,6 +717,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                   mapImage={mapImage}
                   markers={busStopMarkers}
                   selectedId={startId}
+                  logPrefix="バス停選択"
                   onSelect={(nodeId) => {
                     setStartId(nodeId);
                     setManualStart(true);

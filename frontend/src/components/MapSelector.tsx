@@ -19,13 +19,15 @@ interface Props {
   emptyText?: string;
   /** true のときマーカーの地点名ラベルを表示しない（現在地選択などで使う） */
   hideLabels?: boolean;
+  /** ボタン押下ログ用の接頭辞（例:「目的地地図選択」）。マーカーに `data-log` として付ける。 */
+  logPrefix?: string;
 }
 
 /**
  * マップ画像の上に地点マーカーを重ね、タップで選択させる（現在地・目的地の地図選択に使う）。
  * 座標は画像のピクセル座標(x,y)を naturalWidth/Height に対する割合で配置する（MapPicker と同方式）。
  */
-export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, onSelect, emptyText, hideLabels }) => {
+export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, onSelect, emptyText, hideLabels, logPrefix }) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const [naturalW, setNaturalW] = useState(mapImage?.width || 0);
   const [naturalH, setNaturalH] = useState(mapImage?.height || 0);
@@ -66,6 +68,7 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
             type="button"
             className={`map-marker${m.id === selectedId ? " selected" : ""}`}
             style={{ left: pct(m.x, naturalW), top: pct(m.y, naturalH) }}
+            data-log={`${logPrefix ?? "地図選択"}: ${m.label}`}
             onClick={() => onSelect(m.id)}
           >
             <span className="map-marker-dot" />
