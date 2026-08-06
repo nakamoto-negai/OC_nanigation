@@ -25,6 +25,7 @@ func ListDestinations(c *gin.Context) {
 	database.DB.
 		Preload("Category").
 		Preload("Events", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc").Order("id asc") }).
+		Preload("Events.Category").
 		Preload("Nodes").
 		Order("sort_order asc, id asc").
 		Find(&destinations)
@@ -127,6 +128,7 @@ func reloadDestination(dest *models.Destination) {
 	database.DB.
 		Preload("Category").
 		Preload("Events", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc").Order("id asc") }).
+		Preload("Events.Category").
 		Preload("Nodes").
 		First(dest, dest.ID)
 }

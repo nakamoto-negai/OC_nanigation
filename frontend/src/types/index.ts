@@ -22,6 +22,9 @@ export interface Category {
 export interface Event {
   id: number;
   destination_id: number;
+  // イベント自身が属するカテゴリー（未設定なら「その他」）。イベント選択画面の分類に使う。
+  category_id: number | null;
+  category?: Category;
   name: string;
   sort_order: number;
   created_at: string;

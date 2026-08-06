@@ -45,8 +45,9 @@ func UpdateCategory(c *gin.Context) {
 
 func DeleteCategory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	// カテゴリ削除時、紐づく目的地の category_id を NULL に
+	// カテゴリ削除時、紐づく目的地・イベントの category_id を NULL に（FK 制約違反を防ぐ）
 	database.DB.Model(&models.Destination{}).Where("category_id = ?", id).Update("category_id", nil)
+	database.DB.Model(&models.Event{}).Where("category_id = ?", id).Update("category_id", nil)
 	database.DB.Delete(&models.Category{}, id)
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }

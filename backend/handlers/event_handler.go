@@ -11,7 +11,7 @@ import (
 
 // ListEvents はイベント一覧を返す。?destination_id=N でその目的地のイベントだけに絞り込む。
 func ListEvents(c *gin.Context) {
-	q := database.DB.Order("sort_order asc").Order("id asc")
+	q := database.DB.Preload("Category").Order("sort_order asc").Order("id asc")
 	if did := c.Query("destination_id"); did != "" {
 		if v, err := strconv.Atoi(did); err == nil && v > 0 {
 			q = q.Where("destination_id = ?", v)

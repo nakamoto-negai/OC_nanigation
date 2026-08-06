@@ -177,7 +177,7 @@ export const api = {
   events: {
     list: (destinationId?: number) =>
       req<Event[]>(`/api/events${destinationId ? `?destination_id=${destinationId}` : ""}`),
-    create: (data: { destination_id: number; name: string; sort_order?: number }) =>
+    create: (data: { destination_id: number; name: string; category_id?: number | null; sort_order?: number }) =>
       adminReq<Event>("/api/events", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Partial<Event>) =>
       adminReq<Event>(`/api/events/${id}`, { method: "PUT", body: JSON.stringify(data) }),

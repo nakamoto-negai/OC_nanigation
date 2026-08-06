@@ -400,12 +400,15 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     };
     for (const d of visibleDestinations) {
       if (!d.events || d.events.length === 0) continue;
-      const cat = d.category ?? null;
-      const supId = cat?.super_category_id ?? null;
-      const sup = supId != null ? (superCats.find((s) => s.id === supId) ?? null) : null;
-      const sg = ensureSup(sup);
-      const cg = ensureCat(sg, cat);
-      for (const e of d.events) cg.entries.push({ event: e, dest: d });
+      // 分類はイベント自身のカテゴリーで行う（目的地のカテゴリーとは独立）。未設定は「その他」。
+      for (const e of d.events) {
+        const cat = e.category ?? null;
+        const supId = cat?.super_category_id ?? null;
+        const sup = supId != null ? (superCats.find((s) => s.id === supId) ?? null) : null;
+        const sg = ensureSup(sup);
+        const cg = ensureCat(sg, cat);
+        cg.entries.push({ event: e, dest: d });
+      }
     }
     const groups = [...sups.values()];
     groups.sort((a, b) => a.sort - b.sort || a.supId - b.supId);

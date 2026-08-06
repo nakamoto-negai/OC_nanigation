@@ -2356,9 +2356,10 @@ function DestinationTab({
   );
 }
 
-function EventTab({ destinations }: { destinations: Destination[] }) {
+function EventTab({ destinations, categories }: { destinations: Destination[]; categories: Category[] }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [destinationId, setDestinationId] = useState<number | "">("");
+  const [categoryId, setCategoryId] = useState<number | "">("");
   const [name, setName] = useState("");
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -2372,10 +2373,23 @@ function EventTab({ destinations }: { destinations: Destination[] }) {
     if (destinationId === "") { setMsg({ type: "err", text: "目的地を選択してください" }); return; }
     if (!name.trim()) { setMsg({ type: "err", text: "イベント名は必須です" }); return; }
     try {
-      const created = await api.events.create({ destination_id: Number(destinationId), name: name.trim() });
+      const created = await api.events.create({
+        destination_id: Number(destinationId),
+        name: name.trim(),
+        category_id: categoryId === "" ? null : Number(categoryId),
+      });
       setEvents((p) => [...p, created]);
       setName("");
       setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+
+  // 既存イベントのカテゴリーを一覧からその場で変更する。
+  const changeCat = async (ev: Event, val: number | "") => {
+    const category_id = val === "" ? null : Number(val);
+    try {
+      await api.events.update(ev.id, { category_id });
+      setEvents((p) => p.map((e) => (e.id === ev.id ? { ...e, category_id } : e)));
     } catch (e: any) { setMsg({ type: "err", text: e.message }); }
   };
 
@@ -2394,12 +2408,20 @@ function EventTab({ destinations }: { destinations: Destination[] }) {
         {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
         <p className="hint" style={{ marginBottom: 12 }}>
           目的地で開催されるイベント名を登録すると、目的地選択画面のその目的地カードにオレンジ色で流れて表示されます。
+          カテゴリーを指定すると、イベント選択画面ではそのカテゴリーの下に分類して表示されます（目的地のカテゴリーとは独立）。
         </p>
         <div className="adm-field">
           <label>目的地 <span className="req">*</span></label>
           <select value={destinationId} onChange={(e) => setDestinationId(Number(e.target.value) || "")}>
             <option value="">選択してください</option>
             {destinations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+        <div className="adm-field">
+          <label>カテゴリー</label>
+          <select value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value) || "")}>
+            <option value="">（未分類 → その他）</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div className="adm-field">
@@ -2422,11 +2444,20 @@ function EventTab({ destinations }: { destinations: Destination[] }) {
           <p className="adm-empty">イベントがまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>目的地</th><th>イベント名</th><th></th></tr></thead>
+            <thead><tr><th>目的地</th><th>カテゴリー</th><th>イベント名</th><th></th></tr></thead>
             <tbody>
               {events.map((ev) => (
                 <tr key={ev.id}>
                   <td>{ev.destination_id != null ? destName(ev.destination_id) : <span className="text-muted">—</span>}</td>
+                  <td>
+                    <select
+                      value={ev.category_id ?? ""}
+                      onChange={(e) => changeCat(ev, Number(e.target.value) || "")}
+                    >
+                      <option value="">その他</option>
+                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </td>
                   <td><strong>{ev.name}</strong></td>
                   <td className="adm-row-actions">
                     <button className="btn-del" onClick={() => del(ev.id, ev.name)}>削除</button>
@@ -3362,7 +3393,7 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "cafeteria" && <CafeteriaTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
-        {tab === "event" && <EventTab destinations={destinations} />}
+        {tab === "event" && <EventTab destinations={destinations} categories={categories} />}
         {tab === "users" && <UsersTab nodes={nodes} />}
         {tab === "logs" && <LogsTab />}
         {tab === "ar" && <ARFeatureTab nodes={nodes} />}
