@@ -45,6 +45,11 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
   const [scale, setScale] = useState(0.4);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // ベース写真の回転角（0/90/180/270）。90度ボタンで加算する。
+  const [rotation, setRotation] = useState(0);
+  // ベース画像の自然サイズ（回転時のプレビュー・キャンバス寸法計算に使う）。
+  const [natW, setNatW] = useState(0);
+  const [natH, setNatH] = useState(0);
 
   const stageRef = useRef<HTMLDivElement>(null);
   // ドラッグ開始時の状態
@@ -74,17 +79,26 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
     window.removeEventListener("pointercancel", endDrag);
   }, [onWindowMove]);
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
     if (!selected) return;
     e.preventDefault();
     dragRef.current = { px: e.clientX, py: e.clientY, cx, cy };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // 一部ブラウザでは pointer capture が未対応の場合があるため無視する
+    }
     window.addEventListener("pointermove", onWindowMove);
-    window.addEventListener("pointerup", endDrag);
-    window.addEventListener("pointercancel", endDrag);
+    window.addEventListener("pointerup", endDrag, { once: true });
+    window.addEventListener("pointercancel", endDrag, { once: true });
   };
 
   // アンマウント時にドラッグ監視を確実に解除する
   useEffect(() => () => endDrag(), [endDrag]);
+
+  const rotateBaseImage = useCallback(() => {
+    setRotation((prev) => (prev + 90) % 360);
+  }, []);
 
   const save = useCallback(async () => {
     if (!selected) { setMsg("重ねる合成用写真を選んでください"); return; }
@@ -95,14 +109,22 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
         loadImage(resolveUrl(baseImageUrl)),
         loadImage(resolveUrl(selected.url)),
       ]);
+      // ベース写真の回転を反映する。90/270 度では縦横が入れ替わる。
+      const rot = ((rotation % 360) + 360) % 360;
+      const swap = rot === 90 || rot === 270;
       const canvas = document.createElement("canvas");
-      canvas.width = baseImg.naturalWidth;
-      canvas.height = baseImg.naturalHeight;
+      canvas.width = swap ? baseImg.naturalHeight : baseImg.naturalWidth;
+      canvas.height = swap ? baseImg.naturalWidth : baseImg.naturalHeight;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("canvas を初期化できませんでした");
-      ctx.drawImage(baseImg, 0, 0);
+      // 中心を原点にして回転し、ベース写真を中央に描画する。
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.drawImage(baseImg, -baseImg.naturalWidth / 2, -baseImg.naturalHeight / 2);
+      ctx.restore();
 
-      // 重ねる写真をベース解像度に合わせて描画（画面上の割合をそのまま適用）。
+      // 重ねる写真を（回転後の）ベース解像度に合わせて描画（画面上の割合をそのまま適用）。
       const drawW = scale * canvas.width;
       const drawH = drawW * (ovImg.naturalHeight / ovImg.naturalWidth);
       const x = cx * canvas.width - drawW / 2;
@@ -120,7 +142,7 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
     } finally {
       setSaving(false);
     }
-  }, [selected, scale, cx, cy, baseImageUrl, onSave, onClose]);
+  }, [selected, scale, cx, cy, baseImageUrl, onSave, onClose, rotation]);
 
   return (
     <div className="composite-overlay" onClick={onClose}>
@@ -134,7 +156,13 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
 
         {/* プレビュー（ベース画像＋重ねる写真）。重ねる写真はドラッグで移動できる。 */}
         <div className="composite-stage" ref={stageRef}>
-          <img className="composite-base" src={resolveUrl(baseImageUrl)} alt="" draggable={false} />
+          <img
+            className="composite-base"
+            src={resolveUrl(baseImageUrl)}
+            alt=""
+            draggable={false}
+            style={{ transform: `rotate(${rotation}deg)`, transformOrigin: "center center" }}
+          />
           {selected && (
             <img
               className="composite-ov"
@@ -153,18 +181,23 @@ export const CompositeEditor: React.FC<Props> = ({ baseImageUrl, title = "画像
 
         {/* 大きさスライダー（重ねる写真の幅＝ベース幅に対する割合） */}
         <div className="composite-controls">
-          <label className="composite-scale">
-            大きさ
-            <input
-              type="range"
-              min={0.05}
-              max={1.5}
-              step={0.01}
-              value={scale}
-              disabled={!selected}
-              onChange={(e) => setScale(Number(e.target.value))}
-            />
-          </label>
+          <div className="composite-controls-row">
+            <label className="composite-scale">
+              大きさ
+              <input
+                type="range"
+                min={0.05}
+                max={1.5}
+                step={0.01}
+                value={scale}
+                disabled={!selected}
+                onChange={(e) => setScale(Number(e.target.value))}
+              />
+            </label>
+            <button type="button" className="btn-secondary" onClick={rotateBaseImage}>
+              ベース画像を90°回転
+            </button>
+          </div>
           <p className="hint">重ねる写真はドラッグで移動できます。</p>
         </div>
 

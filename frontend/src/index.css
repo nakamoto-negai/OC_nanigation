@@ -1123,8 +1123,9 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   cursor: move; touch-action: none;
   filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.4));
 }
-.composite-controls { margin: 10px 0; }
-.composite-scale { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: #475569; }
+.composite-controls { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.composite-controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.composite-scale { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: #475569; flex: 1; min-width: 220px; }
 .composite-scale input[type="range"] { flex: 1; }
 .composite-picker { margin-top: 8px; }
 .composite-ov-list {
