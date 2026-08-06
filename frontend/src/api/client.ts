@@ -1,4 +1,4 @@
-import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SuperCategory, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
+import { Announcement, ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, DemoOverlay, Destination, Event, ImageOptimizeResult, ImageStat, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, Setting, SuperCategory, SurveyAnswerInput, SurveyPublic, SurveyQuestion, SurveyResponse, User, UserLog } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -121,6 +121,15 @@ export const api = {
       }),
     delete: (id: number) =>
       adminReq<void>(`/api/overlay-images/${id}`, { method: "DELETE" }),
+  },
+  // アップロード画像の一括最適化（画素数を下げて同名で上書き）。管理者のみ。
+  images: {
+    stats: () => adminReq<{ count: number; total_bytes: number; items: ImageStat[] }>("/api/images/stats"),
+    optimize: (max_edge: number, quality: number) =>
+      adminReq<ImageOptimizeResult>("/api/images/optimize", {
+        method: "POST",
+        body: JSON.stringify({ max_edge, quality }),
+      }),
   },
   settings: {
     get: () => req<Setting>("/api/settings"),

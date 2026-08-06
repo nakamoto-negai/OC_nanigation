@@ -172,6 +172,39 @@ export interface UserLog {
   created_at: string;
 }
 
+// アップロード画像1件の情報（画像最適化タブの一覧用）
+export interface ImageStat {
+  name: string;
+  url: string;
+  bytes: number;
+  width: number;
+  height: number;
+}
+
+// 画像最適化の実行結果（1件）
+export interface ImageOptimizeResultItem {
+  name: string;
+  before_w: number;
+  before_h: number;
+  after_w: number;
+  after_h: number;
+  before_bytes: number;
+  after_bytes: number;
+  status: "resized" | "skipped" | "failed";
+}
+
+// 画像最適化の実行結果（全体サマリ）
+export interface ImageOptimizeResult {
+  target_max_edge: number;
+  quality: number;
+  processed: number;
+  skipped: number;
+  failed: number;
+  bytes_before: number;
+  bytes_after: number;
+  items: ImageOptimizeResultItem[];
+}
+
 export interface MapImage {
   id: number;
   name: string;

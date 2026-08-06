@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SuperCategory, SurveyQuestion, SurveyResponse, UserLog } from "../types";
+import { ArrivalPhoto, ARFeature, ARObject, Cafeteria, Category, Destination, Event, ImageOptimizeResult, ImageStat, IndoorTransition, Link, MapImage, Node, NodeDetour, OverlayImage, Photo, SuperCategory, SurveyQuestion, SurveyResponse, UserLog } from "../types";
 import { api } from "../api/client";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "../utils/congestion";
 import { useAdminWS, UserPosition } from "../hooks/useAdminWS";
@@ -26,7 +26,7 @@ interface Props {
   onPhotoReordered: (linkId: number, photos: Photo[]) => void;
 }
 
-type Tab = "node" | "destination" | "link" | "detour" | "indoor" | "photo" | "overlay" | "composite" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
+type Tab = "node" | "destination" | "link" | "detour" | "indoor" | "photo" | "overlay" | "composite" | "image" | "cafeteria" | "settings" | "users" | "logs" | "category" | "ar" | "survey" | "event" | "demo" | "announce";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -2031,6 +2031,129 @@ function OverlayImageTab() {
   );
 }
 
+// バイト数を人間向けに整形する。
+function fmtBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1024 / 1024).toFixed(2)} MB`;
+}
+
+// 画像最適化タブ：アップロード済み画像を長辺 max_edge に縮小して同名で上書きする。
+// ファイル名は変えないので、参照している全モデル（写真・到着写真・合成素材・マップ・
+// お知らせ・屋内案内など）に一律で効く。
+function ImageOptimizeTab() {
+  const [stats, setStats] = useState<{ count: number; total_bytes: number; items: ImageStat[] } | null>(null);
+  const [maxEdge, setMaxEdge] = useState(1600);
+  const [quality, setQuality] = useState(82);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<ImageOptimizeResult | null>(null);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const loadStats = () => {
+    api.images.stats().then(setStats).catch((e) => setMsg({ type: "err", text: e.message }));
+  };
+  useEffect(loadStats, []);
+
+  // 選択中の長辺を超える（＝縮小対象になる）画像。
+  const exceeding = stats ? stats.items.filter((it) => Math.max(it.width, it.height) > maxEdge) : [];
+
+  const run = async () => {
+    if (exceeding.length === 0) {
+      setMsg({ type: "err", text: "縮小対象の画像がありません（すべて長辺が基準以下です）" });
+      return;
+    }
+    if (!window.confirm(`${exceeding.length}枚の画像を長辺${maxEdge}pxに縮小し、元のファイルに上書きします。\nこの操作は元に戻せません。続けますか？`)) return;
+    setRunning(true);
+    setMsg(null);
+    setResult(null);
+    try {
+      const r = await api.images.optimize(maxEdge, quality);
+      setResult(r);
+      const saved = r.bytes_before - r.bytes_after;
+      setMsg({ type: "ok", text: `${r.processed}枚を縮小しました（${fmtBytes(saved)}削減）` });
+      loadStats();
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="adm-layout">
+      <div className="adm-form-col">
+        <h3>画像を縮小して上書き</h3>
+        {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
+        <p className="hint" style={{ marginBottom: 12 }}>
+          アップロード済みの画像を、指定した長辺のピクセル数まで縮小して元のファイルに上書きします。ファイル名は変わらないため、写真・到着写真・合成素材・マップ・お知らせなど、その画像を参照している全ての箇所にそのまま反映されます。長辺が基準以下の画像は変更しません（透過PNGは透過を保ちPNGのまま保存）。
+        </p>
+        <div className="adm-field">
+          <label>長辺の最大ピクセル</label>
+          <select value={maxEdge} onChange={(e) => setMaxEdge(Number(e.target.value))}>
+            <option value={1024}>1024px（最小・軽量）</option>
+            <option value={1280}>1280px</option>
+            <option value={1600}>1600px（推奨）</option>
+            <option value={2048}>2048px（高精細）</option>
+          </select>
+        </div>
+        <div className="adm-field">
+          <label>JPEG品質</label>
+          <select value={quality} onChange={(e) => setQuality(Number(e.target.value))}>
+            <option value={90}>90（高品質・容量大）</option>
+            <option value={82}>82（推奨）</option>
+            <option value={75}>75（軽量）</option>
+          </select>
+          <p className="hint" style={{ marginTop: 4 }}>PNGには影響しません（JPEGの再圧縮品質）。</p>
+        </div>
+        <div className="adm-field" style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px" }}>
+          <div>登録画像: <b>{stats ? stats.count : "…"}</b>枚 / 合計 <b>{stats ? fmtBytes(stats.total_bytes) : "…"}</b></div>
+          <div style={{ marginTop: 4 }}>今回の縮小対象: <b style={{ color: exceeding.length > 0 ? "#2563eb" : "#64748b" }}>{exceeding.length}</b>枚</div>
+        </div>
+        <div className="adm-actions">
+          <button className="btn-primary" onClick={run} disabled={running || !stats || exceeding.length === 0}>
+            {running ? "縮小中..." : `${exceeding.length}枚を縮小して上書き`}
+          </button>
+        </div>
+        {result && (
+          <div className="adm-field" style={{ marginTop: 12 }}>
+            <label>実行結果</label>
+            <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+              <div>縮小: {result.processed}枚 / 対象外: {result.skipped}枚 / 失敗: {result.failed}枚</div>
+              <div>容量: {fmtBytes(result.bytes_before)} → {fmtBytes(result.bytes_after)}
+                {result.processed > 0 && <b style={{ color: "#16a34a" }}>（{fmtBytes(result.bytes_before - result.bytes_after)}削減）</b>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="adm-list-col">
+        <h3>登録画像一覧 <span className="count-badge">{stats?.count ?? 0}</span></h3>
+        {!stats ? (
+          <p className="adm-empty">読み込み中…</p>
+        ) : stats.items.length === 0 ? (
+          <p className="adm-empty">画像がまだありません</p>
+        ) : (
+          <div className="img-opt-list">
+            {stats.items.map((it) => {
+              const over = Math.max(it.width, it.height) > maxEdge;
+              return (
+                <div key={it.name} className={`img-opt-item${over ? " over" : ""}`}>
+                  <img src={`${BASE}${it.url}`} alt="" loading="lazy" />
+                  <div className="img-opt-meta">
+                    <div className="img-opt-dim">{it.width}×{it.height}</div>
+                    <div className="img-opt-size">{fmtBytes(it.bytes)}</div>
+                  </div>
+                  {over && <span className="img-opt-badge">縮小対象</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DestinationTab({
   nodes,
   categories: categoriesProp,
@@ -3146,6 +3269,7 @@ export const AdminPage: React.FC<Props> = ({
     { key: "photo", label: "写真" },
     { key: "overlay", label: "合成素材" },
     { key: "composite", label: "画像合成" },
+    { key: "image", label: "画像最適化" },
     { key: "settings", label: "設定" },
     { key: "category", label: "カテゴリ", badge: categories.length },
     { key: "cafeteria", label: "食堂" },
@@ -3234,6 +3358,7 @@ export const AdminPage: React.FC<Props> = ({
         )}
         {tab === "overlay" && <OverlayImageTab />}
         {tab === "composite" && <CompositeTab links={links} />}
+        {tab === "image" && <ImageOptimizeTab />}
         {tab === "cafeteria" && <CafeteriaTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}

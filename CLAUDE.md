@@ -138,6 +138,8 @@ docker compose up -d --build
 /api/destinations       GET          — 目的地一覧（公開）
 /api/destinations       POST         — 目的地登録（管理者のみ。node_ids で所属ノードを指定）
 /api/destinations/:id   PUT/DELETE   — 目的地更新・削除（管理者のみ）
+/api/images/stats       GET          — アップロード画像の一覧（名前・URL・寸法・バイト数）と合計（管理者のみ）
+/api/images/optimize    POST         — 長辺 max_edge を超える画像を縮小して同名で上書き（管理者のみ。body: max_edge, quality）
 /api/settings       GET/PUT
 /api/cafeterias                 GET          — 食堂一覧（公開・ヘッダー表示用）
 /api/cafeterias                 POST         — 食堂登録（管理者のみ）
@@ -241,6 +243,13 @@ main()
 
 - アップロード上限: `client_max_body_size 20m`（nginx.conf の `/api/` ブロック内）
 - WebSocket: `proxy_http_version 1.1` と `Upgrade` ヘッダーが必要（`/ws/` ブロック）
+
+## 画像最適化（一括縮小）
+
+管理画面「画像最適化」タブ（`ImageOptimizeTab`）から、アップロード済み画像を長辺 max_edge（1024/1280/1600/2048px 選択）まで縮小して**同名ファイルに上書き**できる。全モデルは `/uploads/<name>` の URL を持つだけなので、ファイル名を変えずにその場で縮小すれば DB 変更なしで全種類（写真・到着写真・合成素材・マップ・お知らせ・屋内案内・AR特徴点画像など）に一律で反映される。
+
+- バックエンド `backend/handlers/image_optimize_handler.go` が `UPLOAD_DIR` 内の `.jpg/.jpeg/.png` を走査。長辺が基準を超える画像だけをアルファ重み付き面積平均（純標準ライブラリ・追加依存なし）で縮小し、JPEGは指定品質で再エンコード、PNGは透過を保ったまま `BestCompression` で再エンコードして上書きする。長辺が基準以下の画像は skip。
+- 元画像は上書きで消えるため**元に戻せない**（UIで確認ダイアログを出す）。AR特徴点はDB内の事前計算descriptorで認識するため、参照画像を縮小しても認識自体には影響しない。
 
 ## よくある問題
 

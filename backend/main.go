@@ -104,6 +104,10 @@ func main() {
 		admin.POST("/overlay-images", handlers.UploadOverlayImage)
 		admin.DELETE("/overlay-images/:id", handlers.DeleteOverlayImage)
 
+		// アップロード画像の一括最適化（画素数を下げて同名で上書き）
+		admin.GET("/images/stats", handlers.ListImageStats)
+		admin.POST("/images/optimize", handlers.OptimizeImages)
+
 		admin.PUT("/settings", handlers.UpdateSettings)
 
 		admin.GET("/users", handlers.ListUsers)
