@@ -297,10 +297,10 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleDestinations.length]);
+  }, [grouped.map((g) => g.key).join("|")]);
 
   const toggleGroup = (key: string) =>
-    setOpenKeys((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOpenKeys((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
 
   const isOpen = (key: string) => openKeys[key] ?? true;
 
@@ -420,6 +420,32 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   }, [visibleDestinations, superCats]);
 
   // イベント選択の本体（大カテゴリー → カテゴリー → イベント（選択肢）→ その下に目的地）
+  const [eventOpenKeys, setEventOpenKeys] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setEventOpenKeys((prev) => {
+      const next = { ...prev };
+      const keys = new Set<string>();
+      for (const sg of eventSuperGroups) {
+        keys.add(sg.key);
+        for (const cg of sg.cats) keys.add(cg.key);
+      }
+      for (const key of keys) {
+        if (!(key in next)) {
+          const isSuper = key.startsWith("evt-sup-");
+          const id = Number(key.split("-").pop());
+          const superCat = superCats.find((s) => s.id === id);
+          next[key] = isSuper ? (superCat?.is_open_default ?? true) : true;
+        }
+      }
+      return next;
+    });
+  }, [eventSuperGroups, superCats]);
+
+  const toggleEventGroup = (key: string) =>
+    setEventOpenKeys((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
+
+  const isEventOpen = (key: string) => eventOpenKeys[key] ?? true;
+
   const eventSelectionBody =
     eventSuperGroups.length === 0 ? (
       <p className="dest-empty">開催イベントが登録された目的地がありません</p>
@@ -427,19 +453,21 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       <div className="dest-groups">
         {eventSuperGroups.map((sg) => (
           <div key={sg.key} className="dest-group evt-super">
-            <button className="dest-group-heading evt-super-heading" onClick={() => toggleGroup(sg.key)}>
-              <span>{sg.label}</span>
-              <span className="dest-group-arrow">{isOpen(sg.key) ? "▲" : "▼"}</span>
+            <button className="dest-group-heading evt-super-heading" onClick={() => toggleEventGroup(sg.key)}>
+              <span className="evt-heading-label">{sg.label}</span>
+              <span className="evt-heading-meta">大カテゴリ</span>
+              <span className="dest-group-arrow">{isEventOpen(sg.key) ? "▲" : "▼"}</span>
             </button>
-            {isOpen(sg.key) && (
+            {isEventOpen(sg.key) && (
               <div className="evt-super-body">
                 {sg.cats.map((cg) => (
                   <div key={cg.key} className="dest-group evt-cat">
-                    <button className="dest-group-heading evt-cat-heading" onClick={() => toggleGroup(cg.key)}>
-                      <span>{cg.label}</span>
-                      <span className="dest-group-arrow">{isOpen(cg.key) ? "▲" : "▼"}</span>
+                    <button className="dest-group-heading evt-cat-heading" onClick={() => toggleEventGroup(cg.key)}>
+                      <span className="evt-heading-label">{cg.label}</span>
+                      <span className="evt-heading-meta">カテゴリ</span>
+                      <span className="dest-group-arrow">{isEventOpen(cg.key) ? "▲" : "▼"}</span>
                     </button>
-                    {isOpen(cg.key) && (
+                    {isEventOpen(cg.key) && (
                       <div className="evt-list">
                         {cg.entries.map((en) => (
                           <button
