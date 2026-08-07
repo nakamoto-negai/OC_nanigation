@@ -442,37 +442,22 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     return groups;
   }, [visibleDestinations, superCats]);
 
-  // イベント選択の本体（大カテゴリー → カテゴリー → イベント（選択肢）→ その下に目的地）
-  const [eventOpenKeys, setEventOpenKeys] = useState<Record<string, boolean>>({});
-  useEffect(() => {
-    setEventOpenKeys((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      const keys = new Set<string>();
-      for (const sg of eventSuperGroups) {
-        keys.add(sg.key);
-        for (const cg of sg.cats) keys.add(cg.key);
-      }
-      for (const key of keys) {
-        if (!(key in next)) {
-          // 大カテゴリーの key は "evt-sup-<id>"（id は負=その他 のこともあるので接頭辞を除いて取り出す）
-          const isSuper = key.startsWith("evt-sup-");
-          const id = isSuper ? Number(key.slice("evt-sup-".length)) : NaN;
-          const superCat = superCats.find((s) => s.id === id);
-          next[key] = isSuper ? (superCat?.is_open_default ?? true) : true;
-          changed = true;
-        }
-      }
-      // 追加すべき新規キーが無ければ、同一参照の prev を返して再レンダリングを防ぐ
-      // （eventSuperGroups が毎回新参照になり、この effect が毎レンダリング走るため churn を止める）。
-      return changed ? next : prev;
-    });
-  }, [eventSuperGroups, superCats]);
-
+  // イベント選択の開閉。ユーザーが手動で切り替えた分だけ override として保持し、
+  // 既定は都度計算する（大カテゴリーは SuperCategory.is_open_default、カテゴリーは開く）。
+  // ※以前は useEffect で既定を state に流し込んでいたが、eventSuperGroups が毎レンダリング
+  //   新参照になり effect が走り続けて開閉トグルが安定しなかった。effect を廃し都度計算にする。
+  const [eventOverrides, setEventOverrides] = useState<Record<string, boolean>>({});
+  const eventGroupDefaultOpen = (key: string) => {
+    if (key.startsWith("evt-sup-")) {
+      const id = Number(key.slice("evt-sup-".length)); // "evt-sup-<id>"（負のこともある）
+      return superCats.find((s) => s.id === id)?.is_open_default ?? true;
+    }
+    return true; // カテゴリーは既定で開く
+  };
+  const isEventOpen = (key: string) =>
+    key in eventOverrides ? eventOverrides[key] : eventGroupDefaultOpen(key);
   const toggleEventGroup = (key: string) =>
-    setEventOpenKeys((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
-
-  const isEventOpen = (key: string) => eventOpenKeys[key] ?? true;
+    setEventOverrides((prev) => ({ ...prev, [key]: !(key in prev ? prev[key] : eventGroupDefaultOpen(key)) }));
 
   const eventSelectionBody =
     eventSuperGroups.length === 0 ? (

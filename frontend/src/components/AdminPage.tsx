@@ -1561,6 +1561,7 @@ function CategoryTab() {
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   // 大カテゴリー追加用
   const [newSuperName, setNewSuperName] = useState("");
+  const [newSuperOpen, setNewSuperOpen] = useState(true);
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch(() => {});
@@ -1612,10 +1613,17 @@ function CategoryTab() {
   const addSuper = async () => {
     if (!newSuperName.trim()) { setMsg({ type: "err", text: "大カテゴリー名を入力してください" }); return; }
     try {
-      const created = await api.superCategories.create({ name: newSuperName.trim(), sort_order: superCats.length, is_open_default: true });
+      const created = await api.superCategories.create({ name: newSuperName.trim(), sort_order: superCats.length, is_open_default: newSuperOpen });
       setSuperCats((p) => [...p, created]);
       setNewSuperName("");
       setMsg({ type: "ok", text: `大カテゴリー「${created.name}」を追加しました` });
+    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  };
+  // 大カテゴリーの初期状態（開く/閉じる）を切り替える
+  const toggleSuperOpen = async (s: SuperCategory) => {
+    try {
+      const updated = await api.superCategories.update(s.id, { is_open_default: !s.is_open_default });
+      setSuperCats((p) => p.map((x) => (x.id === updated.id ? updated : x)));
     } catch (e: any) { setMsg({ type: "err", text: e.message }); }
   };
   const delSuper = async (id: number, nm: string) => {
@@ -1640,11 +1648,25 @@ function CategoryTab() {
             onKeyDown={(e) => { if (e.key === "Enter") addSuper(); }} placeholder="例: 学部エリア、体験コーナー" />
           <button className="btn-primary" onClick={addSuper}>追加</button>
         </div>
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input type="checkbox" checked={newSuperOpen} onChange={(e) => setNewSuperOpen(e.target.checked)} />
+            イベント選択画面でデフォルトで開く（OFFで閉じた状態）
+          </label>
+        </div>
         {superCats.length > 0 && (
           <div className="demo-overlay-list" style={{ marginBottom: 16 }}>
             {superCats.map((s) => (
               <div key={s.id} className="demo-overlay-item">
                 <span className="demo-overlay-name" style={{ flex: 1 }}>{s.name}</span>
+                <button
+                  type="button"
+                  className="btn-edit"
+                  title="タップで開く/閉じるを切り替え"
+                  onClick={() => toggleSuperOpen(s)}
+                >
+                  {s.is_open_default ? "初期: 開く" : "初期: 閉じる"}
+                </button>
                 <button className="btn-del" onClick={() => delSuper(s.id, s.name)}>削除</button>
               </div>
             ))}
