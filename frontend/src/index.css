@@ -1086,7 +1086,9 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 
 .rg-goal {
   flex: none;
-  height: calc(var(--card-h) * 0.8);
+  /* ステップカードと同じ1スロット分の高さにして、最後尾でもスナップで上端まで
+     スクロールできるようにする（0.8 だと短くて上まで来られなかった）。 */
+  height: calc(var(--card-h) - 44px);
   scroll-snap-align: start;
   text-align: center; padding: 24px 16px; background: #f0fdf4;
   border: 1px solid #bbf7d0; border-radius: 0; margin-top: 0;
