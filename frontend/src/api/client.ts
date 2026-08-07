@@ -254,6 +254,10 @@ export const api = {
         // 複数画像に対応：{ created: ARFeature[], skipped: number } を返す
         return r.json() as Promise<{ created: ARFeature[]; skipped: number }>;
       }),
+    // 特徴点のメタ情報（名前・紐づけ）を編集する。画像・記述子は変更しない。
+    // viewpoint_node_ids は見える地点（複数）。省略で維持、[] で全解除。
+    update: (id: number, data: { name?: string; node_id?: number | null; viewpoint_node_ids?: number[]; ar_object_id?: number | null }) =>
+      adminReq<ARFeature>(`/api/ar-features/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: number) => adminReq<void>(`/api/ar-features/${id}`, { method: "DELETE" }),
   },
   arObjects: {

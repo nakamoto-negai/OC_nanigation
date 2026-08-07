@@ -240,6 +240,8 @@ export interface ARFeature {
   node?: Node;
   viewpoint_node_id: number | null;
   viewpoint_node?: Node;
+  // 見える地点（複数）。空なら「どこからでも見える」。
+  viewpoint_nodes?: Node[];
   ar_object_id: number | null;
   ar_object?: ARObject;
   name: string;

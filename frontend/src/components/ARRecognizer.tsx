@@ -28,16 +28,22 @@ interface InFlight {
   dh: number;
 }
 
+interface ARRecognizerProps {
+  /** 現在地ノードID。指定するとその地点から「見える地点」に含む対象だけに絞り込んで照合する。
+   *  未指定/null なら全登録対象を照合する（管理画面の認識テスト等）。 */
+  viewpointNodeId?: number | null;
+}
+
 /**
  * カメラ映像と登録済みの参照を特徴点マッチングし、認識した対象名と
  * 簡易詳細（説明＋リンク）をカメラ下部に直接表示する。
- * 現在地による絞り込みは行わず、常に全登録対象を照合する。
+ * viewpointNodeId を渡すと、その地点から見える対象だけに絞り込む（見える地点未設定の対象は常に候補）。
  * ユーザーアプリ・管理画面の両方から使う共通コンポーネント。
  *
  * OpenCV.js の読み込み・初期化・照合はすべて Web Worker（opencvWorker.js）で行う。
  * メインスレッドはカメラ映像と UI だけを扱うため、読み込み中も画面が固まらない。
  */
-export const ARRecognizer: React.FC = () => {
+export const ARRecognizer: React.FC<ARRecognizerProps> = ({ viewpointNodeId }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -176,13 +182,13 @@ export const ARRecognizer: React.FC = () => {
     };
   }, [postFrame]);
 
-  // 参照の読み込み：マウント時に全登録対象を取得する（現在地での絞り込みはしない）
+  // 参照の読み込み：現在地(viewpointNodeId)が指定されていればその地点から見える対象だけに絞り込む。
   useEffect(() => {
     setStatus("loading");
     setResult(null);
     let cancelled = false;
     api.arFeatures
-      .matchset()
+      .matchset(viewpointNodeId ?? undefined)
       .then((full) => {
         if (cancelled) return;
         // 詳細表示用に id → ARFeature を保持（建物ノード/物体情報を含む）
@@ -215,7 +221,7 @@ export const ARRecognizer: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [viewpointNodeId]);
 
   const startCamera = async () => {
     try {
@@ -312,7 +318,12 @@ export const ARRecognizer: React.FC = () => {
           </div>
         )}
 
-        {cameraOn && !result && <div className="ar-building-scanning">対象を探しています…</div>}
+        {cameraOn && !result && (
+          <div className="ar-building-scanning">
+            パンフレットや学科の看板を映してみよう
+            <span className="ar-building-scanning-sub">対象を探しています…</span>
+          </div>
+        )}
 
         {/* 認識成功の瞬間に1回だけ再生する煌びやか演出（光のリング・フラッシュ・星屑） */}
         {burst > 0 && (

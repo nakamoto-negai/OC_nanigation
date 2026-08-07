@@ -38,6 +38,16 @@ func Connect() error {
 		return fmt.Errorf("failed to migrate cafeterias: %w", err)
 	}
 
+	// AR特徴点の「見える地点」を単一(viewpoint_node_id)→多対多(ar_feature_viewpoints)へ移行。
+	// NOT EXISTS ガードで冪等（毎起動で走っても二重登録しない）。
+	db.Exec(`INSERT INTO ar_feature_viewpoints (ar_feature_id, node_id)
+		SELECT id, viewpoint_node_id FROM ar_features
+		WHERE viewpoint_node_id IS NOT NULL
+		  AND NOT EXISTS (
+		    SELECT 1 FROM ar_feature_viewpoints v
+		    WHERE v.ar_feature_id = ar_features.id AND v.node_id = ar_features.viewpoint_node_id
+		  )`)
+
 	DB = db
 	return nil
 }

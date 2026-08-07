@@ -3027,6 +3027,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
   const [features, setFeatures] = useState<ARFeature[]>([]);
   const [name, setName] = useState("");
   const [buildingNodeId, setBuildingNodeId] = useState<number | "">("");
+  const [regViewpointIds, setRegViewpointIds] = useState<number[]>([]);
   const [arObjectId, setArObjectId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -3035,6 +3036,48 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
   const [arObjects, setArObjects] = useState<ARObject[]>([]);
   const [objForm, setObjForm] = useState({ name: "", category: "", image_url: "", link_url: "", description: "" });
   const [objSaving, setObjSaving] = useState(false);
+
+  // 特徴点の編集（名前・紐づけのみ。画像/記述子は変更しない）
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editNodeId, setEditNodeId] = useState<number | "">("");
+  const [editViewpointIds, setEditViewpointIds] = useState<number[]>([]);
+  const [editObjId, setEditObjId] = useState<number | "">("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  // 見える地点チェックボックスのトグル（編集/登録で共用）
+  const toggleId = (arr: number[], id: number) =>
+    arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+
+  const startEditFeature = (f: ARFeature) => {
+    setEditId(f.id);
+    setEditName(f.name);
+    setEditNodeId(f.node_id ?? "");
+    setEditViewpointIds((f.viewpoint_nodes ?? []).map((n) => n.id));
+    setEditObjId(f.ar_object_id ?? "");
+    setMsg(null);
+  };
+  const cancelEditFeature = () => setEditId(null);
+  const saveEditFeature = async () => {
+    if (editId == null) return;
+    setEditSaving(true);
+    setMsg(null);
+    try {
+      const updated = await api.arFeatures.update(editId, {
+        name: editName.trim(),
+        node_id: editNodeId === "" ? null : Number(editNodeId),
+        viewpoint_node_ids: editViewpointIds,
+        ar_object_id: editObjId === "" ? null : Number(editObjId),
+      });
+      setFeatures((p) => p.map((f) => (f.id === updated.id ? updated : f)));
+      setEditId(null);
+      setMsg({ type: "ok", text: "特徴点を更新しました" });
+    } catch (e: any) {
+      setMsg({ type: "err", text: e.message });
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   useEffect(() => {
     api.arFeatures.list().then(setFeatures).catch(() => {});
@@ -3112,6 +3155,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
       files.forEach((f, i) => form.append("image", f, f.name || `arfeature_${i}.jpg`));
       form.append("name", name.trim() || `特徴点 ${new Date().toLocaleString("ja-JP")}`);
       if (buildingNodeId !== "") form.append("node_id", String(buildingNodeId));
+      regViewpointIds.forEach((id) => form.append("viewpoint_node_ids", String(id)));
       if (arObjectId !== "") form.append("ar_object_id", String(arObjectId));
       form.append("max_features", String(maxFeatures));
 
@@ -3120,6 +3164,7 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
       const totalKp = res.created.reduce((s, f) => s + f.keypoint_count, 0);
       setName("");
       setArObjectId("");
+      setRegViewpointIds([]);
       onPickFiles(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       setMsg({
@@ -3268,6 +3313,24 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
               </select>
             </div>
             <div className="adm-field">
+              <label>見える地点（複数選択可）</label>
+              <div className="ar-viewpoint-list">
+                {nodes.length === 0 ? (
+                  <span className="text-muted">ノードがありません</span>
+                ) : nodes.map((n) => (
+                  <label key={n.id} className="ar-viewpoint-item">
+                    <input
+                      type="checkbox"
+                      checked={regViewpointIds.includes(n.id)}
+                      onChange={() => setRegViewpointIds((p) => toggleId(p, n.id))}
+                    />
+                    {n.name}
+                  </label>
+                ))}
+              </div>
+              <p className="hint">選んだ地点にいるユーザーの「かざして調べる」でこの対象が認識候補に含まれます。未選択なら「どこからでも認識」。</p>
+            </div>
+            <div className="adm-field">
               <label>物体（建物以外の詳細情報）</label>
               <select value={arObjectId} onChange={(e) => setArObjectId(Number(e.target.value) || "")}>
                 <option value="">未設定</option>
@@ -3323,9 +3386,15 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
                       <strong>{f.name}</strong>
                       <span className="ar-feature-meta">{f.keypoint_count} 点 ／ {f.width}×{f.height}</span>
                       {f.node && <span className="ar-feature-node">建物: {f.node.name}</span>}
+                      {f.viewpoint_nodes && f.viewpoint_nodes.length > 0 && (
+                        <span className="ar-feature-node">見える地点: {f.viewpoint_nodes.map((n) => n.name).join("、")}</span>
+                      )}
                       {f.ar_object && <span className="ar-feature-node">物体: {f.ar_object.name}</span>}
                     </div>
-                    <button className="btn-del" onClick={() => del(f.id)}>削除</button>
+                    <div className="ar-feature-actions">
+                      <button className="btn-edit" onClick={() => startEditFeature(f)}>編集</button>
+                      <button className="btn-del" onClick={() => del(f.id)}>削除</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3333,6 +3402,63 @@ function ARFeatureTab({ nodes }: { nodes: Node[] }) {
           </>
         )}
       </div>
+
+      {/* 特徴点の編集（名前・紐づけのみ。画像/記述子は再抽出が必要なため変更しない） */}
+      {editId != null && (
+        <div className="dest-modal-overlay" onClick={cancelEditFeature}>
+          <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dest-modal-head">
+              <h2 className="dest-heading">特徴点を編集</h2>
+              <button className="dest-modal-close" onClick={cancelEditFeature} aria-label="閉じる">×</button>
+            </div>
+            <div className="dest-modal-body">
+              <div className="adm-field">
+                <label>名前</label>
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="表示名" />
+              </div>
+              <div className="adm-field">
+                <label>建物ノード（任意）</label>
+                <select value={editNodeId} onChange={(e) => setEditNodeId(Number(e.target.value) || "")}>
+                  <option value="">（なし）</option>
+                  {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+                </select>
+              </div>
+              <div className="adm-field">
+                <label>見える地点＝現在地ノード（複数選択可）</label>
+                <div className="ar-viewpoint-list">
+                  {nodes.length === 0 ? (
+                    <span className="text-muted">ノードがありません</span>
+                  ) : nodes.map((n) => (
+                    <label key={n.id} className="ar-viewpoint-item">
+                      <input
+                        type="checkbox"
+                        checked={editViewpointIds.includes(n.id)}
+                        onChange={() => setEditViewpointIds((p) => toggleId(p, n.id))}
+                      />
+                      {n.name}
+                    </label>
+                  ))}
+                </div>
+                <p className="hint">選んだ地点にいるユーザーの「かざして調べる」でこの対象が認識候補に絞り込まれます（未選択なら どこからでも）。</p>
+              </div>
+              <div className="adm-field">
+                <label>物体（詳細情報・任意）</label>
+                <select value={editObjId} onChange={(e) => setEditObjId(Number(e.target.value) || "")}>
+                  <option value="">（なし）</option>
+                  {arObjects.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </div>
+              <p className="hint">画像と特徴点（記述子）は変更しません。差し替えたい場合は削除して再登録してください。</p>
+              <div className="adm-actions">
+                <button className="btn-primary" onClick={saveEditFeature} disabled={editSaving}>
+                  {editSaving ? "保存中..." : "更新"}
+                </button>
+                <button className="btn-secondary" onClick={cancelEditFeature} disabled={editSaving}>キャンセル</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

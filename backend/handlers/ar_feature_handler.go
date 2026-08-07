@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ func ListARFeatures(c *gin.Context) {
 	var features []models.ARFeature
 	database.DB.
 		Preload("Node").
-		Preload("ViewpointNode").
+		Preload("ViewpointNodes").
 		Preload("ARObject").
 		Omit("Descriptors").
 		Order("created_at desc").
@@ -33,10 +34,12 @@ func ListARFeatures(c *gin.Context) {
 // クライアント側（OpenCV.js）の特徴点マッチングで参照として読み込むために使う。
 // ?viewpoint_node_id=N を付けると、その地点（現在地ノード）から見える建物だけに絞り込む。
 func ListARFeaturesForMatch(c *gin.Context) {
-	q := database.DB.Preload("Node").Preload("ViewpointNode").Preload("ARObject").Order("created_at desc")
+	q := database.DB.Preload("Node").Preload("ViewpointNodes").Preload("ARObject").Order("created_at desc")
 	if vp := c.Query("viewpoint_node_id"); vp != "" {
 		if v, err := strconv.Atoi(vp); err == nil && v > 0 {
-			q = q.Where("viewpoint_node_id = ?", v)
+			// 見える地点が未設定の対象（どこからでも見える）か、その地点を見える地点に含む対象だけに絞る。
+			q = q.Where(`NOT EXISTS (SELECT 1 FROM ar_feature_viewpoints av WHERE av.ar_feature_id = ar_features.id)
+				OR EXISTS (SELECT 1 FROM ar_feature_viewpoints av WHERE av.ar_feature_id = ar_features.id AND av.node_id = ?)`, v)
 		}
 	}
 	var features []models.ARFeature
@@ -75,19 +78,15 @@ func CreateARFeature(c *gin.Context) {
 	name := c.PostForm("name")
 
 	// 全レコード共通の紐づけ（一度だけパースして各レコードで共有する）
-	var nodeID, viewpointID, objID *uint
+	var nodeID, objID *uint
 	if nid := c.PostForm("node_id"); nid != "" {
 		if v, err := strconv.Atoi(nid); err == nil && v > 0 {
 			u := uint(v)
 			nodeID = &u
 		}
 	}
-	if vid := c.PostForm("viewpoint_node_id"); vid != "" {
-		if v, err := strconv.Atoi(vid); err == nil && v > 0 {
-			u := uint(v)
-			viewpointID = &u
-		}
-	}
+	// 見える地点（複数）。viewpoint_node_ids を繰り返し or カンマ区切りで受ける。
+	viewpointNodes := parseNodeIDList(c.PostFormArray("viewpoint_node_ids"), c.PostForm("viewpoint_node_ids"))
 	if oid := c.PostForm("ar_object_id"); oid != "" {
 		if v, err := strconv.Atoi(oid); err == nil && v > 0 {
 			u := uint(v)
@@ -149,21 +148,23 @@ func CreateARFeature(c *gin.Context) {
 		}
 
 		feat := models.ARFeature{
-			Name:            name,
-			ImageURL:        "/uploads/" + filename,
-			Keypoints:       orb.KeypointsJSON,
-			Descriptors:     orb.Descriptors,
-			KeypointCount:   orb.KeypointCount,
-			Width:           orb.Width,
-			Height:          orb.Height,
-			DescRows:        orb.DescRows,
-			DescCols:        orb.DescCols,
-			NodeID:          nodeID,
-			ViewpointNodeID: viewpointID,
-			ARObjectID:      objID,
+			Name:          name,
+			ImageURL:      "/uploads/" + filename,
+			Keypoints:     orb.KeypointsJSON,
+			Descriptors:   orb.Descriptors,
+			KeypointCount: orb.KeypointCount,
+			Width:         orb.Width,
+			Height:        orb.Height,
+			DescRows:      orb.DescRows,
+			DescCols:      orb.DescCols,
+			NodeID:        nodeID,
+			ARObjectID:    objID,
 		}
 		database.DB.Create(&feat)
-		database.DB.Preload("Node").Preload("ViewpointNode").Preload("ARObject").First(&feat, feat.ID)
+		if len(viewpointNodes) > 0 {
+			database.DB.Model(&feat).Association("ViewpointNodes").Replace(viewpointNodes)
+		}
+		database.DB.Preload("Node").Preload("ViewpointNodes").Preload("ARObject").Omit("Descriptors").First(&feat, feat.ID)
 		created = append(created, feat)
 	}
 
@@ -177,6 +178,56 @@ func CreateARFeature(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"created": created, "skipped": skipped})
+}
+
+// UpdateARFeature は特徴点レコードのメタ情報（名前・紐づけ）を編集する（管理者のみ）。
+// 画像・特徴点(記述子/keypoints)は再抽出が必要なので変更しない。名前・node_id・
+// viewpoint_node_id・ar_object_id のみ更新する（ID は null で紐づけ解除）。
+func UpdateARFeature(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var feat models.ARFeature
+	if err := database.DB.First(&feat, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	var body struct {
+		Name             *string `json:"name"`
+		NodeID           *uint   `json:"node_id"`
+		ViewpointNodeIDs *[]uint `json:"viewpoint_node_ids"`
+		ARObjectID       *uint   `json:"ar_object_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// map 更新で nil を明示的に NULL にする（紐づけ解除）。記述子など重い列には触れない。
+	updates := map[string]interface{}{
+		"node_id":      body.NodeID,
+		"ar_object_id": body.ARObjectID,
+	}
+	if body.Name != nil {
+		updates["name"] = *body.Name
+	}
+	if err := database.DB.Model(&models.ARFeature{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 見える地点（複数）が指定されていれば張り替える（空配列なら全解除）。未指定なら維持。
+	if body.ViewpointNodeIDs != nil {
+		nodes := make([]models.Node, 0, len(*body.ViewpointNodeIDs))
+		for _, v := range *body.ViewpointNodeIDs {
+			if v > 0 {
+				nodes = append(nodes, models.Node{ID: v})
+			}
+		}
+		database.DB.Model(&feat).Association("ViewpointNodes").Replace(nodes)
+	}
+
+	database.DB.Preload("Node").Preload("ViewpointNodes").Preload("ARObject").Omit("Descriptors").First(&feat, id)
+	c.JSON(http.StatusOK, feat)
 }
 
 func DeleteARFeature(c *gin.Context) {
@@ -200,4 +251,32 @@ func atoiOr(s string, fallback int) int {
 		return v
 	}
 	return fallback
+}
+
+// parseNodeIDList は繰り返しフォーム値 or カンマ区切り文字列から、重複を除いたノード（IDのみ）一覧を作る。
+func parseNodeIDList(values []string, csv string) []models.Node {
+	seen := map[uint]bool{}
+	var nodes []models.Node
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		if v, err := strconv.Atoi(s); err == nil && v > 0 && !seen[uint(v)] {
+			seen[uint(v)] = true
+			nodes = append(nodes, models.Node{ID: uint(v)})
+		}
+	}
+	for _, s := range values {
+		add(s)
+	}
+	// 繰り返しフィールドが無く、カンマ区切りで来たときのフォールバック
+	if len(values) <= 1 && strings.Contains(csv, ",") {
+		nodes = nil
+		seen = map[uint]bool{}
+		for _, s := range strings.Split(csv, ",") {
+			add(s)
+		}
+	}
+	return nodes
 }

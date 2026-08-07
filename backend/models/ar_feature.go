@@ -6,7 +6,9 @@ import "time"
 // 後段の特徴点マッチング（平面認識・空間幾何）で、カメラ映像とこの参照を突き合わせる。
 //
 //   NodeID         : 認識される対象＝建物のノード。認識時にこの名前を「建物名」として表示する。
-//   ViewpointNodeID: この建物が見える地点（現在地ノード）。現在地で認識候補を絞り込むのに使う。
+//   ViewpointNodes : この対象が見える地点（現在地ノード）の集合。現在地で認識候補を絞り込むのに使う（多対多）。
+//                    空なら「どこからでも見える」（絞り込み時も常に候補に含める）。
+//   ViewpointNodeID: 旧・単一の見える地点。多対多へ移行済み（起動時に ar_feature_viewpoints へコピー）。未使用。
 //   Keypoints      : ORB が検出したキーポイントの JSON 配列 [{x,y,size,angle,response,octave}, ...]
 //   Descriptors    : ORB バイナリ記述子（CV_8U, rows×cols）を base64 化したもの
 //   DescRows/DescCols : 記述子行列の形状（マッチング時に復元するために保持）
@@ -16,6 +18,8 @@ type ARFeature struct {
 	Node            *Node     `json:"node,omitempty" gorm:"foreignKey:NodeID"`
 	ViewpointNodeID *uint     `json:"viewpoint_node_id"`
 	ViewpointNode   *Node     `json:"viewpoint_node,omitempty" gorm:"foreignKey:ViewpointNodeID"`
+	// 見える地点（複数）。ar_feature_viewpoints 中間テーブルで多対多。
+	ViewpointNodes  []Node    `json:"viewpoint_nodes,omitempty" gorm:"many2many:ar_feature_viewpoints;"`
 	// 建物以外の物体を認識したときに表示する詳細情報。任意。
 	ARObjectID *uint     `json:"ar_object_id"`
 	ARObject   *ARObject `json:"ar_object,omitempty" gorm:"foreignKey:ARObjectID"`
