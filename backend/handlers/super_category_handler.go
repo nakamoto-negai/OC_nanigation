@@ -22,10 +22,15 @@ func CreateSuperCategory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// is_open_default は bool + default:true のため、false（ゼロ値）は Create で反映されず
+	// DB既定(true)が構造体にも書き戻される。意図した値を Create 前に控え、後で明示更新して補正する。
+	wantOpen := sc.IsOpenDefault
 	if err := database.DB.Create(&sc).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	database.DB.Model(&sc).Update("is_open_default", wantOpen)
+	sc.IsOpenDefault = wantOpen
 	c.JSON(http.StatusCreated, sc)
 }
 

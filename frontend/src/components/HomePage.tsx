@@ -307,25 +307,25 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     grouped.find((g) => g.key === key)!.items.push(d);
   }
 
-  // アコーディオン開閉状態（初期値は is_open_default、未設定グループは open）
-  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});
-  useEffect(() => {
-    setOpenKeys((prev) => {
-      const next = { ...prev };
-      for (const g of grouped) {
-        if (!(g.key in next)) {
-          next[g.key] = g.cat?.is_open_default ?? true;
-        }
-      }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grouped.map((g) => g.key).join("|")]);
+  // カテゴリーID → is_open_default。初期開閉の既定に使う。目的地・イベントに埋め込まれた category から作る。
+  const catOpenMap = useMemo(() => {
+    const m = new Map<number, boolean>();
+    for (const d of destinations) {
+      if (d.category) m.set(d.category.id, d.category.is_open_default);
+      for (const e of d.events ?? []) if (e.category) m.set(e.category.id, e.category.is_open_default);
+    }
+    return m;
+  }, [destinations]);
 
+  // 目的地リストのアコーディオン開閉。ユーザーが切り替えた分だけ override として保持し、
+  // 既定は都度計算（カテゴリーの is_open_default、未設定グループは開く）。effect は使わない。
+  const [destOverrides, setDestOverrides] = useState<Record<string, boolean>>({});
+  const destGroupDefaultOpen = (key: string) =>
+    key === "__none__" ? true : (catOpenMap.get(Number(key)) ?? true);
+  const isOpen = (key: string) =>
+    key in destOverrides ? destOverrides[key] : destGroupDefaultOpen(key);
   const toggleGroup = (key: string) =>
-    setOpenKeys((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
-
-  const isOpen = (key: string) => openKeys[key] ?? true;
+    setDestOverrides((prev) => ({ ...prev, [key]: !(key in prev ? prev[key] : destGroupDefaultOpen(key)) }));
 
   const useAccordion = grouped.length > 1 || (grouped.length === 1 && grouped[0].key !== "__none__");
 
@@ -452,7 +452,11 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       const id = Number(key.slice("evt-sup-".length)); // "evt-sup-<id>"（負のこともある）
       return superCats.find((s) => s.id === id)?.is_open_default ?? true;
     }
-    return true; // カテゴリーは既定で開く
+    if (key.startsWith("evt-cat-")) {
+      const id = Number(key.slice("evt-cat-".length));
+      return catOpenMap.get(id) ?? true; // 普通のカテゴリーは is_open_default を尊重
+    }
+    return true;
   };
   const isEventOpen = (key: string) =>
     key in eventOverrides ? eventOverrides[key] : eventGroupDefaultOpen(key);
