@@ -1,6 +1,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; color: #1e293b; }
 
+/* モバイル（iOS Safari 等）のダブルタップ判定による約300msのタップ遅延を無くし、
+   閉じるボタンなどのタップを即応させる。pinch ズームは維持（none ではなく manipulation）。 */
+button, a, [role="button"], input, select, textarea, label { touch-action: manipulation; }
+
 /* ── Admin Login ── */
 .admin-login-page {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
