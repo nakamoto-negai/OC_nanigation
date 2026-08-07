@@ -25,29 +25,70 @@ interface Props {
 
 /**
  * マップ画像の上に地点マーカーを重ね、タップで選択させる（現在地・目的地の地図選択に使う）。
- * 座標は画像のピクセル座標(x,y)を naturalWidth/Height に対する割合で配置する（MapPicker と同方式）。
+ *
+ * ピンのずれ対策: 「コンテナ幅・高さに対する％」で置くと、端末やブラウザで画像の height:auto の
+ * 解決やアスペクト比一致がわずかにずれたときにピンが画像とずれてしまう。そこで、
+ * 画像の実際の描画サイズ(clientWidth/clientHeight)を ResizeObserver で実測し、
+ * ピンをピクセル位置 (x/naturalW * 描画幅, y/naturalH * 描画高) で配置する。
+ * これはアスペクト比一致の前提に依存せず、端末非依存で確実に画像と一致する。
  */
 export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, onSelect, emptyText, hideLabels, logPrefix }) => {
   const imgRef = useRef<HTMLImageElement>(null);
+  // 画像のピクセル座標系（ノード座標の基準）
   const [naturalW, setNaturalW] = useState(mapImage?.width || 0);
   const [naturalH, setNaturalH] = useState(mapImage?.height || 0);
+  // 画像の実描画サイズ（レイアウト後の見た目の px）。ピンのピクセル配置に使う。
+  const [renderW, setRenderW] = useState(0);
+  const [renderH, setRenderH] = useState(0);
 
-  // キャッシュ済み画像は onLoad が発火しないことがあり、その場合 DB 由来の初期値
-  // （実サイズと食い違うことがある）のままになりピンがずれる。マウント時／URL変更時に
-  // complete を確認して、実際の naturalWidth/Height を読み直す。
+  const url = mapImage?.url;
+
+  // 自然サイズを確実に取得する。キャッシュ済みで onLoad が発火しない端末に備え、
+  // マウント時/URL変更時に complete を確認して naturalWidth/Height を読み直す。
   useEffect(() => {
     const img = imgRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       setNaturalW(img.naturalWidth);
       setNaturalH(img.naturalHeight);
     }
-  }, [mapImage?.url]);
+  }, [url]);
+
+  // 実描画サイズを実測して追従する（画面回転・リサイズ・モーダル開閉・画像ロードで変化する）。
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const update = () => {
+      setRenderW(img.clientWidth);
+      setRenderH(img.clientHeight);
+    };
+    update();
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(update);
+      ro.observe(img);
+    }
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, [url]);
 
   if (!mapImage) {
     return <p className="dest-empty">{emptyText ?? "マップ画像が登録されていません"}</p>;
   }
 
-  const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+  const ready = naturalW > 0 && naturalH > 0 && renderW > 0 && renderH > 0;
+
+  const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setNaturalW(img.naturalWidth);
+    setNaturalH(img.naturalHeight);
+    setRenderW(img.clientWidth);
+    setRenderH(img.clientHeight);
+  };
 
   return (
     <div className="map-selector">
@@ -57,17 +98,14 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
           src={`${BASE}${mapImage.url}`}
           alt={mapImage.name}
           draggable={false}
-          onLoad={(e) => {
-            setNaturalW(e.currentTarget.naturalWidth);
-            setNaturalH(e.currentTarget.naturalHeight);
-          }}
+          onLoad={onImgLoad}
         />
-        {naturalW > 0 && naturalH > 0 && markers.map((m) => (
+        {ready && markers.map((m) => (
           <button
             key={m.id}
             type="button"
             className={`map-marker${m.id === selectedId ? " selected" : ""}`}
-            style={{ left: pct(m.x, naturalW), top: pct(m.y, naturalH) }}
+            style={{ left: `${(m.x / naturalW) * renderW}px`, top: `${(m.y / naturalH) * renderH}px` }}
             data-log={`${logPrefix ?? "地図選択"}: ${m.label}`}
             onClick={() => onSelect(m.id)}
           >
