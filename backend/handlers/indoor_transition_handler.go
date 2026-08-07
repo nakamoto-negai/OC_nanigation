@@ -102,13 +102,29 @@ func CreateIndoorTransition(c *gin.Context) {
 	c.JSON(http.StatusCreated, it)
 }
 
-// UpdateIndoorTransition は屋内案内ペアの画像を差し替える（合成結果の上書きにも使う）。
-// multipart/form-data: image（画像未指定なら既存を維持）
+// UpdateIndoorTransition は屋内案内ペアを編集する（リンクペア・種別・画像の差し替え、合成上書きにも使う）。
+// multipart/form-data: link_a_id / link_b_id / kind / image（いずれも任意。未指定の項目は既存を維持）
 func UpdateIndoorTransition(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var it models.IndoorTransition
 	if err := database.DB.First(&it, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	// リンクペアの変更。指定があれば更新する（0以下は無視）。
+	if s := c.PostForm("link_a_id"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 {
+			it.LinkAID = uint(v)
+		}
+	}
+	if s := c.PostForm("link_b_id"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 {
+			it.LinkBID = uint(v)
+		}
+	}
+	if it.LinkAID == it.LinkBID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "同じリンクはペアにできません"})
 		return
 	}
 

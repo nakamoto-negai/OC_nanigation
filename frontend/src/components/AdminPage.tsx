@@ -1805,6 +1805,8 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [editing, setEditing] = useState<IndoorTransition | null>(null);
+  // 編集中の屋内案内ID（null なら新規追加モード）。フォームを追加/編集で共用する。
+  const [editId, setEditId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -1817,7 +1819,30 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
       : `#${id}`;
   };
 
-  const add = async () => {
+  // フォームを新規追加モードに戻す。
+  const resetForm = () => {
+    setEditId(null);
+    setKind("indoor");
+    setLinkAId(""); setLinkBId("");
+    setFile(null);
+    if (fileRef.current) fileRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+  };
+
+  // 既存の屋内案内をフォームに読み込んで編集モードにする。
+  const startEdit = (t: IndoorTransition) => {
+    setEditId(t.id);
+    setKind(t.kind === "outdoor" ? "outdoor" : "indoor");
+    setLinkAId(t.link_a_id);
+    setLinkBId(t.link_b_id);
+    setFile(null);
+    if (fileRef.current) fileRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    setMsg(null);
+  };
+
+  // 追加（editId が null）／更新（editId あり）を共通処理する。
+  const submit = async () => {
     if (linkAId === "" || linkBId === "") { setMsg({ type: "err", text: "リンクを2つ選択してください" }); return; }
     if (linkAId === linkBId) { setMsg({ type: "err", text: "同じリンクはペアにできません" }); return; }
     setUploading(true);
@@ -1827,11 +1852,16 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
       form.append("link_b_id", String(linkBId));
       form.append("kind", kind);
       if (file) form.append("image", file);
-      const created = await api.indoorTransitions.create(form);
-      setTransitions((p) => [...p, created]);
-      setLinkAId(""); setLinkBId(""); setFile(null);
-      if (fileRef.current) fileRef.current.value = "";
-      setMsg({ type: "ok", text: "追加しました" });
+      if (editId != null) {
+        const updated = await api.indoorTransitions.update(editId, form);
+        setTransitions((p) => p.map((t) => (t.id === updated.id ? updated : t)));
+        setMsg({ type: "ok", text: "更新しました" });
+      } else {
+        const created = await api.indoorTransitions.create(form);
+        setTransitions((p) => [...p, created]);
+        setMsg({ type: "ok", text: "追加しました" });
+      }
+      resetForm();
     } catch (e: any) { setMsg({ type: "err", text: e.message }); }
     finally { setUploading(false); }
   };
@@ -1859,11 +1889,12 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
   return (
     <div className="adm-layout">
       <div className="adm-form-col">
-        <h3>屋内案内を追加</h3>
+        <h3>{editId != null ? "屋内案内を編集" : "屋内案内を追加"}</h3>
         {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
         <p className="hint" style={{ marginBottom: 12 }}>
           2つのリンクを指定すると、道案内でその2リンクを連続して通過するとき（＝その間を通るとき）にカードが表示されます。
           種別スイッチで「屋内に入る」／「屋外に出る」を選べます。画像は任意（未指定なら内蔵イラスト）。順序は問いません。
+          {editId != null && "　編集では画像を選ばなければ現在の画像を保持します。"}
         </p>
         <div className="adm-field">
           <label>種別</label>
@@ -1894,9 +1925,12 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
           {file && <p className="hint">選択中: {file.name}</p>}
         </div>
         <div className="adm-actions">
-          <button className="btn-primary" onClick={add} disabled={uploading || linkAId === "" || linkBId === ""}>
-            {uploading ? "追加中..." : "追加"}
+          <button className="btn-primary" onClick={submit} disabled={uploading || linkAId === "" || linkBId === ""}>
+            {uploading ? (editId != null ? "更新中..." : "追加中...") : (editId != null ? "更新" : "追加")}
           </button>
+          {editId != null && (
+            <button className="btn-secondary" onClick={resetForm} disabled={uploading}>キャンセル</button>
+          )}
         </div>
       </div>
 
@@ -1909,7 +1943,7 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
             <thead><tr><th>種別</th><th>リンクA</th><th>リンクB</th><th>画像</th><th></th></tr></thead>
             <tbody>
               {transitions.map((t) => (
-                <tr key={t.id}>
+                <tr key={t.id} className={editId === t.id ? "row-editing" : ""}>
                   <td className="center">
                     <button
                       type="button"
@@ -1928,6 +1962,7 @@ function IndoorTransitionTab({ links }: { links: Link[] }) {
                       : <span className="text-muted">内蔵</span>}
                   </td>
                   <td className="adm-row-actions">
+                    <button className="btn-edit" onClick={() => startEdit(t)}>編集</button>
                     {t.image_url && <button className="btn-edit" onClick={() => setEditing(t)}>合成</button>}
                     <button className="btn-del" onClick={() => del(t.id)}>削除</button>
                   </td>

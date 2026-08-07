@@ -669,6 +669,8 @@ body { font-family: "Noto Sans JP", system-ui, sans-serif; background: #f1f5f9; 
   border-bottom: 1px solid #e2e8f0;
 }
 .adm-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+/* 編集中の行をハイライト */
+.adm-table tr.row-editing td { background: #eff6ff; }
 .adm-table tr:last-child td { border-bottom: none; }
 .adm-table tr.editing td { background: #eff6ff; }
 .adm-table tr:hover td { background: #f8fafc; }

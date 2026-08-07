@@ -126,7 +126,7 @@ docker compose up -d --build
 /api/links/:id/arrival-photos  GET   — リンクの到着地点写真一覧（公開・閲覧のみ）
 /api/indoor-transitions        GET          — 屋内案内リンクペア一覧（公開・道案内の判定用）
 /api/indoor-transitions        POST         — 屋内案内ペア登録（管理者のみ。link_a_id/link_b_id/image）
-/api/indoor-transitions/:id    PUT/DELETE   — 画像差し替え（合成上書き）・削除（管理者のみ）
+/api/indoor-transitions/:id    PUT/DELETE   — 編集（link_a_id/link_b_id/kind/画像差し替え＝合成上書きも）・削除（管理者のみ。指定項目のみ更新）
 /api/arrival-photos       POST       — リンクに到着地点写真を登録（管理者のみ）
 /api/arrival-photos/:id   PUT        — 到着地点写真の画像を差し替え＝合成結果の上書き（管理者のみ）
 /api/arrival-photos/:id   DELETE     — 到着地点写真を削除（管理者のみ）
