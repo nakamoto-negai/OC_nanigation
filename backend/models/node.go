@@ -18,6 +18,10 @@ type Node struct {
 	Lng             *float64 `json:"lng"`
 	CongestionLevel int      `json:"congestion_level" gorm:"not null;default:0"`
 	WaitTime        int      `json:"wait_time" gorm:"not null;default:0"`
+	// ShowOnMapSelect は「現在地の地図選択」で、このノードをマーカーとして選べるようにするか。
+	// ポインタ(*bool)にしているのは、false を明示的に保存できるようにするため（GORM の default:true と
+	// bool のゼロ値問題を避ける）。既存行は AutoMigrate の default で true になる。
+	ShowOnMapSelect *bool     `json:"show_on_map_select" gorm:"default:true"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

@@ -120,10 +120,12 @@ interface NodeFormState {
   lng: string;
   congestionLevel: number;
   waitTime: string;
+  showOnMapSelect: boolean;
 }
 
 const emptyNode = (): NodeFormState => ({
   id: null, name: "", description: "", x: "", y: "", lat: "", lng: "", congestionLevel: 0, waitTime: "0",
+  showOnMapSelect: true,
 });
 
 function NodeTab({
@@ -193,6 +195,7 @@ function NodeTab({
         lng: form.lng !== "" ? Number(form.lng) : null,
         congestion_level: form.congestionLevel,
         wait_time: Number(form.waitTime) || 0,
+        show_on_map_select: form.showOnMapSelect,
       };
       if (form.id) {
         const updated = await api.nodes.update(form.id, data);
@@ -219,6 +222,7 @@ function NodeTab({
       lng: n.lng != null ? String(n.lng) : "",
       congestionLevel: n.congestion_level,
       waitTime: String(n.wait_time),
+      showOnMapSelect: n.show_on_map_select !== false,
     });
     setMsg(null);
   };
@@ -313,6 +317,18 @@ function NodeTab({
           </div>
         </div>
 
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.showOnMapSelect}
+              onChange={(e) => setForm((f) => ({ ...f, showOnMapSelect: e.target.checked }))}
+            />
+            現在地の地図選択に表示する
+          </label>
+          <p className="hint">OFF にすると、ユーザーの「現在地を地図から選択」でこのノードがマーカーに出なくなります（中継地点などを隠す用途）。</p>
+        </div>
+
         <div className="adm-actions" style={{ marginTop: 16 }}>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "保存中..." : form.id ? "更新" : "追加"}
@@ -360,6 +376,7 @@ function NodeTab({
                 <th>X</th><th>Y</th>
                 <th>緯度</th><th>経度</th>
                 <th>GPS</th>
+                <th>地図選択</th>
                 <th>混雑度</th>
                 <th>待ち時間</th>
                 <th></th>
@@ -377,6 +394,7 @@ function NodeTab({
                   <td className="num">{n.lat != null ? n.lat.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="num">{n.lng != null ? n.lng.toFixed(5) : <span className="text-muted">—</span>}</td>
                   <td className="center">{hasGps ? "✓" : <span className="photo-missing">未登録</span>}</td>
+                  <td className="center">{n.show_on_map_select !== false ? "✓" : <span className="text-muted">非表示</span>}</td>
                   <td className="center"><CongestionBadge level={n.congestion_level} /></td>
                   <td className="num">{n.wait_time > 0 ? `${n.wait_time}分` : <span className="text-muted">—</span>}</td>
                   <td className="adm-row-actions">

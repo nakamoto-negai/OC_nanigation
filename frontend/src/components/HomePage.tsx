@@ -245,7 +245,10 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   });
 
   // マップ選択のマーカー。現在地は全ノード、目的地は各目的地の代表ノード位置に置く。
-  const startMarkers: MapMarker[] = nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, label: n.name }));
+  // 「現在地の地図選択」に出すマーカー。show_on_map_select=false のノードは隠す（中継地点など）。
+  const startMarkers: MapMarker[] = nodes
+    .filter((n) => n.show_on_map_select !== false)
+    .map((n) => ({ id: n.id, x: n.x, y: n.y, label: n.name }));
   const destMarkers: MapMarker[] = visibleDestinations
     .map((d) => {
       const rep = representativeNode(d);

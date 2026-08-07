@@ -58,6 +58,8 @@ export interface Node {
   lng: number | null;
   congestion_level: number;
   wait_time: number;
+  // 「現在地の地図選択」でこのノードをマーカーとして表示・選択できるか（既定 true）。
+  show_on_map_select: boolean;
   created_at: string;
   updated_at: string;
 }
