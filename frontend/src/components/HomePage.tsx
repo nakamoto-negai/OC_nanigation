@@ -89,6 +89,8 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const [compassPopOpen, setCompassPopOpen] = useState(false);
   // 大カテゴリー（イベント選択の最上位見出し用）
   const [superCats, setSuperCats] = useState<SuperCategory[]>([]);
+  // イベント選択を開いたときに抽選する PICKUP（ランダム3件のイベント）
+  const [pickupEntries, setPickupEntries] = useState<{ event: Event; dest: Destination }[]>([]);
   const [error, setError] = useState("");
 
   // コンパス（方位）許可。ホーム画面で先に取得しておき、埋め込み道案内へ共有する。
@@ -242,6 +244,20 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     const ids = destNodeIds(d);
     return ids.length > 0 && !ids.every((nid) => nid === startId);
   });
+
+  // イベント選択を開くたびに、登録されている全イベントからランダムに3件を抽選する（PICKUP用）。
+  const pickRandomEvents = () => {
+    const all: { event: Event; dest: Destination }[] = [];
+    for (const d of visibleDestinations) {
+      for (const e of d.events ?? []) all.push({ event: e, dest: d });
+    }
+    // Fisher–Yates で並べ替えて先頭3件を採る
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    setPickupEntries(all.slice(0, 3));
+  };
 
   // マップ選択のマーカー。現在地は全ノード、目的地は各目的地の代表ノード位置に置く。
   // 「現在地の地図選択」に出すマーカー。show_on_map_select=false のノードは隠す（中継地点など）。
@@ -431,6 +447,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   useEffect(() => {
     setEventOpenKeys((prev) => {
       const next = { ...prev };
+      let changed = false;
       const keys = new Set<string>();
       for (const sg of eventSuperGroups) {
         keys.add(sg.key);
@@ -438,13 +455,17 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
       }
       for (const key of keys) {
         if (!(key in next)) {
+          // 大カテゴリーの key は "evt-sup-<id>"（id は負=その他 のこともあるので接頭辞を除いて取り出す）
           const isSuper = key.startsWith("evt-sup-");
-          const id = Number(key.split("-").pop());
+          const id = isSuper ? Number(key.slice("evt-sup-".length)) : NaN;
           const superCat = superCats.find((s) => s.id === id);
           next[key] = isSuper ? (superCat?.is_open_default ?? true) : true;
+          changed = true;
         }
       }
-      return next;
+      // 追加すべき新規キーが無ければ、同一参照の prev を返して再レンダリングを防ぐ
+      // （eventSuperGroups が毎回新参照になり、この effect が毎レンダリング走るため churn を止める）。
+      return changed ? next : prev;
     });
   }, [eventSuperGroups, superCats]);
 
@@ -457,6 +478,29 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     eventSuperGroups.length === 0 ? (
       <p className="dest-empty">開催イベントが登録された目的地がありません</p>
     ) : (
+      <>
+      {pickupEntries.length > 0 && (
+        <div className="evt-pickup">
+          <div className="evt-pickup-head"><span className="evt-pickup-badge">PICKUP</span>今日のおすすめイベント</div>
+          <div className="evt-list">
+            {pickupEntries.map((en) => (
+              <button
+                key={`pickup-${en.event.id}`}
+                className={`evt-card${destId === en.dest.id ? " selected" : ""}`}
+                data-log={`イベント選択(PICKUP): ${en.event.name}（目的地: ${en.dest.name}）`}
+                onClick={() => chooseDest(en.dest.id)}
+              >
+                <div className="evt-card-name">{en.event.name}</div>
+                <div className="evt-card-dest">
+                  <span className="evt-card-dest-label">目的地</span>
+                  <span className="evt-card-dest-name">{en.dest.name}</span>
+                  <span className="evt-card-arrow">→</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="dest-groups">
         {eventSuperGroups.map((sg) => (
           <div key={sg.key} className="dest-group evt-super">
@@ -498,6 +542,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           </div>
         ))}
       </div>
+      </>
     );
 
   return (
@@ -509,7 +554,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         <button
           type="button"
           className="home-dest-prompt home-dest-prompt-cta"
-          onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
+          onClick={() => { pickRandomEvents(); setDestTab("list"); setDestPickerOpen(true); }}
         >
           <span className="home-dest-prompt-text">行きたいイベントを選択して道案内をスタート!!</span>
           <span className="home-dest-prompt-arrow">▶</span>
@@ -592,7 +637,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
             <button
               type="button"
               className="loc-mode-btn"
-              onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
+              onClick={() => { pickRandomEvents(); setDestTab("list"); setDestPickerOpen(true); }}
             >
               イベント選択
             </button>
