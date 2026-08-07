@@ -249,7 +249,9 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   const startMarkers: MapMarker[] = nodes
     .filter((n) => n.show_on_map_select !== false)
     .map((n) => ({ id: n.id, x: n.x, y: n.y, label: n.name }));
+  // 「目的地選択の地図選択」に出すマーカー。バス停の目的地は現在地用なので地図から除外する。
   const destMarkers: MapMarker[] = visibleDestinations
+    .filter((d) => !d.is_bus_stop)
     .map((d) => {
       const rep = representativeNode(d);
       return rep ? { id: d.id, x: rep.x, y: rep.y, label: d.name } : null;
