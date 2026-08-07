@@ -174,7 +174,6 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   }, [settings.default_destination_id, destinations]);
 
   const startNode = nodes.find((n) => n.id === startId) ?? null;
-  const destDestination = destinations.find((d) => d.id === destId) ?? null;
 
   // 現在地を取り直す（GPS を最新の値で再取得し、自動検出に戻す）。
   const reloadLocation = () => {
@@ -566,14 +565,21 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
           <div className="loc-label-row">
             <span className="loc-label">目的地を選択</span>
           </div>
-          <button
-            type="button"
-            className="loc-manual-select dest-picker-btn"
-            onClick={() => { setDestTab("list"); setDestPickerOpen(true); }}
+          {/* 現在地プルダウンと同様、押すとネイティブの一覧が出る。カテゴリで optgroup 分けする。 */}
+          <select
+            className="loc-manual-select"
+            value={destId ?? ""}
+            onChange={(e) => chooseDest(Number(e.target.value) || null)}
           >
-            <span>{destDestination ? destDestination.name : "目的地を選択..."}</span>
-            <span className="dest-picker-caret">▼</span>
-          </button>
+            <option value="">目的地を選択...</option>
+            {grouped.map((g) => (
+              <optgroup key={g.key} label={g.label}>
+                {g.items.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
           {/* プルダウン直下の選択手段ボタン。地図選択＝地図、イベント選択＝リスト（イベント表示付き）。 */}
           <div className="loc-mode-btns">
             <button
