@@ -132,6 +132,9 @@ function UserApp() {
   // アンケートをアプリ内操作で開いたか（true のとき閉じるは履歴を戻す）
   const openedSurveyInApp = useRef(false);
   const [loadError, setLoadError] = useState("");
+  // ヘッダーの現在地チップ用（HomePage から名前・状態を受け取り、タップで選択モーダルを開く）
+  const [locInfo, setLocInfo] = useState<{ name: string; status: string }>({ name: "", status: "pending" });
+  const [locSelectOpen, setLocSelectOpen] = useState(false);
   const [settings, setSettings] = useState<Setting>({
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
@@ -245,7 +248,7 @@ function UserApp() {
                 className="cafeteria-congestion-badge"
                 style={{ background: CAFETERIA_CONGESTION_COLORS[cafe.congestion_level] ?? CAFETERIA_CONGESTION_COLORS[0] }}
               >
-                {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "不明"}
+                {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "終了"}
               </span>
             </span>
           ))}
@@ -259,8 +262,19 @@ function UserApp() {
               スタンプ
             </a>
           )}
-          {screen === "home" && settings.show_ar_button && (
-            <button onClick={() => navigate("ar")}>AR</button>
+          {screen === "home" && (
+            <button
+              className={`header-loc-chip loc-${locInfo.status}`}
+              onClick={() => setLocSelectOpen(true)}
+              title="現在地を地図から選択"
+            >
+              <span className="header-loc-name">
+                {locInfo.name
+                  || (locInfo.status === "pending" ? "取得中…"
+                    : locInfo.status === "denied" ? "現在地未許可"
+                    : "現在地を選択")}
+              </span>
+            </button>
           )}
           {screen !== "home" && screen !== "survey" && (
             <button onClick={() => navigate("home")}>← 戻る</button>
@@ -285,6 +299,9 @@ function UserApp() {
           surveyUrl={settings.survey_url}
           onOpenSurvey={openSurvey}
           allowLocation={locationAllowed}
+          onLocationInfo={setLocInfo}
+          locationSelectOpen={locSelectOpen}
+          onLocationSelectClose={() => setLocSelectOpen(false)}
         />
       )}
 

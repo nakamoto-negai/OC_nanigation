@@ -789,6 +789,21 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 }
 .header-actions button:hover { background: rgba(255,255,255,0.3); }
 
+/* ヘッダーの現在地チップ（現在地の表示をここにまとめた。タップで選択モーダルを開く） */
+.header-loc-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  max-width: 42vw; padding: 6px 12px; border: none; border-radius: 999px;
+  background: rgba(255,255,255,0.15); color: #fff; cursor: pointer;
+  font-size: 13px; font-weight: 700; transition: background 0.2s;
+}
+.header-loc-chip:hover { background: rgba(255,255,255,0.3); }
+.header-loc-pin { font-size: 13px; flex-shrink: 0; }
+.header-loc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-loc-chip.loc-found { background: rgba(34,197,94,0.32); }
+.header-loc-chip.loc-found:hover { background: rgba(34,197,94,0.45); }
+.header-loc-chip.loc-denied,
+.header-loc-chip.loc-unavailable { background: rgba(245,158,11,0.32); }
+
 .cafeteria-congestion { display: flex; align-items: center; gap: 6px; }
 .cafeteria-congestion-label { font-size: 12px; opacity: 0.85; }
 .cafeteria-congestion-badge {

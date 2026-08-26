@@ -36,6 +36,12 @@ interface Props {
   onOpenSurvey: () => void;
   /** お知らせ・コンパス許可の選択が済んで、位置情報を取得してよいか。 */
   allowLocation: boolean;
+  /** 現在地の表示情報（名前・状態）をヘッダーのチップへ通知する。 */
+  onLocationInfo?: (info: { name: string; status: GeoStatus }) => void;
+  /** ヘッダーの現在地チップから開かれる「現在地を選択」モーダルの開閉状態。 */
+  locationSelectOpen?: boolean;
+  /** 「現在地を選択」モーダルを閉じる。 */
+  onLocationSelectClose?: () => void;
 }
 
 type GeoStatus = "pending" | "found" | "denied" | "unavailable";
@@ -61,7 +67,7 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey, allowLocation }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey, allowLocation, onLocationInfo, locationSelectOpen, onLocationSelectClose }) => {
   // 初期は待機中（コンパス選択が済むまで取得しない）。中立な見た目にするため "pending"。
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("pending");
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -176,6 +182,11 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
   }, [settings.default_destination_id, destinations]);
 
   const startNode = nodes.find((n) => n.id === startId) ?? null;
+
+  // 現在地の表示情報（名前・状態）をヘッダーのチップへ通知する。
+  useEffect(() => {
+    onLocationInfo?.({ name: startNode?.name ?? "", status: geoStatus });
+  }, [startNode, geoStatus, onLocationInfo]);
 
   // 現在地を取り直す（GPS を最新の値で再取得し、自動検出に戻す）。
   const reloadLocation = () => {
@@ -550,51 +561,9 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </button>
       )}
 
-      {/* 現在地と目的地を横並び（並列）で表示する */}
+      {/* 目的地を選択（現在地の表示・選択はヘッダーの現在地チップにまとめた） */}
       <div className="loc-dest-row">
-        {/* 現在地バナー（先に表示する）。目的地バナーと同じ3段構成（ラベル / セレクタ / 選択ボタン2つ）で揃える。 */}
-        <div className={`location-banner ${geoStatus}`}>
-          <div className="loc-label-row">
-            <span className="loc-label">現在地を選択</span>
-            <button
-              type="button"
-              className="loc-reload-btn"
-              onClick={reloadLocation}
-              disabled={geoStatus === "pending"}
-              aria-label="現在地を再読み込み"
-              title="現在地を再読み込み"
-            >
-              <span className="loc-reload-icon">↻</span>
-              <span className="loc-reload-text">再読み込み</span>
-            </button>
-          </div>
-          <select
-            className="loc-manual-select"
-            value={startId ?? ""}
-            onChange={(e) => {
-              setStartId(Number(e.target.value) || null);
-              setManualStart(true);
-            }}
-          >
-            <option value="">現在地を選択...</option>
-            {nodes.map((n) => (
-              <option key={n.id} value={n.id}>{n.name}</option>
-            ))}
-          </select>
-          <div className="loc-mode-btns">
-            <button type="button" className="loc-mode-btn" onClick={() => setStartPickerOpen(true)}>
-              地図選択
-            </button>
-            <button type="button" className="loc-mode-btn" onClick={() => setBusStopPickerOpen(true)}>
-              バス停選択
-            </button>
-          </div>
-        </div>
-
-        {/* 現在地 → 目的地 の矢印 */}
-        <div className="loc-dest-arrow" aria-hidden="true">→</div>
-
-        {/* 目的地バナー（現在地バナーと同じ3段構成） */}
+        {/* 目的地バナー */}
         <div className="dest-banner">
           <div className="loc-label-row">
             <span className="loc-label">目的地を選択</span>
@@ -707,18 +676,27 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
         </div>
       )}
 
-      {/* 現在地を地図から選ぶオーバーレイ */}
-      {startPickerOpen && (
-        <div className="dest-modal-overlay" onClick={() => setStartPickerOpen(false)}>
+      {/* 現在地を地図から選ぶオーバーレイ。ヘッダーの現在地チップからも開く（地図選択がデフォルト）。 */}
+      {(startPickerOpen || locationSelectOpen) && (
+        <div className="dest-modal-overlay" onClick={() => { setStartPickerOpen(false); onLocationSelectClose?.(); }}>
           <div className="dest-modal" onClick={(e) => e.stopPropagation()}>
             <div className="dest-modal-head">
               <h2 className="dest-heading">現在地を地図から選択</h2>
               <button
                 className="dest-modal-close"
-                onClick={() => setStartPickerOpen(false)}
+                onClick={() => { setStartPickerOpen(false); onLocationSelectClose?.(); }}
                 aria-label="閉じる"
               >
                 ×
+              </button>
+            </div>
+            {/* 地図以外の選択手段（再読み込み・バス停）も残す */}
+            <div className="loc-mode-btns" style={{ padding: "0 16px 8px" }}>
+              <button type="button" className="loc-mode-btn" onClick={reloadLocation} disabled={geoStatus === "pending"}>
+                ↻ 現在地を再取得
+              </button>
+              <button type="button" className="loc-mode-btn" onClick={() => { setStartPickerOpen(false); onLocationSelectClose?.(); setBusStopPickerOpen(true); }}>
+                バス停で選択
               </button>
             </div>
             <div className="dest-modal-body">
@@ -732,8 +710,9 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                   setStartId(id);
                   setManualStart(true);
                   setStartPickerOpen(false);
+                  onLocationSelectClose?.();
                 }}
-                emptyText="マップ画像が未登録です。上の一覧から選択してください。"
+                emptyText="マップ画像が未登録です。バス停で選択してください。"
               />
             </div>
           </div>

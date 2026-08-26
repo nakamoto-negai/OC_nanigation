@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MapImage, Node } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -15,8 +15,20 @@ interface Props {
  * 検出ノードの位置にピン＋パルスのアニメーションを出し、「次へ」ボタンを押すまで表示し続ける。
  */
 export const LocatedPopup: React.FC<Props> = ({ mapImage, node, onDone }) => {
+  const imgRef = useRef<HTMLImageElement>(null);
   const [nw, setNw] = useState(mapImage.width || 0);
   const [nh, setNh] = useState(mapImage.height || 0);
+
+  // 画像がキャッシュ済みで onLoad が発火しない端末に備え、マウント時/URL変更時に
+  // complete を確認して naturalWidth/Height を読み直す。これをしないと DB の width/height が
+  // 0 のときにピンの描画条件(nw>0 && nh>0)を満たせず、ピンが出ない場合がある。
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setNw(img.naturalWidth);
+      setNh(img.naturalHeight);
+    }
+  }, [mapImage.url]);
 
   return (
     <div className="loc-pop-overlay">
@@ -24,6 +36,7 @@ export const LocatedPopup: React.FC<Props> = ({ mapImage, node, onDone }) => {
         <div className="loc-pop-title">現在地を特定しました</div>
         <div className="loc-pop-map">
           <img
+            ref={imgRef}
             src={`${BASE}${mapImage.url}`}
             alt=""
             draggable={false}
