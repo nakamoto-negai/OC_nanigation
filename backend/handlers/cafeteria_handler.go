@@ -50,6 +50,7 @@ func UpdateCafeteria(c *gin.Context) {
 		Name            string `json:"name"`
 		CongestionLevel int    `json:"congestion_level"`
 		SortOrder       int    `json:"sort_order"`
+		DestinationID   *uint  `json:"destination_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -66,6 +67,7 @@ func UpdateCafeteria(c *gin.Context) {
 	cafe.Name = body.Name
 	cafe.CongestionLevel = body.CongestionLevel
 	cafe.SortOrder = body.SortOrder
+	cafe.DestinationID = body.DestinationID
 	database.DB.Save(&cafe)
 	c.JSON(http.StatusOK, cafe)
 }

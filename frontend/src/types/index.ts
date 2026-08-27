@@ -42,6 +42,8 @@ export interface Destination {
   sort_order: number;
   /** バス停ラベル。true の目的地は「バス停選択」の地図に出て現在地として選べる。 */
   is_bus_stop: boolean;
+  /** スタンプラリー対象地点ラベル。true の目的地はイベント選択でラベル付き表示される。 */
+  is_stamp_rally: boolean;
   nodes?: Node[];
   events?: Event[];
   created_at: string;
@@ -139,6 +141,8 @@ export interface Cafeteria {
   name: string;
   congestion_level: number;
   sort_order: number;
+  // 紐づく目的地ID（ヘッダーの食堂ボタンを押すと道案内の行き先に設定される）。
+  destination_id: number | null;
   created_at: string;
   updated_at: string;
 }

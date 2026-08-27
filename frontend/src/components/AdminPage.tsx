@@ -1734,22 +1734,25 @@ function CategoryTab() {
 // ── Event Tab ────────────────────────────────────────────────────────────────
 
 // 食堂の管理タブ。食堂を複数登録し、名前・混雑度・並び順を編集できる。
-function CafeteriaTab() {
+function CafeteriaTab({ destinations }: { destinations: Destination[] }) {
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [congestion, setCongestion] = useState(0);
   const [sortOrder, setSortOrder] = useState("0");
+  const [destinationId, setDestinationId] = useState<number | "">("");
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => { api.cafeterias.list().then(setCafeterias).catch(() => {}); }, []);
 
-  const reset = () => { setEditingId(null); setName(""); setCongestion(0); setSortOrder("0"); };
+  const destName = (id: number | null) => (id == null ? "" : destinations.find((d) => d.id === id)?.name ?? `#${id}`);
+
+  const reset = () => { setEditingId(null); setName(""); setCongestion(0); setSortOrder("0"); setDestinationId(""); };
 
   const save = async () => {
     if (!name.trim()) { setMsg({ type: "err", text: "名前は必須です" }); return; }
     try {
-      const data = { name: name.trim(), congestion_level: congestion, sort_order: Number(sortOrder) || 0 };
+      const data = { name: name.trim(), congestion_level: congestion, sort_order: Number(sortOrder) || 0, destination_id: destinationId === "" ? null : Number(destinationId) };
       if (editingId) {
         const u = await api.cafeterias.update(editingId, data);
         setCafeterias((p) => p.map((c) => (c.id === editingId ? u : c)));
@@ -1764,7 +1767,8 @@ function CafeteriaTab() {
   };
 
   const startEdit = (c: Cafeteria) => {
-    setEditingId(c.id); setName(c.name); setCongestion(c.congestion_level); setSortOrder(String(c.sort_order)); setMsg(null);
+    setEditingId(c.id); setName(c.name); setCongestion(c.congestion_level); setSortOrder(String(c.sort_order));
+    setDestinationId(c.destination_id ?? ""); setMsg(null);
   };
 
   const del = async (id: number, nm: string) => {
@@ -1798,6 +1802,14 @@ function CafeteriaTab() {
           <label>並び順（小さいほど先）</label>
           <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="0" />
         </div>
+        <div className="adm-field">
+          <label>向かう目的地（任意）</label>
+          <select value={destinationId} onChange={(e) => setDestinationId(Number(e.target.value) || "")}>
+            <option value="">（未設定）</option>
+            {destinations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <p className="hint">設定すると、ユーザーアプリのヘッダーの食堂ボタンを押したとき、この目的地が道案内の行き先に設定されます。</p>
+        </div>
         <div className="adm-actions">
           <button className="btn-primary" onClick={save}>{editingId ? "更新" : "追加"}</button>
           {editingId && <button className="btn-secondary" onClick={() => { reset(); setMsg(null); }}>キャンセル</button>}
@@ -1809,7 +1821,7 @@ function CafeteriaTab() {
           <p className="adm-empty">食堂がまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>名前</th><th>混雑度</th><th>並び順</th><th></th></tr></thead>
+            <thead><tr><th>名前</th><th>混雑度</th><th>目的地</th><th>並び順</th><th></th></tr></thead>
             <tbody>
               {cafeterias.map((c) => (
                 <tr key={c.id} className={editingId === c.id ? "editing" : ""}>
@@ -1819,6 +1831,7 @@ function CafeteriaTab() {
                       {CAFETERIA_CONGESTION_LABELS[c.congestion_level]}
                     </span>
                   </td>
+                  <td>{c.destination_id != null ? destName(c.destination_id) : <span className="text-muted">—</span>}</td>
                   <td className="num">{c.sort_order}</td>
                   <td className="adm-row-actions">
                     <button className="btn-edit" onClick={() => startEdit(c)}>編集</button>
@@ -2253,6 +2266,7 @@ function DestinationTab({
   const [selectedNodeIds, setSelectedNodeIds] = useState<number[]>([]);
   const [nodeFilter, setNodeFilter] = useState("");
   const [isBusStop, setIsBusStop] = useState(false);
+  const [isStampRally, setIsStampRally] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -2263,7 +2277,7 @@ function DestinationTab({
 
   const reset = () => {
     setId(null); setName(""); setCategoryId(""); setSortOrder("0");
-    setSelectedNodeIds([]); setNodeFilter(""); setIsBusStop(false);
+    setSelectedNodeIds([]); setNodeFilter(""); setIsBusStop(false); setIsStampRally(false);
   };
 
   const addCategory = async () => {
@@ -2289,6 +2303,7 @@ function DestinationTab({
     setSelectedNodeIds((d.nodes ?? []).map((n) => n.id));
     setNodeFilter("");
     setIsBusStop(d.is_bus_stop ?? false);
+    setIsStampRally(d.is_stamp_rally ?? false);
     setMsg(null);
   };
 
@@ -2302,6 +2317,7 @@ function DestinationTab({
         category_id: categoryId !== "" ? Number(categoryId) : null,
         sort_order: Number(sortOrder) || 0,
         is_bus_stop: isBusStop,
+        is_stamp_rally: isStampRally,
         node_ids: selectedNodeIds,
       };
       if (id) {
@@ -2374,6 +2390,13 @@ function DestinationTab({
           <p className="hint">オンにすると、ホーム画面の「バス停選択」の地図に表示され、現在地として選べます。</p>
         </div>
         <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input type="checkbox" checked={isStampRally} onChange={(e) => setIsStampRally(e.target.checked)} />
+            スタンプラリー対象地点にする
+          </label>
+          <p className="hint">オンにすると、イベント選択画面でこの目的地のイベントに「スタンプラリー」ラベルが表示されます。</p>
+        </div>
+        <div className="adm-field">
           <label>所属ノード <span className="req">*</span></label>
           <p className="hint">この目的地に含める地点（ノード）を選びます。複数選ぶと、現在地から最も近いノードが案内先になります。</p>
           <input value={nodeFilter} onChange={(e) => setNodeFilter(e.target.value)} placeholder="ノード名で絞り込み" />
@@ -2409,7 +2432,7 @@ function DestinationTab({
           <p className="adm-empty">目的地がまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>名前</th><th>カテゴリ</th><th>所属ノード</th><th>バス停</th><th>並び順</th><th></th></tr></thead>
+            <thead><tr><th>名前</th><th>カテゴリ</th><th>所属ノード</th><th>バス停</th><th>スタンプ</th><th>並び順</th><th></th></tr></thead>
             <tbody>
               {destinations.map((d) => (
                 <tr key={d.id} className={id === d.id ? "editing" : ""}>
@@ -2417,6 +2440,7 @@ function DestinationTab({
                   <td>{d.category?.name ?? <span className="text-muted">—</span>}</td>
                   <td>{d.nodes && d.nodes.length > 0 ? d.nodes.map((n) => n.name).join("、") : <span className="text-muted">—</span>}</td>
                   <td className="center">{d.is_bus_stop ? "✓" : <span className="text-muted">—</span>}</td>
+                  <td className="center">{d.is_stamp_rally ? "✓" : <span className="text-muted">—</span>}</td>
                   <td className="num">{d.sort_order}</td>
                   <td className="adm-row-actions">
                     <button className="btn-edit" onClick={() => startEdit(d)}>編集</button>
@@ -3602,7 +3626,7 @@ export const AdminPage: React.FC<Props> = ({
         {tab === "overlay" && <OverlayImageTab />}
         {tab === "composite" && <CompositeTab links={links} />}
         {tab === "image" && <ImageOptimizeTab />}
-        {tab === "cafeteria" && <CafeteriaTab />}
+        {tab === "cafeteria" && <CafeteriaTab destinations={destinations} />}
         {tab === "settings" && <SettingsTab />}
         {tab === "category" && <CategoryTab />}
         {tab === "event" && <EventTab destinations={destinations} categories={categories} />}

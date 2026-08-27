@@ -319,6 +319,13 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 }
 .evt-pickup .evt-list { padding-bottom: 0; }
 
+/* スタンプラリー対象地点のラベル（イベント選択のイベントカードに表示） */
+.evt-stamp-badge {
+  margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  background: #f59e0b; color: #fff; font-size: 10px; font-weight: 800;
+  white-space: nowrap; vertical-align: middle;
+}
+
 .evt-list { padding: 8px 0 6px; display: flex; flex-direction: column; gap: 8px; }
 .evt-card {
   width: 100%; max-width: 640px; text-align: left; cursor: pointer;
@@ -804,7 +811,13 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 .header-loc-chip.loc-denied,
 .header-loc-chip.loc-unavailable { background: rgba(245,158,11,0.32); }
 
-.cafeteria-congestion { display: flex; align-items: center; gap: 6px; }
+.cafeteria-congestion {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; padding: 0; color: inherit; font: inherit; cursor: default;
+}
+/* 目的地が紐づく食堂はボタンとして押せる（押すとその目的地が行き先に設定される） */
+.cafeteria-congestion-btn { cursor: pointer; }
+.cafeteria-congestion-btn:active { opacity: 0.6; }
 .cafeteria-congestion-label { font-size: 12px; opacity: 0.85; }
 .cafeteria-congestion-badge {
   padding: 3px 10px; border-radius: 12px;

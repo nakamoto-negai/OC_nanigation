@@ -42,6 +42,8 @@ interface Props {
   locationSelectOpen?: boolean;
   /** 「現在地を選択」モーダルを閉じる。 */
   onLocationSelectClose?: () => void;
+  /** ヘッダーの食堂ボタンから「この目的地を行き先に設定」する要求（nonce 変化で発火）。 */
+  destinationRequest?: { id: number; nonce: number } | null;
 }
 
 type GeoStatus = "pending" | "found" | "denied" | "unavailable";
@@ -67,7 +69,7 @@ function nearestNode(nodes: Node[], lat: number, lng: number): Node | null {
   );
 }
 
-export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey, allowLocation, onLocationInfo, locationSelectOpen, onLocationSelectClose }) => {
+export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDetours, indoorTransitions, settings, surveyUrl, onOpenSurvey, allowLocation, onLocationInfo, locationSelectOpen, onLocationSelectClose, destinationRequest }) => {
   // 初期は待機中（コンパス選択が済むまで取得しない）。中立な見た目にするため "pending"。
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("pending");
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -225,6 +227,15 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     }
     setDestId(id);
   };
+
+  // ヘッダーの食堂ボタンからの目的地設定要求を反映する（nonce が変わるたびに発火）。
+  const destReqNonce = destinationRequest?.nonce;
+  useEffect(() => {
+    if (destinationRequest && destinations.some((d) => d.id === destinationRequest.id)) {
+      chooseDest(destinationRequest.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destReqNonce]);
 
   // 現在地と目的地が揃ったらルートを計算し、ホームに埋め込む道案内へ渡す。
   // 目的地に属する複数ノードのうち、現在地から最も近いノードへの経路を求める。
@@ -490,7 +501,10 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                 data-log={`イベント選択(PICKUP): ${en.event.name}（目的地: ${en.dest.name}）`}
                 onClick={() => chooseDest(en.dest.id)}
               >
-                <div className="evt-card-name">{en.event.name}</div>
+                <div className="evt-card-name">
+                  {en.event.name}
+                  {en.dest.is_stamp_rally && <span className="evt-stamp-badge">スタンプラリー</span>}
+                </div>
                 <div className="evt-card-dest">
                   <span className="evt-card-dest-label">目的地</span>
                   <span className="evt-card-dest-name">{en.dest.name}</span>
@@ -525,7 +539,10 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                             data-log={`イベント選択: ${en.event.name}（目的地: ${en.dest.name}）`}
                             onClick={() => chooseDest(en.dest.id)}
                           >
-                            <div className="evt-card-name">{en.event.name}</div>
+                            <div className="evt-card-name">
+                  {en.event.name}
+                  {en.dest.is_stamp_rally && <span className="evt-stamp-badge">スタンプラリー</span>}
+                </div>
                             <div className="evt-card-dest">
                               <span className="evt-card-dest-label">目的地</span>
                               <span className="evt-card-dest-name">{en.dest.name}</span>

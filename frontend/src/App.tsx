@@ -135,6 +135,8 @@ function UserApp() {
   // ヘッダーの現在地チップ用（HomePage から名前・状態を受け取り、タップで選択モーダルを開く）
   const [locInfo, setLocInfo] = useState<{ name: string; status: string }>({ name: "", status: "pending" });
   const [locSelectOpen, setLocSelectOpen] = useState(false);
+  // ヘッダーの食堂ボタンから「この目的地を行き先に設定して」と HomePage へ要求する（nonce で毎回発火）。
+  const [destRequest, setDestRequest] = useState<{ id: number; nonce: number } | null>(null);
   const [settings, setSettings] = useState<Setting>({
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
@@ -241,17 +243,30 @@ function UserApp() {
             space-between の右寄せレイアウトを保つため空のスペーサーを置く。 */}
         <span className="header-spacer" onClick={() => navigate("home")} />
         <div className="header-actions">
-          {settings.show_cafeteria_congestion && cafeterias.map((cafe) => (
-            <span key={cafe.id} className="cafeteria-congestion" title={`${cafe.name}の混雑度`}>
-              <span className="cafeteria-congestion-label">{cafe.name}</span>
-              <span
-                className="cafeteria-congestion-badge"
-                style={{ background: CAFETERIA_CONGESTION_COLORS[cafe.congestion_level] ?? CAFETERIA_CONGESTION_COLORS[0] }}
+          {settings.show_cafeteria_congestion && cafeterias.map((cafe) => {
+            const linked = cafe.destination_id != null;
+            return (
+              <button
+                key={cafe.id}
+                type="button"
+                className={`cafeteria-congestion${linked ? " cafeteria-congestion-btn" : ""}`}
+                title={linked ? `${cafe.name}へ道案内する` : `${cafe.name}の混雑度`}
+                onClick={() => {
+                  if (cafe.destination_id == null) return;
+                  navigate("home");
+                  setDestRequest({ id: cafe.destination_id, nonce: Date.now() });
+                }}
               >
-                {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "終了"}
-              </span>
-            </span>
-          ))}
+                <span className="cafeteria-congestion-label">{cafe.name}</span>
+                <span
+                  className="cafeteria-congestion-badge"
+                  style={{ background: CAFETERIA_CONGESTION_COLORS[cafe.congestion_level] ?? CAFETERIA_CONGESTION_COLORS[0] }}
+                >
+                  {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "終了"}
+                </span>
+              </button>
+            );
+          })}
           {settings.stamp_url && (
             <a
               className="stamp-button"
@@ -302,6 +317,7 @@ function UserApp() {
           onLocationInfo={setLocInfo}
           locationSelectOpen={locSelectOpen}
           onLocationSelectClose={() => setLocSelectOpen(false)}
+          destinationRequest={destRequest}
         />
       )}
 

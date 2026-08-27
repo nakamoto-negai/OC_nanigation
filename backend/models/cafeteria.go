@@ -10,6 +10,8 @@ type Cafeteria struct {
 	Name            string    `json:"name" gorm:"not null"`
 	CongestionLevel int       `json:"congestion_level" gorm:"not null;default:0"`
 	SortOrder       int       `json:"sort_order" gorm:"not null;default:0"`
+	// 紐づける目的地。ヘッダーの食堂ボタンを押すと、この目的地が道案内の行き先に設定される（任意）。
+	DestinationID   *uint     `json:"destination_id" gorm:"index"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

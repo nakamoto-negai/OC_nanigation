@@ -13,11 +13,12 @@ import (
 // destinationInput は目的地の作成・更新リクエスト。
 // NodeIDs で所属ノード（多対多）を張り替える。
 type destinationInput struct {
-	Name       string `json:"name"`
-	CategoryID *uint  `json:"category_id"`
-	SortOrder  int    `json:"sort_order"`
-	IsBusStop  bool   `json:"is_bus_stop"`
-	NodeIDs    []uint `json:"node_ids"`
+	Name         string `json:"name"`
+	CategoryID   *uint  `json:"category_id"`
+	SortOrder    int    `json:"sort_order"`
+	IsBusStop    bool   `json:"is_bus_stop"`
+	IsStampRally bool   `json:"is_stamp_rally"`
+	NodeIDs      []uint `json:"node_ids"`
 }
 
 func ListDestinations(c *gin.Context) {
@@ -51,7 +52,7 @@ func CreateDestination(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name は必須です"})
 		return
 	}
-	dest := models.Destination{Name: in.Name, CategoryID: in.CategoryID, SortOrder: in.SortOrder, IsBusStop: in.IsBusStop}
+	dest := models.Destination{Name: in.Name, CategoryID: in.CategoryID, SortOrder: in.SortOrder, IsBusStop: in.IsBusStop, IsStampRally: in.IsStampRally}
 	if err := database.DB.Create(&dest).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -86,6 +87,7 @@ func UpdateDestination(c *gin.Context) {
 	dest.CategoryID = in.CategoryID
 	dest.SortOrder = in.SortOrder
 	dest.IsBusStop = in.IsBusStop
+	dest.IsStampRally = in.IsStampRally
 	if err := database.DB.Save(&dest).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
