@@ -162,6 +162,9 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
   // 到着の自動遷移タイマー内から最新の arCardIndex を読むためのミラー
   const arCardIndexRef = useRef<number | null>(null);
   useEffect(() => { arCardIndexRef.current = arCardIndex; }, [arCardIndex]);
+  // 最終カード（到着）到達で自動アンケート遷移するためのタイマーと、1経路につき1回だけ発火するフラグ
+  const surveyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const surveyDoneRef = useRef(false);
 
   // AR カードが表示されたら共有カメラを一度だけ起動する（start は取得済みなら何もしない）。
   useEffect(() => {
@@ -188,8 +191,13 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
     setPreferImageGuide(false);
     handledArrivalRef.current.clear();
     autoAdvanceArRef.current = null;
+    surveyDoneRef.current = false;
+    if (surveyTimerRef.current != null) { clearTimeout(surveyTimerRef.current); surveyTimerRef.current = null; }
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [route]);
+
+  // アンマウント時に予約中のアンケート遷移タイマーを解除する。
+  useEffect(() => () => { if (surveyTimerRef.current != null) clearTimeout(surveyTimerRef.current); }, []);
 
   // 別カードへスクロールしたら AR を閉じてカメラを止める。
   // ただし到着による自動遷移中（autoAdvanceArRef が遷移先と一致）は、遷移先でも AR を開いたままにする。
@@ -334,9 +342,20 @@ export const RouteGuide: React.FC<Props> = ({ route, nodes, links, nodeDetours, 
       setVisibleCardIndex(cards.length);
       const goal = route.node_path[route.node_path.length - 1];
       sendGoalReached(goal.name, goal.id, route.steps.length, originName);
+      // 最終カード（到着）に留まったら、1経路につき一度だけ自動でアンケート画面へ遷移する。
+      // 少し待つのは、到着カードを一瞬見せてから遷移するため（途中の行き過ぎで即遷移しないよう下で取消）。
+      if (!surveyDoneRef.current && surveyTimerRef.current == null) {
+        surveyTimerRef.current = window.setTimeout(() => {
+          surveyTimerRef.current = null;
+          surveyDoneRef.current = true;
+          onOpenSurvey();
+        }, 1500);
+      }
       return;
     }
     if (rawIndex >= 0) {
+      // 到着より手前へ戻ったら、予約中のアンケート遷移を取り消す。
+      if (surveyTimerRef.current != null) { clearTimeout(surveyTimerRef.current); surveyTimerRef.current = null; }
       setVisibleCardIndex(rawIndex);
       const card = cards[rawIndex];
       // 位置情報の送信はステップカードのときだけ（寄り道カードは現在地を変えない）
