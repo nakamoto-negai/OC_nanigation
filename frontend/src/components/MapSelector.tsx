@@ -43,14 +43,24 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
 
   const url = mapImage?.url;
 
-  // 自然サイズを確実に取得する。キャッシュ済みで onLoad が発火しない端末に備え、
-  // マウント時/URL変更時に complete を確認して naturalWidth/Height を読み直す。
+  // 自然サイズを確実に取得する。DB に寸法が無い(0)、かつキャッシュ済みで onLoad が発火しない端末
+  // （モバイル等）では naturalWidth が読めずピンが出ないことがある。次フレームで再試行して確実に読む。
   useEffect(() => {
     const img = imgRef.current;
-    if (img && img.complete && img.naturalWidth > 0) {
-      setNaturalW(img.naturalWidth);
-      setNaturalH(img.naturalHeight);
-    }
+    if (!img) return;
+    let raf = 0;
+    let tries = 0;
+    const read = () => {
+      if (img.naturalWidth > 0) {
+        setNaturalW(img.naturalWidth);
+        setNaturalH(img.naturalHeight);
+        return;
+      }
+      // まだ読み込み中なら次フレームで再試行（読み込み完了かつ 0 の場合は壊れた画像なので打ち切り）。
+      if (!img.complete && tries++ < 300) raf = requestAnimationFrame(read);
+    };
+    read();
+    return () => cancelAnimationFrame(raf);
   }, [url]);
 
   // 実描画サイズを実測して追従する（画面回転・リサイズ・モーダル開閉・画像ロードで変化する）。

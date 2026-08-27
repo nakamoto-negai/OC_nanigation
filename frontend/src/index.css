@@ -788,7 +788,7 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 .app-header nav button:hover { background: rgba(255,255,255,0.3); }
 .app-header nav button.active { background: #3b82f6; }
 
-.header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.header-actions { display: flex; align-items: center; column-gap: 10px; row-gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 /* 現在地チップを強制的に次の行（ヘッダー2行目）へ送る改行スペーサー */
 .header-line-break { flex-basis: 100%; width: 100%; height: 0; margin: 0; }
 .header-actions button {
