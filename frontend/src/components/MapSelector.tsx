@@ -80,7 +80,16 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
     return <p className="dest-empty">{emptyText ?? "マップ画像が登録されていません"}</p>;
   }
 
-  const ready = naturalW > 0 && naturalH > 0 && renderW > 0 && renderH > 0;
+  // 自然サイズ（ノード座標の基準）が分かればピンを描画する。描画サイズ(renderW/H)は
+  // 実測できたらピクセル配置（端末非依存で正確）に、未測定の間は %配置（コンテナ基準）へフォールバックする。
+  // こうすることで「実測前でピンが1つも出ない」状態を避けつつ、実測後は正確に一致させられる。
+  const ready = naturalW > 0 && naturalH > 0;
+  const hasRender = renderW > 0 && renderH > 0;
+
+  const markerStyle = (m: MapMarker): React.CSSProperties =>
+    hasRender
+      ? { left: `${(m.x / naturalW) * renderW}px`, top: `${(m.y / naturalH) * renderH}px` }
+      : { left: `${(m.x / naturalW) * 100}%`, top: `${(m.y / naturalH) * 100}%` };
 
   const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
@@ -105,7 +114,7 @@ export const MapSelector: React.FC<Props> = ({ mapImage, markers, selectedId, on
             key={m.id}
             type="button"
             className={`map-marker${m.id === selectedId ? " selected" : ""}`}
-            style={{ left: `${(m.x / naturalW) * renderW}px`, top: `${(m.y / naturalH) * renderH}px` }}
+            style={markerStyle(m)}
             data-log={`${logPrefix ?? "地図選択"}: ${m.label}`}
             onClick={() => onSelect(m.id)}
           >
