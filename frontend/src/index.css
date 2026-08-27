@@ -788,18 +788,28 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 .app-header nav button:hover { background: rgba(255,255,255,0.3); }
 .app-header nav button.active { background: #3b82f6; }
 
-.header-actions { display: flex; align-items: center; gap: 10px; }
+.header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+/* 現在地チップを強制的に次の行（ヘッダー2行目）へ送る改行スペーサー */
+.header-line-break { flex-basis: 100%; width: 100%; height: 0; margin: 0; }
 .header-actions button {
   padding: 6px 16px; border: none; border-radius: 6px;
   background: rgba(255,255,255,0.15); color: white; cursor: pointer; font-size: 14px;
   transition: background 0.2s;
 }
 .header-actions button:hover { background: rgba(255,255,255,0.3); }
+/* ヘッダーの「アンケート」ボタン（button/a 共通。外部URLフォールバックにも同じ見た目を当てる） */
+.header-survey-btn {
+  padding: 6px 16px; border: none; border-radius: 6px;
+  background: rgba(255,255,255,0.15); color: #fff; cursor: pointer;
+  font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap;
+  transition: background 0.2s;
+}
+.header-survey-btn:hover { background: rgba(255,255,255,0.3); }
 
 /* ヘッダーの現在地チップ（現在地の表示をここにまとめた。タップで選択モーダルを開く） */
 .header-loc-chip {
   display: inline-flex; align-items: center; gap: 4px;
-  max-width: 42vw; padding: 6px 12px; border: none; border-radius: 999px;
+  max-width: 90vw; padding: 6px 12px; border: none; border-radius: 999px;
   background: rgba(255,255,255,0.15); color: #fff; cursor: pointer;
   font-size: 13px; font-weight: 700; transition: background 0.2s;
 }
@@ -811,14 +821,15 @@ button, a, [role="button"], input, select, textarea, label { touch-action: manip
 .header-loc-chip.loc-denied,
 .header-loc-chip.loc-unavailable { background: rgba(245,158,11,0.32); }
 
-.cafeteria-congestion {
-  display: flex; align-items: center; gap: 6px;
-  background: none; border: none; padding: 0; color: inherit; font: inherit; cursor: default;
+.cafeteria-congestion { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cafeteria-congestion-label { font-size: 12px; opacity: 0.85; white-space: nowrap; }
+/* 目的地が紐づく食堂は、食堂名だけを小さなリンクにする（押すとその目的地が行き先に設定される）。折り返さない。 */
+.cafeteria-congestion-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: inherit; font-size: 12px; color: inherit;
+  text-decoration: none; white-space: nowrap;
 }
-/* 目的地が紐づく食堂はボタンとして押せる（押すとその目的地が行き先に設定される） */
-.cafeteria-congestion-btn { cursor: pointer; }
-.cafeteria-congestion-btn:active { opacity: 0.6; }
-.cafeteria-congestion-label { font-size: 12px; opacity: 0.85; }
+.cafeteria-congestion-link:active { opacity: 0.6; }
 .cafeteria-congestion-badge {
   padding: 3px 10px; border-radius: 12px;
   color: white; font-size: 12px; font-weight: 700; white-space: nowrap;

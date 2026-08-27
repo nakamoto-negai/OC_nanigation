@@ -42,7 +42,7 @@ interface Props {
   locationSelectOpen?: boolean;
   /** 「現在地を選択」モーダルを閉じる。 */
   onLocationSelectClose?: () => void;
-  /** ヘッダーの食堂ボタンから「この目的地を行き先に設定」する要求（nonce 変化で発火）。 */
+  /** ヘッダーの食堂名リンクから「この目的地を行き先に設定」する要求（nonce 変化で発火）。 */
   destinationRequest?: { id: number; nonce: number } | null;
 }
 
@@ -228,7 +228,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
     setDestId(id);
   };
 
-  // ヘッダーの食堂ボタンからの目的地設定要求を反映する（nonce が変わるたびに発火）。
+  // ヘッダーの食堂名リンクからの目的地設定要求を反映する（nonce が変わるたびに発火）。
   const destReqNonce = destinationRequest?.nonce;
   useEffect(() => {
     if (destinationRequest && destinations.some((d) => d.id === destinationRequest.id)) {

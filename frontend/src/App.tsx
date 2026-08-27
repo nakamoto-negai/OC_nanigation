@@ -8,9 +8,9 @@ import { HomePage } from "./components/HomePage";
 import { RouteGuide } from "./components/RouteGuide";
 import { SurveyForm } from "./components/SurveyForm";
 import { AnnouncementPop } from "./components/AnnouncementPop";
-import { useUser } from "./hooks/useUser";
+import { useUser, getDeviceId } from "./hooks/useUser";
 import { useButtonLogger } from "./hooks/useButtonLogger";
-import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting } from "./types";
+import { Announcement, Cafeteria, Destination, IndoorTransition, Link, Node, NodeDetour, Photo, RouteResponse, Setting, SurveyPublic } from "./types";
 import { CAFETERIA_CONGESTION_LABELS, CAFETERIA_CONGESTION_COLORS } from "./utils/congestion";
 import "./index.css";
 
@@ -135,8 +135,10 @@ function UserApp() {
   // ヘッダーの現在地チップ用（HomePage から名前・状態を受け取り、タップで選択モーダルを開く）
   const [locInfo, setLocInfo] = useState<{ name: string; status: string }>({ name: "", status: "pending" });
   const [locSelectOpen, setLocSelectOpen] = useState(false);
-  // ヘッダーの食堂ボタンから「この目的地を行き先に設定して」と HomePage へ要求する（nonce で毎回発火）。
+  // ヘッダーの食堂名リンクから「この目的地を行き先に設定して」と HomePage へ要求する（nonce で毎回発火）。
   const [destRequest, setDestRequest] = useState<{ id: number; nonce: number } | null>(null);
+  // アンケートの有無（ヘッダーの「アンケート」ボタン表示判定に使う）。
+  const [surveyInfo, setSurveyInfo] = useState<SurveyPublic | null>(null);
   const [settings, setSettings] = useState<Setting>({
     id: 1, map_north_offset: 0,
     reroute_visibility: true, reroute_incident: true,
@@ -157,6 +159,9 @@ function UserApp() {
   useEffect(() => {
     api.settings.get().then(setSettings).catch(() => {});
     api.cafeterias.list().then(setCafeterias).catch(() => {});
+    api.survey.get(getDeviceId())
+      .then(setSurveyInfo)
+      .catch(() => setSurveyInfo({ questions: [], answered: false }));
   }, []);
 
   // お知らせPOPを取得。取得完了後（お知らせを閉じた後）にコンパス許可ポップアップの表示判定を行う。
@@ -243,30 +248,31 @@ function UserApp() {
             space-between の右寄せレイアウトを保つため空のスペーサーを置く。 */}
         <span className="header-spacer" onClick={() => navigate("home")} />
         <div className="header-actions">
-          {settings.show_cafeteria_congestion && cafeterias.map((cafe) => {
-            const linked = cafe.destination_id != null;
-            return (
-              <button
-                key={cafe.id}
-                type="button"
-                className={`cafeteria-congestion${linked ? " cafeteria-congestion-btn" : ""}`}
-                title={linked ? `${cafe.name}へ道案内する` : `${cafe.name}の混雑度`}
-                onClick={() => {
-                  if (cafe.destination_id == null) return;
-                  navigate("home");
-                  setDestRequest({ id: cafe.destination_id, nonce: Date.now() });
-                }}
-              >
-                <span className="cafeteria-congestion-label">{cafe.name}</span>
-                <span
-                  className="cafeteria-congestion-badge"
-                  style={{ background: CAFETERIA_CONGESTION_COLORS[cafe.congestion_level] ?? CAFETERIA_CONGESTION_COLORS[0] }}
+          {settings.show_cafeteria_congestion && cafeterias.map((cafe) => (
+            <span key={cafe.id} className="cafeteria-congestion" title={`${cafe.name}の混雑度`}>
+              {cafe.destination_id != null ? (
+                <button
+                  type="button"
+                  className="cafeteria-congestion-link"
+                  title={`${cafe.name}へ道案内する`}
+                  onClick={() => {
+                    navigate("home");
+                    setDestRequest({ id: cafe.destination_id!, nonce: Date.now() });
+                  }}
                 >
-                  {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "終了"}
-                </span>
-              </button>
-            );
-          })}
+                  {cafe.name}
+                </button>
+              ) : (
+                <span className="cafeteria-congestion-label">{cafe.name}</span>
+              )}
+              <span
+                className="cafeteria-congestion-badge"
+                style={{ background: CAFETERIA_CONGESTION_COLORS[cafe.congestion_level] ?? CAFETERIA_CONGESTION_COLORS[0] }}
+              >
+                {CAFETERIA_CONGESTION_LABELS[cafe.congestion_level] ?? "終了"}
+              </span>
+            </span>
+          ))}
           {settings.stamp_url && (
             <a
               className="stamp-button"
@@ -278,18 +284,31 @@ function UserApp() {
             </a>
           )}
           {screen === "home" && (
-            <button
-              className={`header-loc-chip loc-${locInfo.status}`}
-              onClick={() => setLocSelectOpen(true)}
-              title="現在地を地図から選択"
-            >
-              <span className="header-loc-name">
-                {locInfo.name
-                  || (locInfo.status === "pending" ? "取得中…"
-                    : locInfo.status === "denied" ? "現在地未許可"
-                    : "現在地を選択")}
-              </span>
-            </button>
+            <>
+              {/* 現在地はヘッダーの2行目に折り返して表示する（改行スペーサーで次の行へ送る） */}
+              <span className="header-line-break" aria-hidden="true" />
+              <button
+                className={`header-loc-chip loc-${locInfo.status}`}
+                onClick={() => setLocSelectOpen(true)}
+                title="現在地を地図から選択"
+              >
+                <span className="header-loc-name">
+                  {locInfo.name
+                    ? `現在地：${locInfo.name}(検出済み)`
+                    : locInfo.status === "pending" ? "現在地：取得中…"
+                    : locInfo.status === "denied" ? "現在地：未許可"
+                    : "現在地を選択"}
+                </span>
+              </button>
+            </>
+          )}
+          {/* アンケートボタン（現在地チップの後ろ）。アプリ内アンケートがあればそれへ、無ければ設定の外部URLへ。どちらも無ければ非表示。 */}
+          {screen !== "survey" && (
+            surveyInfo && surveyInfo.questions.length > 0 ? (
+              <button className="header-survey-btn" onClick={openSurvey}>アンケート</button>
+            ) : settings.survey_url ? (
+              <a className="header-survey-btn" href={settings.survey_url} target="_blank" rel="noopener noreferrer">アンケート</a>
+            ) : null
           )}
           {screen !== "home" && screen !== "survey" && (
             <button onClick={() => navigate("home")}>← 戻る</button>
