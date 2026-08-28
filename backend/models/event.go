@@ -16,6 +16,8 @@ type Event struct {
 	Category      *Category `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
 	Name          string    `json:"name" gorm:"not null"`
 	SortOrder     int       `json:"sort_order" gorm:"default:0"`
+	// スタンプラリー対象イベント。true のときイベント選択で「スタンプラリー対象」ラベルを表示する。
+	IsStampRally  bool      `json:"is_stamp_rally" gorm:"not null;default:false"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

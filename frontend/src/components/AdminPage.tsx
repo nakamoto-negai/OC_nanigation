@@ -2458,9 +2458,11 @@ function DestinationTab({
 
 function EventTab({ destinations, categories }: { destinations: Destination[]; categories: Category[] }) {
   const [events, setEvents] = useState<Event[]>([]);
+  const [editId, setEditId] = useState<number | null>(null);
   const [destinationId, setDestinationId] = useState<number | "">("");
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [name, setName] = useState("");
+  const [isStampRally, setIsStampRally] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
@@ -2469,27 +2471,39 @@ function EventTab({ destinations, categories }: { destinations: Destination[]; c
 
   const destName = (id: number) => destinations.find((d) => d.id === id)?.name ?? `#${id}`;
 
-  const add = async () => {
-    if (destinationId === "") { setMsg({ type: "err", text: "目的地を選択してください" }); return; }
-    if (!name.trim()) { setMsg({ type: "err", text: "イベント名は必須です" }); return; }
-    try {
-      const created = await api.events.create({
-        destination_id: Number(destinationId),
-        name: name.trim(),
-        category_id: categoryId === "" ? null : Number(categoryId),
-      });
-      setEvents((p) => [...p, created]);
-      setName("");
-      setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
-    } catch (e: any) { setMsg({ type: "err", text: e.message }); }
+  const reset = () => {
+    setEditId(null); setDestinationId(""); setCategoryId(""); setName(""); setIsStampRally(false);
   };
 
-  // 既存イベントのカテゴリーを一覧からその場で変更する。
-  const changeCat = async (ev: Event, val: number | "") => {
-    const category_id = val === "" ? null : Number(val);
+  const startEdit = (ev: Event) => {
+    setEditId(ev.id);
+    setDestinationId(ev.destination_id ?? "");
+    setCategoryId(ev.category_id ?? "");
+    setName(ev.name);
+    setIsStampRally(ev.is_stamp_rally ?? false);
+    setMsg(null);
+  };
+
+  const submit = async () => {
+    if (destinationId === "") { setMsg({ type: "err", text: "目的地を選択してください" }); return; }
+    if (!name.trim()) { setMsg({ type: "err", text: "イベント名は必須です" }); return; }
+    const data = {
+      destination_id: Number(destinationId),
+      name: name.trim(),
+      category_id: categoryId === "" ? null : Number(categoryId),
+      is_stamp_rally: isStampRally,
+    };
     try {
-      await api.events.update(ev.id, { category_id });
-      setEvents((p) => p.map((e) => (e.id === ev.id ? { ...e, category_id } : e)));
+      if (editId != null) {
+        const updated = await api.events.update(editId, data);
+        setEvents((p) => p.map((e) => (e.id === editId ? updated : e)));
+        setMsg({ type: "ok", text: `「${updated.name}」を更新しました` });
+      } else {
+        const created = await api.events.create(data);
+        setEvents((p) => [...p, created]);
+        setMsg({ type: "ok", text: `「${created.name}」を追加しました` });
+      }
+      reset();
     } catch (e: any) { setMsg({ type: "err", text: e.message }); }
   };
 
@@ -2504,7 +2518,7 @@ function EventTab({ destinations, categories }: { destinations: Destination[]; c
   return (
     <div className="adm-layout">
       <div className="adm-form-col">
-        <h3>イベントを追加</h3>
+        <h3>{editId != null ? "イベントを編集" : "イベントを追加"}</h3>
         {msg && <div className={`adm-msg ${msg.type}`} onClick={() => setMsg(null)}>{msg.text} ✕</div>}
         <p className="hint" style={{ marginBottom: 12 }}>
           目的地で開催されるイベント名を登録すると、目的地選択画面のその目的地カードにオレンジ色で流れて表示されます。
@@ -2529,12 +2543,20 @@ function EventTab({ destinations, categories }: { destinations: Destination[]; c
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") add(); }}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             placeholder="例: 模擬店、ダンス公演、研究発表"
           />
         </div>
+        <div className="adm-field">
+          <label className="adm-checkbox-label">
+            <input type="checkbox" checked={isStampRally} onChange={(e) => setIsStampRally(e.target.checked)} />
+            スタンプラリー対象イベントにする
+          </label>
+          <p className="hint">オンにすると、イベント選択画面でこのイベントに「スタンプラリー対象」ラベルが表示されます。</p>
+        </div>
         <div className="adm-actions">
-          <button className="btn-primary" onClick={add}>追加</button>
+          <button className="btn-primary" onClick={submit}>{editId != null ? "更新" : "追加"}</button>
+          {editId != null && <button className="btn-secondary" onClick={() => { reset(); setMsg(null); }}>キャンセル</button>}
         </div>
       </div>
 
@@ -2544,22 +2566,16 @@ function EventTab({ destinations, categories }: { destinations: Destination[]; c
           <p className="adm-empty">イベントがまだありません</p>
         ) : (
           <table className="adm-table">
-            <thead><tr><th>目的地</th><th>カテゴリー</th><th>イベント名</th><th></th></tr></thead>
+            <thead><tr><th>目的地</th><th>カテゴリー</th><th>イベント名</th><th>スタンプ</th><th></th></tr></thead>
             <tbody>
               {events.map((ev) => (
-                <tr key={ev.id}>
+                <tr key={ev.id} className={editId === ev.id ? "editing" : ""}>
                   <td>{ev.destination_id != null ? destName(ev.destination_id) : <span className="text-muted">—</span>}</td>
-                  <td>
-                    <select
-                      value={ev.category_id ?? ""}
-                      onChange={(e) => changeCat(ev, Number(e.target.value) || "")}
-                    >
-                      <option value="">その他</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </td>
+                  <td>{ev.category_id != null ? (categories.find((c) => c.id === ev.category_id)?.name ?? "その他") : <span className="text-muted">その他</span>}</td>
                   <td><strong>{ev.name}</strong></td>
+                  <td className="center">{ev.is_stamp_rally ? "✓" : <span className="text-muted">—</span>}</td>
                   <td className="adm-row-actions">
+                    <button className="btn-edit" onClick={() => startEdit(ev)}>編集</button>
                     <button className="btn-del" onClick={() => del(ev.id, ev.name)}>削除</button>
                   </td>
                 </tr>

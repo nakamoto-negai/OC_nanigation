@@ -503,7 +503,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
               >
                 <div className="evt-card-name">
                   {en.event.name}
-                  {en.dest.is_stamp_rally && <span className="evt-stamp-badge">スタンプラリー</span>}
+                  {(en.event.is_stamp_rally || en.dest.is_stamp_rally) && <span className="evt-stamp-badge">スタンプラリー対象</span>}
                 </div>
                 <div className="evt-card-dest">
                   <span className="evt-card-dest-label">目的地</span>
@@ -541,7 +541,7 @@ export const HomePage: React.FC<Props> = ({ nodes, links, destinations, nodeDeto
                           >
                             <div className="evt-card-name">
                   {en.event.name}
-                  {en.dest.is_stamp_rally && <span className="evt-stamp-badge">スタンプラリー</span>}
+                  {(en.event.is_stamp_rally || en.dest.is_stamp_rally) && <span className="evt-stamp-badge">スタンプラリー対象</span>}
                 </div>
                             <div className="evt-card-dest">
                               <span className="evt-card-dest-label">目的地</span>

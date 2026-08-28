@@ -27,6 +27,8 @@ export interface Event {
   category?: Category;
   name: string;
   sort_order: number;
+  // スタンプラリー対象イベント。true のときイベント選択で「スタンプラリー対象」ラベルを表示する。
+  is_stamp_rally: boolean;
   created_at: string;
   updated_at: string;
 }
